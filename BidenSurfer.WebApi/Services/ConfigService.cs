@@ -1,0 +1,172 @@
+namespace BidenSurfer.WebApi.Services;
+
+using MassTransit;
+using BidenSurfer.Infras;
+using BidenSurfer.Infras.BusEvents;
+using BidenSurfer.Infras.Domains;
+using BidenSurfer.Infras.Entities;
+using BidenSurfer.Infras.Models;
+using Microsoft.EntityFrameworkCore;
+
+public interface IConfigService
+{
+    Task<IEnumerable<ConfigDto>> GetConfigsByUser(long userId);
+    Task<IEnumerable<ConfigDto>> GetByActiveUser();
+    Task<ConfigDto?> GetById(long id);
+    Task<bool> AddOrEdit(ConfigDto config);
+    Task<bool> Delete(long id);
+}
+
+public class ConfigService : IConfigService
+{
+    private readonly AppDbContext _context;
+    private readonly IBus _bus;
+    private readonly IRedisCacheService _redisCacheService;
+
+    public ConfigService(AppDbContext context, IBus bus, IRedisCacheService redisCacheService)
+    {
+        _context = context;
+        _bus = bus;
+        _redisCacheService = redisCacheService;
+    }
+
+    public async Task<bool> AddOrEdit(ConfigDto config)
+    {
+        var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == config.Id);
+        if (configEntity == null)
+        {
+            //Add new
+            var configAdd = new Config
+            {
+                Userid = config.UserId,
+                Symbol = config.Symbol,
+                PositionSide = config.PositionSide,
+                OrderChange = config.OrderChange,
+                Amount = config.Amount,
+                IsActive = config.IsActive,
+                AmountLimit = config.AmountLimit,
+                IncreaseAmountExpire = config.IncreaseAmountExpire,
+                IncreaseAmountPercent = config.IncreaseAmountPercent,
+                IncreaseOcPercent = config.IncreaseOcPercent,
+                OrderType = config.OrderType
+            };
+            _context.Configs.Add(configAdd);
+        }
+        else
+        {
+            //Edit
+            configEntity.Userid = config.UserId;
+            configEntity.Symbol = config.Symbol;
+            configEntity.PositionSide = config.PositionSide;
+            configEntity.OrderChange = config.OrderChange;
+            configEntity.IsActive = config.IsActive;
+            configEntity.Amount = config.Amount;
+            configEntity.AmountLimit = config.AmountLimit;
+            configEntity.IncreaseAmountExpire = config.IncreaseAmountExpire;
+            configEntity.IncreaseAmountPercent = config.IncreaseAmountPercent;
+            configEntity.OrderType = config.OrderType;
+            configEntity.IncreaseOcPercent = config.IncreaseOcPercent;
+            _context.Configs.Update(configEntity);
+        }
+        await _context.SaveChangesAsync();
+        var allConfigs = await GetByActiveUser();
+        _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allConfigs, TimeSpan.FromDays(10));
+        await _bus.Send(new RestartBotMessage { CorrelationId = Guid.NewGuid() });
+        return true;
+    }
+
+    public async Task<bool> Delete(long id)
+    {
+        var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == id);
+        if (configEntity == null)
+        {
+            return false;
+        }
+        _context.Configs.Remove(configEntity);
+        await _context.SaveChangesAsync();
+        var allConfigs = await GetByActiveUser();
+        _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allConfigs, TimeSpan.FromDays(10));
+        await _bus.Send(new RestartBotMessage { CorrelationId = Guid.NewGuid() });
+        return true;
+    }
+
+    public async Task<IEnumerable<ConfigDto>> GetConfigsByUser(long userId)
+    {
+        var result = await _context.Configs?.Where(b => b.Userid == userId).ToListAsync() ?? new List<Config>();
+        return result.Select(r => new ConfigDto
+        {
+            Id = r.Id,
+            UserId = r.Userid,
+            PositionSide = r.PositionSide,
+            Symbol = r.Symbol,
+            OrderChange = r.OrderChange,
+            IsActive = r.IsActive,
+            Amount = r.Amount,
+            IncreaseAmountExpire = r.IncreaseAmountExpire,
+            IncreaseOcPercent = r.IncreaseOcPercent,
+            OrderType = r.OrderType,
+            IncreaseAmountPercent = r.IncreaseAmountPercent,
+            AmountLimit = r.AmountLimit            
+        });
+    }
+
+    public async Task<ConfigDto?> GetById(long id)
+    {
+        var config = await _context.Configs?.FirstOrDefaultAsync(x => x.Id == id);
+        if (null == config) return null;
+        return new ConfigDto
+        {
+            Id = config.Id,
+            UserId = config.Userid,
+            PositionSide = config.PositionSide,
+            Symbol = config.Symbol,
+            OrderChange = config.OrderChange,
+            IsActive = config.IsActive,
+            Amount = config.Amount,
+            AmountLimit = config.AmountLimit,
+            IncreaseAmountPercent = config.IncreaseAmountPercent,
+            OrderType = config.OrderType,
+            IncreaseAmountExpire = config.IncreaseAmountExpire,
+            IncreaseOcPercent= config.IncreaseOcPercent            
+        };
+    }
+
+    public async Task<IEnumerable<ConfigDto>> GetByActiveUser()
+    {
+        List<ConfigDto> resultDto;        
+        var result = await _context.Configs?.Include(i => i.User).ThenInclude(c => c.UserSetting).Where(b => b.User.Status == (int)UserStatusEnums.Active).ToListAsync() ?? new List<Config>();
+        resultDto = result.Select(r => new ConfigDto
+        {
+            Id = r.Id,
+            UserId = r.Userid,
+            PositionSide = r.PositionSide,
+            Symbol = r.Symbol,
+            OrderChange = r.OrderChange,
+            IsActive = r.IsActive,
+            Amount = r.Amount,
+            OrderType = r.OrderType,
+            AmountLimit = r.AmountLimit,
+            IncreaseAmountPercent = r.IncreaseAmountPercent,
+            IncreaseOcPercent = r.IncreaseOcPercent,
+            IncreaseAmountExpire=r.IncreaseAmountExpire,            
+            UserDto = new UserDto
+            {
+                Id = r.Userid,
+                FullName = r.User?.FullName,
+                Username = r.User?.Username,
+                Email = r.User?.Email,
+                Status = r.User?.Status ?? 0,
+                Role = r.User?.Role ?? 0,
+                Setting = new UserSettingDto
+                {
+                    Id = r.User.UserSetting.Id,
+                    ApiKey = r.User.UserSetting.ApiKey,
+                    SecretKey = r.User.UserSetting.SecretKey,
+                    PassPhrase = r.User.UserSetting.PassPhrase,
+                    TeleChannel = r.User.UserSetting.TeleChannel
+                }
+            }
+        }).ToList();
+        return resultDto;
+    }
+}
