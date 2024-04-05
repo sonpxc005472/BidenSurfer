@@ -33,12 +33,14 @@ public class ConfigService : IConfigService
     public async Task<bool> AddOrEdit(ConfigDto config)
     {
         var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == config.Id);
+        var allConfigs = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
         if (configEntity == null)
         {
             //Add new
             var configAdd = new Config
             {
                 Userid = config.UserId,
+                CustomId = config.CustomId,
                 Symbol = config.Symbol,
                 PositionSide = config.PositionSide,
                 OrderChange = config.OrderChange,
@@ -48,9 +50,14 @@ public class ConfigService : IConfigService
                 IncreaseAmountExpire = config.IncreaseAmountExpire,
                 IncreaseAmountPercent = config.IncreaseAmountPercent,
                 IncreaseOcPercent = config.IncreaseOcPercent,
-                OrderType = config.OrderType
+                OrderType = config.OrderType,
+                CreatedBy = config.CreatedBy,
+                Expire = config.Expire
             };
             _context.Configs.Add(configAdd);
+            await _context.SaveChangesAsync();
+
+            allConfigs = (await GetByActiveUser()).ToList();
         }
         else
         {
@@ -66,10 +73,26 @@ public class ConfigService : IConfigService
             configEntity.IncreaseAmountPercent = config.IncreaseAmountPercent;
             configEntity.OrderType = config.OrderType;
             configEntity.IncreaseOcPercent = config.IncreaseOcPercent;
+            configEntity.Expire = config.Expire;
             _context.Configs.Update(configEntity);
+            await _context.SaveChangesAsync();
+
+            var configDto = allConfigs.FirstOrDefault(x=>x.Id == config.Id);
+            if(configDto != null)
+            {
+                configDto.Amount = config.Amount;
+                configDto.AmountLimit = config.AmountLimit;
+                configDto.IncreaseAmountExpire = config.IncreaseAmountExpire;
+                configDto.IncreaseAmountPercent= config.IncreaseAmountPercent;
+                configDto.IncreaseOcPercent= config.IncreaseOcPercent;
+                configDto.IsActive = config.IsActive;
+                configDto.OrderChange = config.OrderChange;
+                configDto.OrderType = config.OrderType;
+                configDto.PositionSide = config.PositionSide;
+                configDto.Symbol = config.Symbol;
+                configDto.Expire = config.Expire;
+            }
         }
-        await _context.SaveChangesAsync();
-        var allConfigs = await GetByActiveUser();
         _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allConfigs, TimeSpan.FromDays(10));
         await _bus.Send(new RestartBotMessage { CorrelationId = Guid.NewGuid() });
         return true;
@@ -85,14 +108,20 @@ public class ConfigService : IConfigService
         _context.Configs.Remove(configEntity);
         await _context.SaveChangesAsync();
         var allConfigs = await GetByActiveUser();
-        _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allConfigs, TimeSpan.FromDays(10));
+        var allCachedConfigs = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
+        var cachedConfig = allCachedConfigs?.FirstOrDefault(c => c.Id == id);
+        if(cachedConfig != null)
+        {
+            allCachedConfigs?.Remove(cachedConfig);
+            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allCachedConfigs, TimeSpan.FromDays(10));
+        }
         await _bus.Send(new RestartBotMessage { CorrelationId = Guid.NewGuid() });
         return true;
     }
 
     public async Task<IEnumerable<ConfigDto>> GetConfigsByUser(long userId)
     {
-        var result = await _context.Configs?.Where(b => b.Userid == userId).ToListAsync() ?? new List<Config>();
+        var result = await _context.Configs?.Include(i => i.User).ThenInclude(c => c.UserSetting).Where(b => b.Userid == userId).ToListAsync() ?? new List<Config>();
         return result.Select(r => new ConfigDto
         {
             Id = r.Id,
@@ -106,7 +135,11 @@ public class ConfigService : IConfigService
             IncreaseOcPercent = r.IncreaseOcPercent,
             OrderType = r.OrderType,
             IncreaseAmountPercent = r.IncreaseAmountPercent,
-            AmountLimit = r.AmountLimit            
+            AmountLimit = r.AmountLimit,
+            Expire = r.Expire,
+            CreatedBy = r.CreatedBy,
+            CreatedDate = r.CreatedDate,
+            EditedDate = r.EditedDate
         });
     }
 
@@ -127,7 +160,11 @@ public class ConfigService : IConfigService
             IncreaseAmountPercent = config.IncreaseAmountPercent,
             OrderType = config.OrderType,
             IncreaseAmountExpire = config.IncreaseAmountExpire,
-            IncreaseOcPercent= config.IncreaseOcPercent            
+            IncreaseOcPercent= config.IncreaseOcPercent,
+            Expire = config.Expire,
+            CreatedBy = config.CreatedBy,
+            CreatedDate = config.CreatedDate,
+            EditedDate= config.EditedDate
         };
     }
 
@@ -138,6 +175,7 @@ public class ConfigService : IConfigService
         resultDto = result.Select(r => new ConfigDto
         {
             Id = r.Id,
+            CustomId = r.CustomId,
             UserId = r.Userid,
             PositionSide = r.PositionSide,
             Symbol = r.Symbol,
@@ -148,7 +186,11 @@ public class ConfigService : IConfigService
             AmountLimit = r.AmountLimit,
             IncreaseAmountPercent = r.IncreaseAmountPercent,
             IncreaseOcPercent = r.IncreaseOcPercent,
-            IncreaseAmountExpire=r.IncreaseAmountExpire,            
+            IncreaseAmountExpire=r.IncreaseAmountExpire,        
+            CreatedBy = r.CreatedBy,
+            CreatedDate = r.CreatedDate,
+            EditedDate = r.EditedDate,
+            Expire = r.Expire,
             UserDto = new UserDto
             {
                 Id = r.Userid,

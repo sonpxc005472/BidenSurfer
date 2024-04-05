@@ -8,11 +8,11 @@ using Microsoft.EntityFrameworkCore;
 namespace BidenSurfer.BotRunner.Services;
 public interface IConfigService
 {
-    Task<List<ConfigDto>> GetAllActive();
+    List<ConfigDto> GetAllActive();
     ConfigDto GetById(long id);
     List<ConfigDto> GetByUserId(long userid);
     void AddOrEditConfig(ConfigDto config);
-    void DeleteConfig(long configId);
+    void DeleteConfig(string configId);
     void DeleteAllConfig();
 }
 
@@ -30,7 +30,7 @@ public class ConfigService : IConfigService
     public void AddOrEditConfig(ConfigDto config)
     {
         var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
-        var existedConfig = cachedData.FirstOrDefault(c => c.Id == config.Id);
+        var existedConfig = cachedData.FirstOrDefault(c => c.CustomId == config.CustomId);
         if (existedConfig == null)
         {
             cachedData.Add(config);
@@ -47,6 +47,11 @@ public class ConfigService : IConfigService
             existedConfig.FilledPrice = config.FilledPrice;
             existedConfig.OrderId = config.OrderId;
             existedConfig.ClientOrderId = config.ClientOrderId;
+            existedConfig.TPPrice = config.TPPrice;
+            existedConfig.OrderStatus = config.OrderStatus;
+            existedConfig.CreatedDate = config.CreatedDate;
+            existedConfig.EditedDate = config.EditedDate;
+            existedConfig.Expire = config.Expire;
         }
 
         _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
@@ -57,10 +62,10 @@ public class ConfigService : IConfigService
         _redisCacheService.RemoveCachedData(AppConstants.RedisAllConfigs);
     }
 
-    public void DeleteConfig(long configId)
+    public void DeleteConfig(string configId)
     {
         var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
-        var existedConfig = cachedData.FirstOrDefault(c => c.Id == configId);
+        var existedConfig = cachedData.FirstOrDefault(c => c.CustomId == configId);
         if (existedConfig != null)
         {
             cachedData.Remove(existedConfig);
@@ -68,7 +73,7 @@ public class ConfigService : IConfigService
         _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
     }
 
-    public async Task<List<ConfigDto>> GetAllActive()
+    public List<ConfigDto> GetAllActive()
     {
         List<ConfigDto> resultDto = new List<ConfigDto>();
         var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
@@ -76,40 +81,7 @@ public class ConfigService : IConfigService
         {
             return cachedData.Where(c=>c.IsActive).ToList();
         }
-        var result = await _dbContext.Configs?.Include(i => i.User).ThenInclude(c => c.UserSetting).Where(b => b.IsActive).ToListAsync() ?? new List<Config>();
-        resultDto = result.Select(r => new ConfigDto
-        {
-            Id = r.Id,
-            UserId = r.Userid,
-            PositionSide = r.PositionSide,
-            IncreaseAmountExpire = r.IncreaseAmountExpire,
-            IncreaseOcPercent = r.IncreaseOcPercent,
-            IncreaseAmountPercent = r.IncreaseAmountPercent,
-            AmountLimit = r.AmountLimit,
-            Symbol = r.Symbol,
-            OrderChange = r.OrderChange,
-            IsActive = r.IsActive,
-            Amount = r.Amount,
-            OrderType = r.OrderType,
-            UserDto = new UserDto
-            {
-                Id = r.Userid,
-                FullName = r.User?.FullName,
-                Username = r.User?.Username,
-                Email = r.User?.Email,
-                Status = r.User?.Status ?? 0,
-                Role = r.User?.Role ?? 0,
-                Setting = new UserSettingDto
-                {
-                    Id = r.User.UserSetting.Id,
-                    ApiKey = r.User.UserSetting.ApiKey,
-                    SecretKey = r.User.UserSetting.SecretKey,
-                    PassPhrase = r.User.UserSetting.PassPhrase,
-                    TeleChannel = r.User.UserSetting.TeleChannel
-                }
-            }
-        }).ToList();
-        _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, resultDto, TimeSpan.FromDays(100));
+        
         return resultDto;
     }
 

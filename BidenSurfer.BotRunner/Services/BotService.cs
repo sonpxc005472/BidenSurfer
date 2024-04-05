@@ -38,8 +38,8 @@ public class BotService : IBotService
 
     public async Task<BybitSocketClient> SubscribeSticker()
     {
-        var configDtos = await _configService.GetAllActive();
-        var symbols = configDtos.Where(c => c.IsActive).Select(c => c.Symbol).Distinct().ToList();
+        var allActiveConfigs = _configService.GetAllActive();
+        var symbols = allActiveConfigs.Where(c => c.IsActive).Select(c => c.Symbol).Distinct().ToList();
 
         foreach (var symbol in symbols)
         {
@@ -56,45 +56,43 @@ public class BotService : IBotService
                         var currentTime = DateTime.Now;
                         var currentPrice = currentData.LastPrice;
                         
-                        if ((currentTime - preTime).TotalMilliseconds >= 2000)
+                        await _mutex.WaitAsync();
+                        try
                         {
-                            preTime = currentTime;
-                            await _mutex.WaitAsync();
-                            try
+                            var userConfigs = allActiveConfigs.Where(c => c.Symbol == symbol).ToList();
+                            foreach (var userConfig in userConfigs)
                             {
-                                var allActiveConfigs = await _configService.GetAllActive();
-                                var userConfigs = allActiveConfigs.Where(c => c.Symbol == symbol).ToList();
-                                foreach (var userConfig in userConfigs)
+                                bool isLongSide = userConfig.PositionSide == AppConstants.LongSide;
+                                var userOrders = StaticObject.FilledOrders.Where(x => x.UserId == userConfig.UserId).ToList();
+                                var existingFilledOrders = userOrders.Where(x => x.Symbol == userConfig.Symbol && x.PositionSide == userConfig.PositionSide).FirstOrDefault();
+                                if (existingFilledOrders == null && string.IsNullOrEmpty(userConfig.OrderId))
                                 {
-                                    bool isLongSide = userConfig.PositionSide == AppConstants.LongSide;
-                                    var userOrders = StaticObject.FilledOrders.Where(x => x.UserId == userConfig.UserId).ToList();
-                                    var existingFilledOrders = userOrders.Where(x => x.Symbol == userConfig.Symbol && x.PositionSide == userConfig.PositionSide).FirstOrDefault();
-                                    if (existingFilledOrders == null && string.IsNullOrEmpty(userConfig.OrderId))
+                                    prePrice = currentPrice;
+                                    //Place order
+                                    await TakePlaceOrder(userConfig, currentPrice);
+                                }
+                                else if (existingFilledOrders == null)
+                                {
+                                    // every 2s change order
+                                    if ((currentTime - preTime).TotalMilliseconds >= 2000)
                                     {
-                                        prePrice = currentPrice;
-                                        //Place order
-                                        await TakePlaceOrder(userConfig, currentPrice);
-                                    }
-                                    else if (existingFilledOrders == null)
-                                    {
-                                        var priceDiff = Math.Abs(currentPrice - prePrice)/prePrice * 100;
+                                        preTime = currentTime;
+                                        var priceDiff = Math.Abs(currentPrice - prePrice) / prePrice * 100;
                                         //Nếu giá dịch chuyển lớn hơn 0.05% so với giá lúc trước thì amend order
                                         if (priceDiff > (decimal)0.05)
                                         {
                                             prePrice = currentPrice;
                                             //Amend order
                                             await AmendOrder(userConfig, currentPrice);
-                                        }                                        
-                                    }
-                                    
+                                        }
+                                    }                                    
                                 }
                             }
-                            finally
-                            {
-                                _mutex.Release();
-                            }
-                        }                            
-
+                        }
+                        finally
+                        {
+                            _mutex.Release();
+                        }
                     }
                     
                 });
@@ -118,7 +116,7 @@ public class BotService : IBotService
     {
         try
         {
-            var filledOrderExist = StaticObject.FilledOrders.FirstOrDefault(o => o.Id == config.Id);
+            var filledOrderExist = StaticObject.FilledOrders.FirstOrDefault(o => o.CustomId == config.CustomId);
             if (filledOrderExist == null)
             {
                 if (config != null)
@@ -264,7 +262,7 @@ public class BotService : IBotService
 
             if (cancelOrder != null && cancelOrder.Success)
             {
-                _configService.DeleteConfig(config.Id);
+                _configService.DeleteConfig(config.CustomId);
             }
         }
 
@@ -311,7 +309,7 @@ public class BotService : IBotService
 
     public async Task SubscribeKline1m()
     {
-        var configDtos = await _configService.GetAllActive();
+        var configDtos = _configService.GetAllActive();
         var symbols = configDtos.Where(c => c.IsActive).Select(c => c.Symbol).Distinct().ToList();
         var unsubsSymbols = symbols.Where(s => !StaticObject.Kline1mSubscriptions.ContainsKey(s)).ToList();
         foreach (var symbol in unsubsSymbols)
@@ -493,7 +491,7 @@ public class BotService : IBotService
     {
         var orderId = orderUpdate?.OrderId;
         var existedOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.OrderId == orderId);
-        var allConfigs = await _configService.GetAllActive();
+        var allConfigs = _configService.GetAllActive();
         var configToUpdate = allConfigs.FirstOrDefault(c => c.OrderId == orderId);
         BybitRestClient api;
         if (!StaticObject.RestApis.TryGetValue(user.Id, out api))

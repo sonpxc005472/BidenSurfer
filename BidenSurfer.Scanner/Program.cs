@@ -5,6 +5,8 @@ using Microsoft.Extensions.Hosting;
 using BidenSurfer.Scanner.Services;
 using BidenSurfer.Infras.BusEvents;
 using MassTransit;
+using BidenSurfer.Infras.Domains;
+using BidenSurfer.BotRunner.Services;
 
 namespace BidenSurfer.Scanner
 {
@@ -27,8 +29,13 @@ namespace BidenSurfer.Scanner
             {
                 var builder = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory())
                                     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-                IConfiguration configuration = builder.Build();                
-
+                IConfiguration configuration = builder.Build();
+                services.AddDbContext<AppDbContext>(options =>
+                {
+                    options.EnableDetailedErrors(true);
+                    options.EnableSensitiveDataLogging(false);
+                });
+                services.AddScoped<AppDbContext>();
                 services.AddStackExchangeRedisCache(options =>
                 {
                     options.Configuration = configuration.GetConnectionString("RedisConn");
@@ -36,6 +43,8 @@ namespace BidenSurfer.Scanner
                 });
                 services.AddCustomMassTransit(configuration);
                 services.AddScoped<IRedisCacheService, RedisCacheService>();
+                services.AddScoped<IConfigService, ConfigService>();
+                services.AddScoped<IScannerService, ScannerService>();
                 services.AddScoped<IBotService, BotService>();
                 services.AddHostedService<AutoRunService>();
             });
@@ -49,7 +58,7 @@ namespace BidenSurfer.Scanner
             {                
                 #region Publish endpoints
 
-                EndpointConvention.Map<ScannerMessage>(new Uri($"queue:{QueueName.ScannerIndicator}"));
+                EndpointConvention.Map<NewConfigCreatedMessage>(new Uri($"queue:{QueueName.ScannerIndicator}"));
 
                 #endregion
             }

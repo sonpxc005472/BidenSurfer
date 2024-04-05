@@ -1,14 +1,15 @@
 using BidenSurfer.Infras.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Newtonsoft.Json;
 
 namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
 {
-    public class ConfigConfiguration : IEntityTypeConfiguration<Config>
+    public class ScannerConfiguration : IEntityTypeConfiguration<Scanner>
     {
-        public void Configure(EntityTypeBuilder<Config> builder)
+        public void Configure(EntityTypeBuilder<Scanner> builder)
         {
-            builder.ToTable("configs");
+            builder.ToTable("Scanner");
             builder.HasKey(x => x.Id);
 
             builder.Property(x => x.Id)
@@ -21,15 +22,10 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
                  .HasColumnType("bigint")
                  .IsRequired();
 
-            builder.Property(x => x.Symbol)
+            builder.Property(x => x.Title)
                  .HasColumnName("symbol")
                  .HasColumnType("varchar")
-                 .HasMaxLength(50);
-
-            builder.Property(x => x.CustomId)
-                 .HasColumnName("customid")
-                 .HasColumnType("varchar")
-                 .HasMaxLength(100);
+                 .HasMaxLength(200);
 
             builder.Property(x => x.PositionSide)
                  .HasColumnName("positionside")
@@ -45,42 +41,51 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
                  .HasColumnType("integer");          
             
 
-            builder.Property(x => x.IncreaseOcPercent)
-                 .HasColumnName("increaseocpercent")
+            builder.Property(x => x.OcNumber)
+                 .HasColumnName("ocnumber")
                  .HasColumnType("integer");
 
             builder.Property(x => x.Amount)
                  .HasColumnName("amount")
                  .HasColumnType("numeric(8,2)");
 
-            builder.Property(x => x.IncreaseAmountPercent)
-                 .HasColumnName("increaseamountpercent")
+            builder.Property(x => x.AmountExpire)
+                 .HasColumnName("amountexpire")
+                 .HasColumnType("integer");
+
+            builder.Property(x => x.AutoAmount)
+                 .HasColumnName("autoamount")
                  .HasColumnType("integer");
 
             builder.Property(x => x.AmountLimit)
                  .HasColumnName("amountlimit")
                  .HasColumnType("numeric(8,2)");
 
-            builder.Property(x => x.IncreaseAmountExpire)
-                 .HasColumnName("amountexpire")
-                 .HasColumnType("integer");
+            builder.Property(x => x.Turnover)
+                .HasColumnName("turnover")
+                .HasColumnType("numeric(8,2)");
 
-            builder.Property(x => x.Expire)
-                 .HasColumnName("expire")
-                 .HasColumnType("integer");
+            builder.Property(x => x.Elastic)
+                .HasColumnName("elastic")
+                .HasColumnType("integer");
 
-            builder.Property(x => x.CreatedBy)
-                 .HasColumnName("createdby")
-                 .HasColumnType("varchar")
-                 .HasMaxLength(200);
+            builder.Property(x => x.AmountLimit)
+                .HasColumnName("amountlimit")
+                .HasColumnType("numeric(8,2)");
 
-            builder.Property(x => x.CreatedDate)
-                 .HasColumnName("createddate")
-                 .HasColumnType("timestamp");
+            builder.Property(x => x.OnlyPairs)
+                 .HasColumnName("onlypairs")
+                 .HasColumnType("jsonb")
+                 .HasConversion(
+                    v => JsonConvert.SerializeObject(v),
+                    v => JsonConvert.DeserializeObject<List<string>>(v));
 
-            builder.Property(x => x.EditedDate)
-                 .HasColumnName("editeddate")
-                 .HasColumnType("timestamp");
+            builder.Property(x => x.BlackList)
+                 .HasColumnName("blacklist")
+                 .HasColumnType("jsonb")
+                 .HasConversion(
+                    v => JsonConvert.SerializeObject(v),
+                    v => JsonConvert.DeserializeObject<List<string>>(v));
 
             builder.Property(x => x.IsActive)
                  .HasColumnName("isactive")
@@ -88,7 +93,7 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
             
 
             builder.HasOne(x => x.User)
-                .WithMany(x => x.Configs)
+                .WithMany(x => x.Scanners)
                 .HasForeignKey(x => x.Userid);
         }
     }

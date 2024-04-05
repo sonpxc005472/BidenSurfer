@@ -7,6 +7,7 @@ using BidenSurfer.BotRunner.Services;
 using BidenSurfer.Infras.BusEvents;
 using MassTransit;
 using System.Configuration;
+using BidenSurfer.BotRunner.Consumers;
 
 namespace BidenSurfer.BotRunner
 {
@@ -58,10 +59,10 @@ namespace BidenSurfer.BotRunner
             {
                 #region Subscribe endpoints
 
-                //cfg.ReceiveEndpoint(QueueName.RunAllBot, x =>
-                //{
-                //    x.Consumer<RunAllBotConsumer>(ctx);
-                //});
+                cfg.ReceiveEndpoint(QueueName.ScannerIndicator, x =>
+                {
+                    x.Consumer<ScannerIndicatorConsumer>(ctx);
+                });
                 //cfg.ReceiveEndpoint(QueueName.RestartUserBot, x =>
                 //{
                 //    x.Consumer<RestartUserBotConsumer>(ctx);

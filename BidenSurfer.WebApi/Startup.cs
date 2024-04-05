@@ -4,6 +4,7 @@ using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Domains;
 using BidenSurfer.WebApi;
 using BidenSurfer.WebApi.Services;
+using BidenSurfer.WebApi.Consumers;
 
 namespace BidenSurfer.WebApi
 {
@@ -58,10 +59,10 @@ namespace BidenSurfer.WebApi
             {
                 #region Subscribe endpoints
 
-                //cfg.ReceiveEndpoint(QueueName.PersonalData, x =>
-                //{
-                //    x.Consumer<AccountStatusChangedConsumer>(ctx);
-                //});
+                cfg.ReceiveEndpoint(QueueName.ScannerIndicator, x =>
+                {
+                    x.Consumer<ScannerIndicatorConsumer>(ctx);
+                });
 
                 #endregion
 
