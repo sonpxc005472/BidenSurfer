@@ -16,6 +16,7 @@ public interface IConfigService
     Task<bool> AddOrEdit(ConfigDto config);
     Task<bool> SaveNewScanToDb();
     Task<bool> Delete(long id);
+    Task<bool> OffConfigs(List<string> customIds);
 }
 
 public class ConfigService : IConfigService
@@ -259,5 +260,24 @@ public class ConfigService : IConfigService
         }        
         
         return true;
+    }
+
+    public async Task<bool> OffConfigs(List<string> customIds)
+    {
+        try
+        {
+            var configEntity = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
+            foreach (var config in configEntity)
+            {
+                config.IsActive = false;
+            }
+            _context.UpdateRange(configEntity);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            return false;
+        }
     }
 }

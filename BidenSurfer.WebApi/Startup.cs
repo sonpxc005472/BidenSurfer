@@ -63,6 +63,10 @@ namespace BidenSurfer.WebApi
                 {
                     x.Consumer<SaveNewConfigConsumer>(ctx);
                 });
+                cfg.ReceiveEndpoint(QueueName.OffConfigEvent, x =>
+                {
+                    x.Consumer<OffConfigConsumer>(ctx);
+                });
 
                 #endregion
 

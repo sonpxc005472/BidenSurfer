@@ -11,6 +11,8 @@ using BidenSurfer.Infras.Entities;
 using Bybit.Net.Objects.Models.V5;
 using CryptoExchange.Net.CommonObjects;
 using CryptoExchange.Net.Objects;
+using MassTransit;
+using BidenSurfer.Infras.BusEvents;
 
 public interface IBotService
 {
@@ -20,19 +22,21 @@ public interface IBotService
     Task SubscribeOrderChannel();
     Task<bool> TakePlaceOrder(ConfigDto config, decimal currentPrice);
     Task<bool> AmendOrder(ConfigDto config, decimal currentPrice);
-    Task<bool> DeleteOrder(ConfigDto config);
+    Task<bool> CancelOrder(ConfigDto config, bool isExpired);
 }
 
 public class BotService : IBotService
 {
     private readonly IConfigService _configService;
     private readonly IUserService _userService;
+    private readonly IBus _bus;
     private static object _locker = new object();
     private SemaphoreSlim _mutex = new SemaphoreSlim(1);
-    public BotService(IConfigService configService, IUserService userService)
+    public BotService(IConfigService configService, IUserService userService, IBus bus)
     {
         _configService = configService;
         _userService = userService;
+        _bus = bus;
     }
 
     public async Task<BybitSocketClient> SubscribeSticker()
@@ -44,6 +48,7 @@ public class BotService : IBotService
         {
             UpdateSubscription candleSubs;
             DateTime preTime = DateTime.Now;
+            DateTime preTimeCancel = DateTime.Now;
             decimal prePrice = 0;
             if (!StaticObject.TickerSubscriptions.TryGetValue(symbol, out candleSubs))
             {
@@ -54,12 +59,12 @@ public class BotService : IBotService
                         var currentData = data.Data;
                         var currentTime = DateTime.Now;
                         var currentPrice = currentData.LastPrice;
-                        
+                           
                         await _mutex.WaitAsync();
                         try
                         {
-                            allActiveConfigs = StaticObject.AllConfigs;
-                            var userConfigs = allActiveConfigs.Where(c => c.Symbol == symbol).ToList();
+                            allActiveConfigs = StaticObject.AllConfigs;                                
+                            var userConfigs = allActiveConfigs.Where(c => c.Symbol == symbol && c.IsActive).ToList();
                             foreach (var userConfig in userConfigs)
                             {
                                 bool isLongSide = userConfig.PositionSide == AppConstants.LongSide;
@@ -98,7 +103,25 @@ public class BotService : IBotService
                                             order.EditedDate = currentTime;
                                         }
                                     }
-                                }    
+                                }
+                            }
+
+                            if ((currentTime - preTimeCancel).TotalMilliseconds >= 4000)
+                            {
+                                preTimeCancel = currentTime;
+                                var configExpired = allActiveConfigs.Where(x => (x.IsActive && !string.IsNullOrEmpty(x.OrderId) && x.OrderStatus != 2 && x.EditedDate != null && x.Expire != null && x.Expire.Value != 0 && x.EditedDate.Value.AddMinutes(x.Expire.Value) < currentTime)).ToList();
+                                var cancelledIds = new List<string>();
+                                foreach (var config in configExpired)
+                                {
+                                    var cancelled = await CancelOrder(config, true);
+                                    if(cancelled)
+                                    {
+                                        cancelledIds.Add(config.CustomId);
+                                    }    
+                                }
+                                if(cancelledIds.Any()) {
+                                    await _bus.Send(new OffConfigMessage { CustomIds = cancelledIds});
+                                }
                             }
                         }
                         finally
@@ -248,7 +271,7 @@ public class BotService : IBotService
         }
     }
 
-    public async Task<bool> DeleteOrder(ConfigDto config)
+    public async Task<bool> CancelOrder(ConfigDto config, bool isExpired = false)
     {
         BybitRestClient api;
         if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
@@ -268,17 +291,23 @@ public class BotService : IBotService
                 (
                     Category.Spot,
                     config.Symbol,
-                    config.OrderId,
-                    config.ClientOrderId
+                    config.OrderId
                 );
 
             if (cancelOrder != null && cancelOrder.Success)
             {
-                _configService.DeleteConfig(config.CustomId);
+                config.IsActive = false;
+                config.OrderStatus = null;
+                config.OrderId = string.Empty;
+                config.ClientOrderId = string.Empty;
+                _configService.AddOrEditConfig(config);
+                var message = isExpired ? $"{config.Symbol} is expired {config.Expire}m" : $"{config.Symbol} cancelled";
+                Console.WriteLine(message);
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 
     public async Task SubscribeKline1m()

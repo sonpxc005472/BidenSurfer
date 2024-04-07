@@ -73,6 +73,7 @@ namespace BidenSurfer.BotRunner
                 #region Publish endpoints
 
                 EndpointConvention.Map<RunAllBotMessage>(new Uri($"queue:{QueueName.RunAllBot}"));
+                EndpointConvention.Map<OffConfigMessage>(new Uri($"queue:{QueueName.OffConfigEvent}"));
 
                 #endregion
             }

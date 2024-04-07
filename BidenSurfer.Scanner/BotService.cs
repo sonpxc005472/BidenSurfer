@@ -233,6 +233,7 @@ public class BotService : IBotService
                 UserId = scanner.UserId,
                 CreatedBy = AppConstants.CreatedByScanner,
                 CreatedDate = DateTime.Now,
+                EditedDate = DateTime.Now,
                 isNewScan = true
             };
             configs.Add(config);
