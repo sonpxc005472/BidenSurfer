@@ -14,11 +14,11 @@ public class Config
     public string PositionSide { get; set; }
     public decimal OrderChange { get; set; }         
     public decimal Amount { get; set; }
-    public int IncreaseAmountPercent { get; set; }
-    public int IncreaseOcPercent { get; set; }
-    public int IncreaseAmountExpire { get; set; }
-    public int Expire { get; set; }
-    public decimal AmountLimit { get; set; }   
+    public int? IncreaseAmountPercent { get; set; }
+    public int? IncreaseOcPercent { get; set; }
+    public int? IncreaseAmountExpire { get; set; }
+    public int? Expire { get; set; }
+    public decimal? AmountLimit { get; set; }   
     public string CreatedBy { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? EditedDate { get; set; }

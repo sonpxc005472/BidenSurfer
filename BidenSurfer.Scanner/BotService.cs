@@ -42,7 +42,7 @@ public class BotService : IBotService
     {
         var exitEvent = new ManualResetEvent(false);
         var url = new Uri(_websocketUrl);
-        var symbols = StaticObject.Symbols.Where(s => s.MarginTrading == MarginTrading.Both && s.Name.EndsWith("USDT")).Select(c => c.Name).Distinct().ToList();
+        var symbols = StaticObject.Symbols.Where(s => (s.MarginTrading == MarginTrading.Both || s.MarginTrading == MarginTrading.UtaOnly) && s.Name.EndsWith("USDT")).Select(c => c.Name).Distinct().ToList();
         
         using (var client = new WebsocketClient(url))
         {
@@ -107,14 +107,14 @@ public class BotService : IBotService
                                     Console.WriteLine($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
                                     Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
                                     Console.WriteLine($"=====================================================================================");
-                                    var scanners = _scannerService.GetAll();
+                                    var scanners = await _scannerService.GetAll();
                                     var configs = _configService.GetAllActive();
                                     bool isMatched = false;
                                     foreach (var scanner in scanners)
                                     {
-                                        var scanOcExisted = configs.FirstOrDefault(c => !string.IsNullOrEmpty(c.OrderId) && c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId);
+                                        var scanOcExisted = configs.FirstOrDefault(c => c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId && c.IsActive);
                                         if(scanOcExisted == null )
-                                        {
+                                        {                                            
                                             //If scan indicator matched user's scanner configurations 
                                             if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
                                                 && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume
@@ -128,13 +128,8 @@ public class BotService : IBotService
                                     }
                                     if (isMatched)
                                     {
-                                        await _bus.Send(new NewConfigCreatedMessage
-                                        {
-                                            Symbol = symbol,
-                                            Elastic = longElastic,
-                                            Oc = longPercent,
-                                            Volumn = candle.Volume
-                                        });
+                                        await _bus.Send(new NewConfigCreatedMessage());
+                                        await _bus.Send(new SaveNewConfigMessage());
                                     }                                       
                                 }
                                 if (shortPercent > (decimal)0.8 && shortElastic >= 60)
@@ -142,17 +137,19 @@ public class BotService : IBotService
                                     Console.WriteLine($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
                                     Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
                                     Console.WriteLine($"=====================================================================================");
-                                    var scanners = _scannerService.GetAll();
+                                    var scanners = await _scannerService.GetAll();
                                     var configs = _configService.GetAllActive();
                                     bool isMatched = false;
                                     foreach (var scanner in scanners)
                                     {
-                                        var scanOcExisted = configs.FirstOrDefault(c => !string.IsNullOrEmpty(c.OrderId) && c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId);
+                                        var scanOcExisted = configs.FirstOrDefault(c => c.IsActive && c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId);
                                         if (scanOcExisted == null)
                                         {
+                                            var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
+                                            var isMarginTrading = instrument.MarginTrading == MarginTrading.Both;
                                             //If scan indicator matched user's scanner configurations 
                                             if (scanner.PositionSide == AppConstants.ShortSide && scanner.OrderChange <= shortPercent
-                                                && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume
+                                                && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading
                                                 )
                                             {
                                                 isMatched = true;
@@ -163,13 +160,8 @@ public class BotService : IBotService
                                     }
                                     if (isMatched)
                                     {
-                                        await _bus.Send(new NewConfigCreatedMessage
-                                        {
-                                            Symbol = symbol,
-                                            Elastic = longElastic,
-                                            Oc = longPercent,
-                                            Volumn = candle.Volume
-                                        });
+                                        await _bus.Send(new NewConfigCreatedMessage());
+                                        await _bus.Send(new SaveNewConfigMessage());
                                     }
                                 }
                                 _candles[symbol] =  new Candle
@@ -219,7 +211,7 @@ public class BotService : IBotService
     
     private List<ConfigDto> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner)
     {
-        var minOc = (maxOC-(decimal)0.2)/2;
+        var minOc = (Math.Abs(maxOC)-(decimal)0.2)/2;
         var rangeOc = minOc/scanner.OcNumber;
         var configs = new List<ConfigDto>();
         for(var i = 1; i <= scanner.OcNumber; i++)
@@ -240,7 +232,8 @@ public class BotService : IBotService
                 PositionSide = scanner.PositionSide,
                 UserId = scanner.UserId,
                 CreatedBy = AppConstants.CreatedByScanner,
-                CreatedDate = DateTime.Now
+                CreatedDate = DateTime.Now,
+                isNewScan = true
             };
             configs.Add(config);
         }

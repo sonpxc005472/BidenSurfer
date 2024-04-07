@@ -4,16 +4,16 @@ using MassTransit;
 
 namespace BidenSurfer.WebApi.Consumers
 {
-    public class ScannerIndicatorConsumer : IConsumer<NewConfigCreatedMessage>
+    public class SaveNewConfigConsumer : IConsumer<SaveNewConfigMessage>
     {
         private readonly IConfigService _configService;
-        public ScannerIndicatorConsumer(IConfigService configService)
+        public SaveNewConfigConsumer(IConfigService configService)
         {
             _configService = configService;
         }
-        public async Task Consume(ConsumeContext<NewConfigCreatedMessage> context)
+        public async Task Consume(ConsumeContext<SaveNewConfigMessage> context)
         {
-            //await _configService.   
+            await _configService.SaveNewScanToDb();   
         }
     }
 }

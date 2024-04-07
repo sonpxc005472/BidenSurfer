@@ -9,7 +9,7 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
     {
         public void Configure(EntityTypeBuilder<Scanner> builder)
         {
-            builder.ToTable("Scanner");
+            builder.ToTable("scanner");
             builder.HasKey(x => x.Id);
 
             builder.Property(x => x.Id)
@@ -23,7 +23,7 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
                  .IsRequired();
 
             builder.Property(x => x.Title)
-                 .HasColumnName("symbol")
+                 .HasColumnName("title")
                  .HasColumnType("varchar")
                  .HasMaxLength(200);
 
@@ -73,6 +73,10 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
                 .HasColumnName("amountlimit")
                 .HasColumnType("numeric(8,2)");
 
+            builder.Property(x => x.ConfigExpire)
+                .HasColumnName("configexpire")
+                .HasColumnType("integer");
+
             builder.Property(x => x.OnlyPairs)
                  .HasColumnName("onlypairs")
                  .HasColumnType("jsonb")
@@ -92,9 +96,9 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
                  .HasColumnType("boolean");
             
 
-            builder.HasOne(x => x.User)
-                .WithMany(x => x.Scanners)
-                .HasForeignKey(x => x.Userid);
+            //builder.HasOne(x => x.User)
+            //    .WithMany(x => x.Scanners)
+            //    .HasForeignKey(x => x.Userid);
         }
     }
 }

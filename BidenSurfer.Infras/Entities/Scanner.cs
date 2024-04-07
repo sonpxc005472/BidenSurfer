@@ -24,6 +24,6 @@ public class Scanner
     public decimal AmountLimit { get; set; }   
     public bool IsActive { get; set; }
 
-    [JsonIgnore]
-    public User? User { get; set; }
+    //[JsonIgnore]
+    //public User? User { get; set; }
 }

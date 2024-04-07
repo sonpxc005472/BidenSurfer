@@ -59,9 +59,9 @@ namespace BidenSurfer.WebApi
             {
                 #region Subscribe endpoints
 
-                cfg.ReceiveEndpoint(QueueName.ScannerIndicator, x =>
+                cfg.ReceiveEndpoint(QueueName.SaveNewConfig, x =>
                 {
-                    x.Consumer<ScannerIndicatorConsumer>(ctx);
+                    x.Consumer<SaveNewConfigConsumer>(ctx);
                 });
 
                 #endregion

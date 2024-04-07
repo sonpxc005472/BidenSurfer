@@ -59,6 +59,7 @@ namespace BidenSurfer.Scanner
                 #region Publish endpoints
 
                 EndpointConvention.Map<NewConfigCreatedMessage>(new Uri($"queue:{QueueName.ScannerIndicator}"));
+                EndpointConvention.Map<SaveNewConfigMessage>(new Uri($"queue:{QueueName.SaveNewConfig}"));
 
                 #endregion
             }

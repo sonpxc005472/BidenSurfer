@@ -18,6 +18,6 @@ public class User
     public UserSetting? UserSetting { get; set; }
     [JsonIgnore]
     public List<Config>? Configs { get; set; }
-    [JsonIgnore]
-    public List<Scanner>? Scanners { get; set; }
+    //[JsonIgnore]
+    //public List<Scanner>? Scanners { get; set; }
 }

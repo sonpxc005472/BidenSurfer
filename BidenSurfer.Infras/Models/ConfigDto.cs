@@ -12,11 +12,11 @@ public class ConfigDto
     public decimal OrderChange { get; set; }
     
     public decimal Amount { get; set; }
-    public int IncreaseAmountPercent { get; set; }
-    public int IncreaseOcPercent { get; set; }
-    public int IncreaseAmountExpire { get; set; }
-    public int Expire { get; set; }
-    public decimal AmountLimit { get; set; }
+    public int? IncreaseAmountPercent { get; set; }
+    public int? IncreaseOcPercent { get; set; }
+    public int? IncreaseAmountExpire { get; set; }
+    public int? Expire { get; set; }
+    public decimal? AmountLimit { get; set; }
     public string CreatedBy { get; set; }
     public bool IsActive { get; set; }
     public DateTime? CreatedDate { get; set; }
@@ -26,7 +26,9 @@ public class ConfigDto
     public decimal? FilledPrice { get; set; }
     public decimal? FilledQuantity { get; set; }
     public decimal? TPPrice { get; set; }
+    public bool isNewScan { get; set; }
     public int? OrderStatus { get; set; } //1 - new, 2 - filled and closing
+    public bool isClosingFilledOrder { get; set; }
     public UserDto UserDto { get; set; }
 }
 

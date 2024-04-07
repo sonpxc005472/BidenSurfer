@@ -19,7 +19,6 @@ public interface IBotService
     Task InitUserApis();
     Task SubscribeOrderChannel();
     Task<bool> TakePlaceOrder(ConfigDto config, decimal currentPrice);
-    Task<bool> CloseFilledOrder(ConfigDto config, decimal quantity);
     Task<bool> AmendOrder(ConfigDto config, decimal currentPrice);
     Task<bool> DeleteOrder(ConfigDto config);
 }
@@ -38,7 +37,7 @@ public class BotService : IBotService
 
     public async Task<BybitSocketClient> SubscribeSticker()
     {
-        var allActiveConfigs = _configService.GetAllActive();
+        var allActiveConfigs = await _configService.GetAllActive();
         var symbols = allActiveConfigs.Where(c => c.IsActive).Select(c => c.Symbol).Distinct().ToList();
 
         foreach (var symbol in symbols)
@@ -59,19 +58,20 @@ public class BotService : IBotService
                         await _mutex.WaitAsync();
                         try
                         {
+                            allActiveConfigs = StaticObject.AllConfigs;
                             var userConfigs = allActiveConfigs.Where(c => c.Symbol == symbol).ToList();
                             foreach (var userConfig in userConfigs)
                             {
                                 bool isLongSide = userConfig.PositionSide == AppConstants.LongSide;
-                                var userOrders = StaticObject.FilledOrders.Where(x => x.UserId == userConfig.UserId).ToList();
-                                var existingFilledOrders = userOrders.Where(x => x.Symbol == userConfig.Symbol && x.PositionSide == userConfig.PositionSide).FirstOrDefault();
-                                if (existingFilledOrders == null && string.IsNullOrEmpty(userConfig.OrderId))
+                                var existingFilledOrders = allActiveConfigs.Where(x => x.UserId == userConfig.UserId && x.OrderStatus == 2 && x.Symbol == userConfig.Symbol).ToList();
+                                var sideOrderExisted = userConfigs.Where(x=>x.UserId == userConfig.UserId && !string.IsNullOrEmpty(x.OrderId)).ToList(); 
+                                if ((existingFilledOrders == null || (existingFilledOrders != null && !existingFilledOrders.Any())) && (sideOrderExisted == null || (sideOrderExisted != null && (!sideOrderExisted.Any() || sideOrderExisted.All(s => s.PositionSide == userConfig.PositionSide)))) && string.IsNullOrEmpty(userConfig.OrderId))
                                 {
                                     prePrice = currentPrice;
                                     //Place order
                                     await TakePlaceOrder(userConfig, currentPrice);
                                 }
-                                else if (existingFilledOrders == null)
+                                else if (!string.IsNullOrEmpty(userConfig.OrderId) && userConfig.OrderStatus != 2)
                                 {
                                     // every 2s change order
                                     if ((currentTime - preTime).TotalMilliseconds >= 2000)
@@ -87,6 +87,18 @@ public class BotService : IBotService
                                         }
                                     }                                    
                                 }
+                                else if (existingFilledOrders != null && existingFilledOrders.Any())
+                                {                                    
+                                    //Đóng vị thế giá hiện tại nếu mở quá 1s mà chưa đóng được
+                                    foreach (var order in existingFilledOrders)
+                                    {
+                                        if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 1000)
+                                        {
+                                            await CloseFilledOrder(order, currentPrice);
+                                            order.EditedDate = currentTime;
+                                        }
+                                    }
+                                }    
                             }
                         }
                         finally
@@ -269,47 +281,9 @@ public class BotService : IBotService
         return true;
     }
 
-    public async Task<bool> CloseFilledOrder(ConfigDto config, decimal quantity)
-    {
-        BybitRestClient api;
-        if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
-        {
-            api = new BybitRestClient();
-            var userSetting = config.UserDto.Setting;
-            if (userSetting != null)
-            {
-                api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey, ApiCredentialsType.Hmac));
-                StaticObject.RestApis.TryAdd(config.UserId, api);
-            }
-        }
-
-        if (api != null)
-        {
-            var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Buy : OrderSide.Sell;
-            if (config.OrderType == (int)OrderTypeEnums.Spot)
-            {
-                orderSide = OrderSide.Sell;
-            }
-            await api.V5Api.Trading.PlaceOrderAsync
-                (
-                    Category.Spot,
-                    config.Symbol,
-                    orderSide,
-                    NewOrderType.Limit,
-                    quantity,
-                    config.TPPrice,
-                    config.OrderType == (int)OrderTypeEnums.Margin,
-                    clientOrderId: config.ClientOrderId
-                );
-            StaticObject.FilledOrders.Add(config);
-        }
-
-        return true;
-    }
-
     public async Task SubscribeKline1m()
     {
-        var configDtos = _configService.GetAllActive();
+        var configDtos = await _configService.GetAllActive();
         var symbols = configDtos.Where(c => c.IsActive).Select(c => c.Symbol).Distinct().ToList();
         var unsubsSymbols = symbols.Where(s => !StaticObject.Kline1mSubscriptions.ContainsKey(s)).ToList();
         foreach (var symbol in unsubsSymbols)
@@ -386,9 +360,8 @@ public class BotService : IBotService
                                             configToUpdate.FilledPrice = updatedData.AveragePrice;
                                             configToUpdate.FilledQuantity = updatedData.QuantityFilled;
                                             configToUpdate.OrderStatus = 2;
-                                            StaticObject.FilledOrders.Add(configToUpdate);
-                                            configToUpdate.ClientOrderId = string.Empty;
-                                            configToUpdate.OrderId = string.Empty;
+                                            configToUpdate.EditedDate = DateTime.Now;
+                                            StaticObject.FilledOrders.Add(configToUpdate);                                            
                                             _configService.AddOrEditConfig(configToUpdate);
                                         }
                                     }
@@ -407,9 +380,8 @@ public class BotService : IBotService
                                         configToUpdate.FilledPrice = updatedData.AveragePrice;
                                         configToUpdate.FilledQuantity = updatedData.QuantityFilled;
                                         configToUpdate.OrderStatus = 2;
-                                        StaticObject.FilledOrders.Add(configToUpdate);
-                                        configToUpdate.ClientOrderId = string.Empty;
-                                        configToUpdate.OrderId = string.Empty;
+                                        configToUpdate.EditedDate = DateTime.Now;
+                                        StaticObject.FilledOrders.Add(configToUpdate);                                        
                                         _configService.AddOrEditConfig(configToUpdate);
                                     }
                                     else
@@ -427,6 +399,14 @@ public class BotService : IBotService
                                     var pnlText = pnlCash > 0 ? "Win" : "Lose";
                                     Console.WriteLine($"{updatedData?.Symbol}|{pnlText}|PNL: {pnlCash}-{pnlPercent}");
                                     StaticObject.FilledOrders.TryTake(out closingOrder);
+                                    var configToUpdate = StaticObject.AllConfigs.FirstOrDefault(c => c.OrderId == orderId);
+                                    if (configToUpdate != null)
+                                    {
+                                        configToUpdate.OrderId = string.Empty;
+                                        configToUpdate.ClientOrderId = string.Empty;
+                                        configToUpdate.OrderStatus = null;
+                                        _configService.AddOrEditConfig(configToUpdate);
+                                    }
                                 }
                             }
                         } 
@@ -452,7 +432,12 @@ public class BotService : IBotService
     public async Task InitUserApis()
     {
         var users = await _userService.GetAllActive();
-
+        if (!StaticObject.Symbols.Any())
+        {
+            var publicApi = new BybitRestClient();
+            var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
+            StaticObject.Symbols = spotSymbols.ToList();
+        }
         foreach (var user in users)
         {
             if (user.Status == 1 && !string.IsNullOrEmpty(user.Setting?.ApiKey) && !string.IsNullOrEmpty(user.Setting.SecretKey))
@@ -468,31 +453,23 @@ public class BotService : IBotService
 
                     StaticObject.RestApis.TryAdd(user.Id, api);
                 }
-                var userConfigs = _configService.GetByUserId(user.Id);
-                var marginSymbols = userConfigs.Where(c => c.IsActive && c.OrderType == (int)OrderTypeEnums.Margin).Select(c => c.Symbol).Distinct().ToList();
+                var marginSymbols = StaticObject.Symbols.Where(c => c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly).Select(c => new { c.Name, c.BaseAsset}).Distinct().ToList();
 
                 foreach (var symbol in marginSymbols)
                 {
-                    await api.V5Api.Account.SetCollateralAssetAsync(symbol, true);
-                    await api.V5Api.Account.SetLeverageAsync(Bybit.Net.Enums.Category.Spot, symbol, 5, 5);
+                    var rs = await api.V5Api.Account.SetCollateralAssetAsync(symbol.BaseAsset, true);
+                    await api.V5Api.Account.SetLeverageAsync(Category.Spot, symbol.Name, 5, 5);
                 }
             }
         }
-
-        if (!StaticObject.Symbols.Any())
-        {
-            var publicApi = new BybitRestClient();
-            var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
-            StaticObject.Symbols = spotSymbols.ToList();
-        }
+        
     }
 
     private async Task<(WebCallResult<BybitOrderId>?, ConfigDto?)> ClosePosition(BybitOrderUpdate orderUpdate, UserDto user)
     {
         var orderId = orderUpdate?.OrderId;
         var existedOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.OrderId == orderId);
-        var allConfigs = _configService.GetAllActive();
-        var configToUpdate = allConfigs.FirstOrDefault(c => c.OrderId == orderId);
+        var configToUpdate = StaticObject.AllConfigs.FirstOrDefault(c => c.OrderId == orderId);
         BybitRestClient api;
         if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
         {
@@ -515,10 +492,46 @@ public class BotService : IBotService
             orderUpdate?.IsLeverage,
             clientOrderId: orderUpdate?.ClientOrderId
         );
+
         return (placedOrder, configToUpdate);
     }
 
-    private readonly decimal _tp = 20;
+    private async Task<bool> CloseFilledOrder(ConfigDto config, decimal currentPrice)
+    {
+        try
+        {
+            BybitRestClient api;
+            if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
+            {
+                api = new BybitRestClient();
+                var userSetting = config.UserDto.Setting;
+                api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
+                StaticObject.RestApis.TryAdd(config.UserId, api);
+            }
+            var symbol = config.Symbol;
+            var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
+            var orderPriceWithTicksize = ((int)(currentPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
+            
+            var amendOrder = await api.V5Api.Trading.EditOrderAsync
+                (
+                    Category.Spot,
+                    symbol,
+                    config.OrderId,
+                    config.ClientOrderId,
+                    config.FilledQuantity,
+                    orderPriceWithTicksize
+                );
+            return amendOrder.Success;
+        }
+        catch (Exception ex)
+        {
+            // Log error to telegram
+            return false;
+        }
+    }
+
+
+    private readonly decimal _tp = 70;
     private (decimal, decimal, decimal) CalculateOrderPriceQuantityTP(decimal currentPrice, ConfigDto config)
     {
         var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;

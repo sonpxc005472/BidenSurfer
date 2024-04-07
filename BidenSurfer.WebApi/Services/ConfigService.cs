@@ -14,6 +14,7 @@ public interface IConfigService
     Task<IEnumerable<ConfigDto>> GetByActiveUser();
     Task<ConfigDto?> GetById(long id);
     Task<bool> AddOrEdit(ConfigDto config);
+    Task<bool> SaveNewScanToDb();
     Task<bool> Delete(long id);
 }
 
@@ -210,5 +211,53 @@ public class ConfigService : IConfigService
             }
         }).ToList();
         return resultDto;
+    }
+
+    public async Task<bool> SaveNewScanToDb()
+    {
+        try
+        {
+            var allconfigs = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
+            var newScan = allconfigs?.Where(c => c.isNewScan).ToList();
+            if (newScan != null && newScan.Any())
+            {
+                try
+                {
+                    var configs = newScan.ConvertAll(c => new Config
+                    {
+                        Amount = c.Amount,
+                        AmountLimit = c.AmountLimit,
+                        CreatedBy = c.CreatedBy,
+                        CreatedDate = c.CreatedDate,
+                        CustomId = c.CustomId,
+                        Expire = c.Expire,
+                        IncreaseAmountExpire = c.IncreaseAmountExpire,
+                        IncreaseAmountPercent = c.IncreaseAmountPercent,
+                        IncreaseOcPercent = c.IncreaseOcPercent,
+                        IsActive = true,
+                        OrderChange = c.OrderChange,
+                        OrderType = c.OrderType,
+                        PositionSide = c.PositionSide,
+                        Symbol = c.Symbol,
+                        Userid = c.UserId
+                    });
+                    await _context.Configs.AddRangeAsync(configs);
+                    await _context.SaveChangesAsync();
+                }
+                finally
+                {
+                    foreach (var scan in newScan)
+                    {
+                        scan.isNewScan = false;
+                    }
+                    _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allconfigs, TimeSpan.FromDays(10));
+                }
+            }
+        }
+        catch(Exception ex) {
+            return false;
+        }        
+        
+        return true;
     }
 }

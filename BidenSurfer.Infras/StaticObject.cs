@@ -17,6 +17,7 @@ namespace BidenSurfer.Infras
         public static Dictionary<string, decimal> SymbolTurnover = new Dictionary<string, decimal>();
         public static ConcurrentDictionary<long, UpdateSubscription> OrderSubscriptions = new ConcurrentDictionary<long, UpdateSubscription>();
         public static ConcurrentBag<ConfigDto> FilledOrders = new ConcurrentBag<ConfigDto>();
+        public static List<ConfigDto> AllConfigs = new List<ConfigDto>();
         public static List<BybitSpotSymbol> Symbols = new List<BybitSpotSymbol>();
     }
 }
