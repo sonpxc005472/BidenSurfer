@@ -4,6 +4,7 @@ using BidenSurfer.Infras.Domains;
 using BidenSurfer.Infras.Entities;
 using BidenSurfer.Infras.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace BidenSurfer.BotRunner.Services;
 public interface IConfigService
@@ -12,7 +13,7 @@ public interface IConfigService
     ConfigDto GetById(long id);
     List<ConfigDto> GetByUserId(long userid);
     void AddOrEditConfig(ConfigDto config);
-    void DeleteConfig(string configId);
+    void OffConfig(List<string> configIds);
     void DeleteAllConfig();
 }
 
@@ -85,16 +86,28 @@ public class ConfigService : IConfigService
         StaticObject.AllConfigs.Clear();
     }
 
-    public void DeleteConfig(string configId)
+    public void OffConfig(List<string> configIds)
     {
         var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
-        var existedConfig = cachedData.FirstOrDefault(c => c.CustomId == configId);
-        if (existedConfig != null)
+        cachedData.RemoveAll(c => configIds.Contains(c.CustomId) && c.CreatedBy == AppConstants.CreatedByScanner);
+        StaticObject.AllConfigs.RemoveAll(c => configIds.Contains(c.CustomId) && c.CreatedBy == AppConstants.CreatedByScanner);
+        var configsToUpdate = cachedData.Where(c => configIds.Contains(c.CustomId) && c.CreatedBy != AppConstants.CreatedByScanner).ToList();
+        foreach (var config in configsToUpdate)
         {
-            cachedData.Remove(existedConfig);
-            StaticObject.AllConfigs.RemoveAll(x=>x.CustomId == configId);
+            config.IsActive = false;
+            config.OrderId = string.Empty;
+            config.ClientOrderId = string.Empty;
+            config.OrderStatus = null;
         }
         _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
+        var configsToUpdateMem = StaticObject.AllConfigs.Where(c => configIds.Contains(c.CustomId) && c.CreatedBy != AppConstants.CreatedByScanner).ToList();
+        foreach (var config in configsToUpdateMem)
+        {
+            config.IsActive = false;
+            config.OrderId = string.Empty;
+            config.ClientOrderId = string.Empty;
+            config.OrderStatus = null;
+        }
     }
 
     public async Task<List<ConfigDto>> GetAllActive()

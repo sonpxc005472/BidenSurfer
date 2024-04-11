@@ -230,6 +230,7 @@ public class ConfigService : IConfigService
                         AmountLimit = c.AmountLimit,
                         CreatedBy = c.CreatedBy,
                         CreatedDate = c.CreatedDate,
+                        EditedDate = c.EditedDate,
                         CustomId = c.CustomId,
                         Expire = c.Expire,
                         IncreaseAmountExpire = c.IncreaseAmountExpire,
@@ -266,12 +267,22 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var configEntity = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
-            foreach (var config in configEntity)
+            var configEntitys = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
+            var toRemove = configEntitys?.Where(c => c.CreatedBy == AppConstants.CreatedByScanner).ToList();
+            var toUpdate = configEntitys?.Where(c => c.CreatedBy != AppConstants.CreatedByScanner).ToList();
+            if(toRemove.Any())
             {
-                config.IsActive = false;
+                _context.RemoveRange(toRemove);
             }
-            _context.UpdateRange(configEntity);
+            if(toUpdate.Any())
+            {
+                foreach(var entity in toUpdate)
+                {
+                    entity.IsActive = false;
+                    entity.EditedDate = DateTime.UtcNow;
+                }
+                _context.UpdateRange(toUpdate);
+            }
             await _context.SaveChangesAsync();
             return true;
         }

@@ -110,17 +110,18 @@ public class BotService : IBotService
                             {
                                 preTimeCancel = currentTime;
                                 var configExpired = allActiveConfigs.Where(x => (x.IsActive && !string.IsNullOrEmpty(x.OrderId) && x.OrderStatus != 2 && x.EditedDate != null && x.Expire != null && x.Expire.Value != 0 && x.EditedDate.Value.AddMinutes(x.Expire.Value) < currentTime)).ToList();
-                                var cancelledIds = new List<string>();
+                                var cancelledConfigs = new List<string>();
                                 foreach (var config in configExpired)
                                 {
                                     var cancelled = await CancelOrder(config, true);
                                     if(cancelled)
                                     {
-                                        cancelledIds.Add(config.CustomId);
+                                        cancelledConfigs.Add(config.CustomId);
                                     }    
                                 }
-                                if(cancelledIds.Any()) {
-                                    await _bus.Send(new OffConfigMessage { CustomIds = cancelledIds});
+                                if(cancelledConfigs.Any()) {
+                                    _configService.OffConfig(cancelledConfigs);
+                                    await _bus.Send(new OffConfigMessage { Configs = cancelledConfigs });
                                 }
                             }
                         }
@@ -177,6 +178,7 @@ public class BotService : IBotService
                             orderSide = OrderSide.Buy;
                         }
                         string clientOrderId = Guid.NewGuid().ToString();
+                        Console.WriteLine($"Take order {config.Symbol}: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
                         var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
                             (
                                 Category.Spot,
@@ -294,15 +296,11 @@ public class BotService : IBotService
                     config.OrderId
                 );
 
-            if (cancelOrder != null && cancelOrder.Success)
-            {
-                config.IsActive = false;
-                config.OrderStatus = null;
-                config.OrderId = string.Empty;
-                config.ClientOrderId = string.Empty;
-                _configService.AddOrEditConfig(config);
-                var message = isExpired ? $"{config.Symbol} is expired {config.Expire}m" : $"{config.Symbol} cancelled";
+            if (cancelOrder.Success)
+            {                
+                var message = isExpired ? $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} expired {config.Expire}m" : $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} cancelled";
                 Console.WriteLine(message);
+                //_configService.DeleteConfig(config.CustomId);
                 return true;
             }
         }
@@ -312,10 +310,10 @@ public class BotService : IBotService
 
     public async Task SubscribeKline1m()
     {
-        var configDtos = await _configService.GetAllActive();
-        var symbols = configDtos.Where(c => c.IsActive).Select(c => c.Symbol).Distinct().ToList();
-        var unsubsSymbols = symbols.Where(s => !StaticObject.Kline1mSubscriptions.ContainsKey(s)).ToList();
-        foreach (var symbol in unsubsSymbols)
+        //var configDtos = await _configService.GetAllActive();
+        var symbols = StaticObject.Symbols.Where(c => c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly).Select(c => c.Name).Distinct().ToList();
+        //var unsubsSymbols = symbols.Where(s => !StaticObject.Kline1mSubscriptions.ContainsKey(s)).ToList();
+        foreach (var symbol in symbols)
         {
             var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { symbol }, KlineInterval.OneMinute, async data =>
             {

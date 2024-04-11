@@ -34,7 +34,9 @@ public class ScannerService : IScannerService
             var cachedData = _redisCacheService.GetCachedData<List<ScannerDto>>(AppConstants.RedisAllScanners);
             if (cachedData != null)
             {
-                return cachedData.Where(c => c.IsActive).ToList();
+                var activeData = cachedData.Where(c => c.IsActive).ToList();
+                StaticObject.AllScanners = activeData;
+                return activeData;
             }
             else
             {
@@ -59,6 +61,7 @@ public class ScannerService : IScannerService
                     OcNumber = r.OcNumber,
                     Turnover = r.Turnover
                 }).ToList();
+                StaticObject.AllScanners = resultDto;
                 _redisCacheService.SetCachedData(AppConstants.RedisAllScanners, resultDto, TimeSpan.FromDays(10));
             }
             return resultDto;

@@ -27,6 +27,7 @@ public class ConfigService : IConfigService
             if (existedConfig == null)
             {
                 cachedData.Add(config);
+                StaticObject.AllConfigs.Add(config);
             }
             else
             {
@@ -46,6 +47,27 @@ public class ConfigService : IConfigService
                 existedConfig.CreatedBy = config.CreatedBy;
                 existedConfig.CreatedDate = config.CreatedDate;
                 existedConfig.EditedDate = config.EditedDate;
+
+                var caconfig = StaticObject.AllConfigs.FirstOrDefault(x => x.CustomId == config.CustomId);
+                if (caconfig != null)
+                {
+                    caconfig.Amount = config.Amount;
+                    caconfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
+                    caconfig.IsActive = config.IsActive;
+                    caconfig.OrderChange = config.OrderChange;
+                    caconfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
+                    caconfig.IncreaseOcPercent = config.IncreaseOcPercent;
+                    caconfig.AmountLimit = config.AmountLimit;
+                    caconfig.FilledPrice = config.FilledPrice;
+                    caconfig.OrderId = config.OrderId;
+                    caconfig.ClientOrderId = config.ClientOrderId;
+                    caconfig.TPPrice = config.TPPrice;
+                    caconfig.OrderStatus = config.OrderStatus;
+                    caconfig.CreatedDate = config.CreatedDate;
+                    caconfig.EditedDate = config.EditedDate;
+                    caconfig.Expire = config.Expire;
+                    caconfig.FilledQuantity = config.FilledQuantity;
+                }
             }
         }        
 
@@ -58,7 +80,9 @@ public class ConfigService : IConfigService
         var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
         if (cachedData != null)
         {
-            return cachedData.Where(c=>c.IsActive).ToList();
+            var activeData = cachedData.Where(c => c.IsActive).ToList();
+            StaticObject.AllConfigs = activeData;
+            return activeData;
         }        
         return resultDto;
     }    

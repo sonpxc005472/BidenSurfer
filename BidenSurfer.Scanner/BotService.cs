@@ -10,10 +10,14 @@ using System.Text.Json;
 using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.BotRunner.Services;
 using BidenSurfer.Infras.Models;
+using BidenSurfer.Infras.Entities;
+using CryptoExchange.Net.CommonObjects;
+using System.Threading;
+using System.Collections.Generic;
 
 public interface IBotService
 {
-    Task<BybitSocketClient> SubscribeSticker();    
+    Task<BybitSocketClient> SubscribeSticker();
 }
 
 public class BotService : IBotService
@@ -30,7 +34,7 @@ public class BotService : IBotService
 
     public async Task<BybitSocketClient> SubscribeSticker()
     {
-        await RunScanner();        
+        await RunScanner();
         return StaticObject.PublicWebsocket;
     }
 
@@ -40,41 +44,35 @@ public class BotService : IBotService
 
     private async Task RunScanner()
     {
-        var exitEvent = new ManualResetEvent(false);
-        var url = new Uri(_websocketUrl);
-        var symbols = StaticObject.Symbols.Where(s => (s.MarginTrading == MarginTrading.Both || s.MarginTrading == MarginTrading.UtaOnly) && s.Name.EndsWith("USDT")).Select(c => c.Name).Distinct().ToList();
-        
-        using (var client = new WebsocketClient(url))
+        //var exitEvent = new ManualResetEvent(false);
+        //var url = new Uri(_websocketUrl);
+        var totalsymbols = StaticObject.Symbols.Where(s => (s.MarginTrading == MarginTrading.Both || s.MarginTrading == MarginTrading.UtaOnly) && s.Name.EndsWith("USDT")).Select(c => c.Name).Distinct().ToList();
+        var batches = totalsymbols.Select((x, i) => new { Index = i, Value = x })
+                          .GroupBy(x => x.Index / 10)
+                          .Select(x => x.Select(v => v.Value).ToList())
+                          .ToList();
+        foreach (var symbols in batches)
         {
-            client.ReconnectTimeout = TimeSpan.FromSeconds(30);
-            client.ReconnectionHappened.Subscribe(info =>
-                Console.WriteLine($"Reconnection happened, type: {info.Type}"));
-
-            client.MessageReceived.Subscribe(async msg => {
-
-                var options = new JsonSerializerOptions
+            var subResult = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToTradeUpdatesAsync(symbols, async data =>
+            {
+                if (data != null)
                 {
-                    PropertyNameCaseInsensitive = true
-                };
-
-                if (!string.IsNullOrEmpty(msg.Text) && msg.Text.Contains("data"))
-                {
-                    var result = JsonSerializer.Deserialize<SubscribeObject>(msg.Text, options);
-                    var data = result?.data;
-                    foreach(var d in data)
+                    var tradeDatas = data.Data;
+                    foreach (var tradeData in tradeDatas)
                     {
-                        var symbol = d.s;
-                        var timestamp = d.T / 1000;
+                        var symbol = tradeData.Symbol;
+                        long converttimestamp = (long)(tradeData.Timestamp.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+                        var timestamp = converttimestamp / 1000;
                         var tick = new TickData
                         {
-                            Timestamp = d.T,
-                            Price = decimal.Parse(d.p),
-                            Amount = decimal.Parse(d.v) * decimal.Parse(d.p)
+                            Timestamp = converttimestamp,
+                            Price = tradeData.Price,
+                            Amount = tradeData.Price * tradeData.Quantity
                         };
                         if (_candle1s.ContainsKey(symbol))
                         {
                             var preTimestamp = _candle1s[symbol];
-                            if(timestamp == preTimestamp)
+                            if (timestamp == preTimestamp)
                             {
                                 _candles.AddOrUpdate(symbol,
                                 (ts) => new Candle // Tạo nến mới nếu chưa có
@@ -93,84 +91,93 @@ public class BotService : IBotService
                                     existingCandle.Volume += tick.Amount;
                                     return existingCandle;
                                 });
+                                var candle = _candles[symbol];
+                                if (!candle.Confirmed)
+                                {
+                                    var longPercent = (candle.Low - candle.Open) / candle.Open * 100;
+                                    var shortPercent = (candle.High - candle.Open) / candle.Open * 100;
+                                    var longElastic = longPercent == 0 ? 0 : (longPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / longPercent * 100;
+                                    var shortElastic = shortPercent == 0 ? 0 : (shortPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / shortPercent * 100;
+                                    if (longPercent < (decimal)-1 && longElastic >= 70)
+                                    {
+                                        var scanners = StaticObject.AllScanners;
+                                        var configs = StaticObject.AllConfigs;
+                                        bool isMatched = false;
+                                        foreach (var scanner in scanners)
+                                        {
+                                            var scanOcExisted = configs.FirstOrDefault(c => c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId && c.IsActive);
+                                            if (scanOcExisted == null)
+                                            {
+                                                //If scan indicator matched user's scanner configurations 
+                                                if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
+                                                    && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume
+                                                    )
+                                                {
+                                                    isMatched = true;
+                                                    candle.Confirmed = true;
+                                                    Console.WriteLine($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
+                                                    Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
+                                                    Console.WriteLine($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+                                                    // create new configs for long side
+                                                    var newConfigs = CalculateOcs(symbol, longPercent, scanner);
+                                                }
+                                            }
+                                        }
+                                        if (isMatched)
+                                        {
+                                            await _bus.Send(new NewConfigCreatedMessage());
+                                            await _bus.Send(new SaveNewConfigMessage());
+                                        }
+                                        Console.WriteLine($"=====================================================================================");
+                                    }
+                                    if (shortPercent > (decimal)1 && shortElastic >= 70)
+                                    {
+                                        var scanners = StaticObject.AllScanners;
+                                        var configs = StaticObject.AllConfigs;
+                                        bool isMatched = false;
+                                        foreach (var scanner in scanners)
+                                        {
+                                            var scanOcExisted = configs.FirstOrDefault(c => c.IsActive && c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId);
+                                            if (scanOcExisted == null)
+                                            {
+                                                var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
+                                                var isMarginTrading = (instrument.MarginTrading == MarginTrading.Both || instrument.MarginTrading == MarginTrading.UtaOnly);
+                                                //If scan indicator matched user's scanner configurations 
+                                                if (scanner.PositionSide == AppConstants.ShortSide && scanner.OrderChange <= shortPercent
+                                                    && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading
+                                                    )
+                                                {
+                                                    isMatched = true;
+                                                    candle.Confirmed = true;
+                                                    Console.WriteLine($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
+                                                    Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
+                                                    Console.WriteLine($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+                                                    // create new configs for short side
+                                                    var newConfigs = CalculateOcs(symbol, shortPercent, scanner);
+                                                }
+                                            }
+                                        }
+                                        if (isMatched)
+                                        {
+                                            await _bus.Send(new NewConfigCreatedMessage());
+                                            await _bus.Send(new SaveNewConfigMessage());
+                                        }
+                                        Console.WriteLine($"=====================================================================================");
+                                    }
+                                }
                             }
                             else if (timestamp > preTimestamp)
                             {
                                 _candle1s[symbol] = timestamp;
-                                var candle = _candles[symbol];
-                                var longPercent = (candle.Low - candle.Open) / candle.Open * 100;
-                                var shortPercent = (candle.High - candle.Open) / candle.Open * 100;
-                                var longElastic = longPercent == 0 ? 0 : (longPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / longPercent * 100;
-                                var shortElastic = shortPercent == 0 ? 0 : (shortPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / shortPercent * 100;
-                                if (longPercent < (decimal)-0.8 && longElastic >= 60)
-                                {
-                                    Console.WriteLine($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
-                                    Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
-                                    Console.WriteLine($"=====================================================================================");
-                                    var scanners = await _scannerService.GetAll();
-                                    var configs = _configService.GetAllActive();
-                                    bool isMatched = false;
-                                    foreach (var scanner in scanners)
-                                    {
-                                        var scanOcExisted = configs.FirstOrDefault(c => c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId && c.IsActive);
-                                        if(scanOcExisted == null )
-                                        {                                            
-                                            //If scan indicator matched user's scanner configurations 
-                                            if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
-                                                && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume
-                                                )
-                                            {
-                                                isMatched = true;
-                                                // create new configs for long side
-                                                var newConfigs = CalculateOcs(symbol, longPercent, scanner);
-                                            }
-                                        }                                           
-                                    }
-                                    if (isMatched)
-                                    {
-                                        await _bus.Send(new NewConfigCreatedMessage());
-                                        await _bus.Send(new SaveNewConfigMessage());
-                                    }                                       
-                                }
-                                if (shortPercent > (decimal)0.8 && shortElastic >= 60)
-                                {
-                                    Console.WriteLine($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
-                                    Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
-                                    Console.WriteLine($"=====================================================================================");
-                                    var scanners = await _scannerService.GetAll();
-                                    var configs = _configService.GetAllActive();
-                                    bool isMatched = false;
-                                    foreach (var scanner in scanners)
-                                    {
-                                        var scanOcExisted = configs.FirstOrDefault(c => c.IsActive && c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId);
-                                        if (scanOcExisted == null)
-                                        {
-                                            var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
-                                            var isMarginTrading = instrument.MarginTrading == MarginTrading.Both;
-                                            //If scan indicator matched user's scanner configurations 
-                                            if (scanner.PositionSide == AppConstants.ShortSide && scanner.OrderChange <= shortPercent
-                                                && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading
-                                                )
-                                            {
-                                                isMatched = true;
-                                                // create new configs for short side
-                                                var newConfigs = CalculateOcs(symbol, shortPercent, scanner);
-                                            }
-                                        }
-                                    }
-                                    if (isMatched)
-                                    {
-                                        await _bus.Send(new NewConfigCreatedMessage());
-                                        await _bus.Send(new SaveNewConfigMessage());
-                                    }
-                                }
-                                _candles[symbol] =  new Candle
+
+                                _candles[symbol] = new Candle
                                 {
                                     Open = tick.Price,
                                     High = tick.Price,
                                     Low = tick.Price,
                                     Close = tick.Price,
-                                    Volume = tick.Amount
+                                    Volume = tick.Amount,
+                                    Confirmed = false
                                 };
                             }
                         }
@@ -183,38 +190,218 @@ public class BotService : IBotService
                                 High = tick.Price,
                                 Low = tick.Price,
                                 Close = tick.Price,
-                                Volume = tick.Amount
+                                Volume = tick.Amount,
+                                Confirmed = false
                             });
                         }
-                        
-                    }                     
-
+                    }
                 }
-
             });
-            _ = client.Start();
 
-            _ = Task.Run(() =>
+            if (!subResult.Success)
             {
-
-                foreach (var symbol in symbols)
-                {
-                    var messageSubs = $"{{\"op\":\"subscribe\",\"args\":[\"publicTrade.{symbol}\"]}}";
-                    client.Send(messageSubs);
-                }
-
-            });
-
-            exitEvent.WaitOne();
+                Console.WriteLine("subscribe trade error: " + subResult.Error);
+            }
         }
+
+
+        //using (var client = new WebsocketClient(url))
+        //{
+        //    //client.ReconnectTimeout = TimeSpan.FromSeconds(30);
+        //    client.ReconnectionHappened.Subscribe(info =>
+        //        Console.WriteLine($"Reconnection happened, type: {info.Type}"));
+        //    client.DisconnectionHappened.Subscribe(info =>
+        //    {
+        //        while (true)
+        //        {
+        //            try
+        //            {
+        //                client.ReconnectOrFail();
+        //                break;
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                Console.WriteLine($"Reconnection failed: {ex.Message}");
+        //                Thread.Sleep(15000); // Wait for 15 seconds before trying to reconnect
+        //            }
+        //        }
+        //    });
+        //    client.MessageReceived.Subscribe(async msg => {
+
+        //        var options = new JsonSerializerOptions
+        //        {
+        //            PropertyNameCaseInsensitive = true
+        //        };
+
+        //        if (!string.IsNullOrEmpty(msg.Text) && msg.Text.Contains("data"))
+        //        {
+        //            var result = JsonSerializer.Deserialize<SubscribeObject>(msg.Text, options);
+        //            var data = result?.data;
+        //            foreach(var d in data)
+        //            {
+        //                var symbol = d.s;
+        //                var timestamp = d.T / 1000;
+        //                var tick = new TickData
+        //                {
+        //                    Timestamp = d.T,
+        //                    Price = decimal.Parse(d.p),
+        //                    Amount = decimal.Parse(d.v) * decimal.Parse(d.p)
+        //                };
+        //                if (_candle1s.ContainsKey(symbol))
+        //                {
+        //                    var preTimestamp = _candle1s[symbol];
+        //                    if(timestamp == preTimestamp)
+        //                    {
+        //                        _candles.AddOrUpdate(symbol,
+        //                        (ts) => new Candle // Tạo nến mới nếu chưa có
+        //                        {
+        //                            Open = tick.Price,
+        //                            High = tick.Price,
+        //                            Low = tick.Price,
+        //                            Close = tick.Price,
+        //                            Volume = tick.Amount
+        //                        },
+        //                        (ts, existingCandle) => // Cập nhật nến hiện tại
+        //                        {
+        //                            existingCandle.High = Math.Max(existingCandle.High, tick.Price);
+        //                            existingCandle.Low = Math.Min(existingCandle.Low, tick.Price);
+        //                            existingCandle.Close = tick.Price;
+        //                            existingCandle.Volume += tick.Amount;
+        //                            return existingCandle;
+        //                        });
+        //                        var candle = _candles[symbol];
+        //                        if(!candle.Confirmed)
+        //                        {
+        //                            var longPercent = (candle.Low - candle.Open) / candle.Open * 100;
+        //                            var shortPercent = (candle.High - candle.Open) / candle.Open * 100;
+        //                            var longElastic = longPercent == 0 ? 0 : (longPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / longPercent * 100;
+        //                            var shortElastic = shortPercent == 0 ? 0 : (shortPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / shortPercent * 100;
+        //                            if (longPercent < (decimal)-1 && longElastic >= 70)
+        //                            {
+        //                                var scanners = StaticObject.AllScanners;
+        //                                var configs = StaticObject.AllConfigs;
+        //                                bool isMatched = false;
+        //                                foreach (var scanner in scanners)
+        //                                {
+        //                                    var scanOcExisted = configs.FirstOrDefault(c => c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId && c.IsActive);
+        //                                    if (scanOcExisted == null)
+        //                                    {
+        //                                        //If scan indicator matched user's scanner configurations 
+        //                                        if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
+        //                                            && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume
+        //                                            )
+        //                                        {
+        //                                            isMatched = true;
+        //                                            candle.Confirmed = true;
+        //                                            Console.WriteLine($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
+        //                                            Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
+        //                                            Console.WriteLine($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+        //                                            // create new configs for long side
+        //                                            var newConfigs = CalculateOcs(symbol, longPercent, scanner);
+        //                                        }
+        //                                    }
+        //                                }
+        //                                if (isMatched)
+        //                                {
+        //                                    await _bus.Send(new NewConfigCreatedMessage());
+        //                                    await _bus.Send(new SaveNewConfigMessage());
+        //                                }
+        //                                Console.WriteLine($"=====================================================================================");
+        //                            }
+        //                            if (shortPercent > (decimal)1 && shortElastic >= 70)
+        //                            {                                        
+        //                                var scanners = StaticObject.AllScanners;
+        //                                var configs = StaticObject.AllConfigs;
+        //                                bool isMatched = false;
+        //                                foreach (var scanner in scanners)
+        //                                {
+        //                                    var scanOcExisted = configs.FirstOrDefault(c => c.IsActive && c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId);
+        //                                    if (scanOcExisted == null)
+        //                                    {
+        //                                        var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
+        //                                        var isMarginTrading = (instrument.MarginTrading == MarginTrading.Both || instrument.MarginTrading == MarginTrading.UtaOnly);
+        //                                        //If scan indicator matched user's scanner configurations 
+        //                                        if (scanner.PositionSide == AppConstants.ShortSide && scanner.OrderChange <= shortPercent
+        //                                            && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading
+        //                                            )
+        //                                        {
+        //                                            isMatched = true;
+        //                                            candle.Confirmed = true;
+        //                                            Console.WriteLine($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
+        //                                            Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
+        //                                            Console.WriteLine($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+        //                                            // create new configs for short side
+        //                                            var newConfigs = CalculateOcs(symbol, shortPercent, scanner);
+        //                                        }
+        //                                    }
+        //                                }
+        //                                if (isMatched)
+        //                                {
+        //                                    await _bus.Send(new NewConfigCreatedMessage());
+        //                                    await _bus.Send(new SaveNewConfigMessage());
+        //                                }
+        //                                Console.WriteLine($"=====================================================================================");
+        //                            }
+        //                        }                                
+        //                    }
+        //                    else if (timestamp > preTimestamp)
+        //                    {
+        //                        _candle1s[symbol] = timestamp;
+
+        //                        _candles[symbol] =  new Candle
+        //                        {
+        //                            Open = tick.Price,
+        //                            High = tick.Price,
+        //                            Low = tick.Price,
+        //                            Close = tick.Price,
+        //                            Volume = tick.Amount,
+        //                            Confirmed = false
+        //                        };
+        //                    }
+        //                }
+        //                else
+        //                {
+        //                    _candle1s.TryAdd(symbol, timestamp);
+        //                    _candles.TryAdd(symbol, new Candle
+        //                    {
+        //                        Open = tick.Price,
+        //                        High = tick.Price,
+        //                        Low = tick.Price,
+        //                        Close = tick.Price,
+        //                        Volume = tick.Amount,
+        //                        Confirmed = false
+        //                    });
+        //                }
+
+        //            }                     
+
+        //        }
+
+        //    });
+        //    _ = client.Start();
+
+        //    _ = Task.Run(() =>
+        //    {
+
+        //        foreach (var symbol in symbols)
+        //        {
+        //            var messageSubs = $"{{\"op\":\"subscribe\",\"args\":[\"publicTrade.{symbol}\"]}}";
+        //            client.Send(messageSubs);
+        //        }
+
+        //    });
+
+        //    exitEvent.WaitOne();
+        //}
     }
-    
+
     private List<ConfigDto> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner)
     {
-        var minOc = (Math.Abs(maxOC)-(decimal)0.2)/2;
-        var rangeOc = minOc/scanner.OcNumber;
+        var maxOcAbs = Math.Abs(maxOC);
+        var minOc = (maxOcAbs - (decimal)0.2) / (maxOcAbs > 4 ? 3 : 2);
+        var rangeOc = minOc / scanner.OcNumber;
         var configs = new List<ConfigDto>();
-        for(var i = 1; i <= scanner.OcNumber; i++)
+        for (var i = 1; i <= scanner.OcNumber; i++)
         {
             var config = new ConfigDto
             {
@@ -274,4 +461,5 @@ public class Candle
     public decimal Low { get; set; }
     public decimal Close { get; set; }
     public decimal Volume { get; set; }
+    public bool Confirmed { get; set; }
 }
