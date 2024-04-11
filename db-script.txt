@@ -62,3 +62,14 @@ CREATE TABLE IF NOT EXISTS scanner (
 	configexpire INTEGER,
 	isactive boolean 
 );
+
+=====================================================
+INSERT INTO users (fullname, username, password, email, role, status) VALUES('trader1', 'trader1', 'trader1@bybit', 'trader1@gmail.com', 2, 1)
+INSERT INTO usersettings (userid, apikey, secretkey, passphrase, telechannel) VALUES(1, 'O3VED19egBxMXKhJDE', 'ZHW9frPTjrLbqWgDS6qMBFshalpxb1s7iS8m', 'trader1', '-123467')
+INSERT into scanner(amount,amountexpire,amountlimit,autoamount,configexpire,elastic,isactive,ocnumber,orderchange,ordertype,positionside,title,turnover,userid)
+VALUES(10, 3, 100, 100,3,70,true,2,1.5,1,'long','margin long 1', 5000,1)
+
+
+======================================================
+Telegram channel id: -1001847838569
+https://api.telegram.org/bot6519727860:AAH34md0Aqu2RSavKU4kLDWnAzfXKiZSjSQ/getUpdates

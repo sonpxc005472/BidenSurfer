@@ -18,6 +18,10 @@ namespace BidenSurfer.Scanner.Services
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             Console.WriteLine("Running...");
+            //var chatId = "-1001847838569"; // Thay thế bằng ID kênh của bạn
+            //var text = "<b>Running</b>\n<b>PNL</b>: 100%"; // Thay thế bằng nội dung tin nhắn bạn muốn gửi
+
+            //await TelegramHelper.SendMessage(text, chatId);
             if (!StaticObject.Symbols.Any())
             {
                 var publicApi = new BybitRestClient();
