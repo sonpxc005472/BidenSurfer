@@ -25,6 +25,7 @@ public class ConfigDto
     public string ClientOrderId { get; set; }
     public decimal? FilledPrice { get; set; }
     public decimal? FilledQuantity { get; set; }
+    public decimal? TotalQuantity { get; set; }
     public decimal? TPPrice { get; set; }
     public bool isNewScan { get; set; }
     public int? OrderStatus { get; set; } //1 - new, 2 - filled and closing

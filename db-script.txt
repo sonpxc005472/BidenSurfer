@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS usersettings (
 
 CREATE TABLE IF NOT EXISTS configs (
     id 	BIGSERIAL PRIMARY KEY,
+	customid VARCHAR(100),
     userid BIGINT NOT NULL,
     symbol VARCHAR(50),
 	positionside varchar(30),

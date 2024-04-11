@@ -8,12 +8,14 @@ namespace BidenSurfer.Scanner.Services
     public class AutoRunService : BackgroundService
     {
         private readonly IBotService _botService;        
-        private readonly IScannerService _scannerService;        
+        private readonly IScannerService _scannerService; 
+        private readonly IConfigService _configService;        
 
-        public AutoRunService(IBotService botService, IScannerService scannerService)
+        public AutoRunService(IBotService botService, IScannerService scannerService, IConfigService configService)
         {
             _botService = botService;   
             _scannerService = scannerService;
+            _configService = configService;
         }
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
@@ -29,6 +31,7 @@ namespace BidenSurfer.Scanner.Services
                 StaticObject.Symbols = spotSymbols.ToList();
             }
             _scannerService.DeleteAll();
+            _configService.GetAllActive();
             await _scannerService.GetAll();
             await _botService.SubscribeSticker();
         }

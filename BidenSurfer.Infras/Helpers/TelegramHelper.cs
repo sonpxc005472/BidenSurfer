@@ -35,5 +35,11 @@ namespace BidenSurfer.Infras.Helpers
             var text = $"<b>{symbol}<b> | {positionSide.ToUpper()} | {(win? "WIN":"LOSE")} \nOC: {oc}\n PNL: ${pnlCash} {pnlPercent}%";
             await SendMessage(text, tele);
         }
+        
+        public static async Task ErrorMessage(string symbol, string oc, string positionSide, string tele, string error)
+        {
+            var text = $"<b>{symbol}<b> | {positionSide.ToUpper()} | {oc}\n<b>Error</b>: {error}";
+            await SendMessage(text, tele);
+        }
     }
 }

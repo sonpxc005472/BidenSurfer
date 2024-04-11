@@ -18,6 +18,7 @@ namespace BidenSurfer.BotRunner.Services
             Console.WriteLine("Running...");
             _configService.DeleteAllConfig();
             _userService.DeleteAllCached();
+            await _userService.GetAllActive();
             await _configService.GetAllActive();
             await _botService.InitUserApis();
             await _botService.SubscribeKline1m();

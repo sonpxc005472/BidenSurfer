@@ -19,6 +19,7 @@ namespace BidenSurfer.Infras
         public static ConcurrentBag<ConfigDto> FilledOrders = new ConcurrentBag<ConfigDto>();
         public static List<ConfigDto> AllConfigs = new List<ConfigDto>();
         public static List<ScannerDto> AllScanners = new List<ScannerDto>();
+        public static List<UserDto> AllUsers = new List<UserDto>();
         public static List<BybitSpotSymbol> Symbols = new List<BybitSpotSymbol>();
     }
 }
