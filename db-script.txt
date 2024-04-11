@@ -1,0 +1,64 @@
+docker run --name bidensurferbybit -p 5432:5432 -e POSTGRES_PASSWORD=Mtl@1987 -e POSTGRES_USER=admin -e POSTGRES_DB=bidensurferbybit -d postgres
+docker pull redis
+docker run --name my-redis -p 6379:6379 -d redis
+docker pull rabbitmq
+docker run -d --hostname my-rabbit --name my-rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+
+=========================================================================================================
+
+CREATE TABLE IF NOT EXISTS users (
+    id 	BIGSERIAL PRIMARY KEY,
+    fullname VARCHAR(50) NOT NULL,
+    username VARCHAR(50) NOT NULL,
+	password VARCHAR(50) NOT NULL,
+	email VARCHAR(50),
+	role integer, --1: admin, 2: trader,
+	status integer --0: inactive, 1: active, 2: deleted
+);
+CREATE TABLE IF NOT EXISTS usersettings (
+    id 	BIGSERIAL PRIMARY KEY,
+    userid BIGINT NOT NULL,
+    apikey VARCHAR(40),
+	secretkey VARCHAR(50),
+	passphrase VARCHAR(50),
+	telechannel VARCHAR(20)
+);
+
+CREATE TABLE IF NOT EXISTS configs (
+    id 	BIGSERIAL PRIMARY KEY,
+    userid BIGINT NOT NULL,
+    symbol VARCHAR(50),
+	positionside varchar(30),
+	ordertype integer,
+	orderchange numeric(4,2),
+	amount numeric(8,2),
+	increaseamountpercent INTEGER,
+	amountlimit numeric(8,2),
+	amountexpire integer,
+	increaseocpercent INTEGER,
+	createdby varchar(200),
+	createddate timestamp,
+	editeddate timestamp,
+	expire INTEGER,
+	isactive boolean 
+);
+
+CREATE TABLE IF NOT EXISTS scanner (
+    id 	BIGSERIAL PRIMARY KEY,
+    userid BIGINT NOT NULL,
+    title VARCHAR(500),
+	positionside varchar(30),
+	ordertype integer,
+	orderchange numeric(4,2),
+	elastic INTEGER,
+	turnover numeric(8,2),
+	onlypairs JSONB,
+	blacklist JSONB,
+	ocnumber INTEGER,
+	amount numeric(8,2),
+	amountlimit numeric(8,2),
+	amountexpire integer,
+	autoamount INTEGER,
+	configexpire INTEGER,
+	isactive boolean 
+);
