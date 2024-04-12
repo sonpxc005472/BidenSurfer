@@ -9,6 +9,7 @@ using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.BotRunner.Services;
 using BidenSurfer.Infras.Models;
 using System.Collections.Generic;
+using BidenSurfer.Infras.Helpers;
 
 public interface IBotService
 {
@@ -115,7 +116,7 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for long side
-                                                    var newConfigs = CalculateOcs(symbol, longPercent, scanner);
+                                                    var newConfigs = await CalculateOcs(symbol, longPercent, scanner);
                                                 }
                                             }
                                         }
@@ -150,7 +151,7 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for short side
-                                                    var newConfigs = CalculateOcs(symbol, shortPercent, scanner);
+                                                    var newConfigs = await CalculateOcs(symbol, shortPercent, scanner);
                                                 }
                                             }
                                         }
@@ -202,18 +203,20 @@ public class BotService : IBotService
         
     }
 
-    private List<ConfigDto> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner)
+    private async Task<List<ConfigDto>> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner)
     {
+        var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == scanner.UserId)?.Setting;
         var maxOcAbs = Math.Abs(maxOC);
         var minOc = (maxOcAbs - (decimal)0.2) / (maxOcAbs > 4 ? 3 : 2);
         var rangeOc = minOc / scanner.OcNumber;
         var configs = new List<ConfigDto>();
         for (var i = 1; i <= scanner.OcNumber; i++)
         {
+            var oc = Math.Round(minOc + (rangeOc * i), 2);
             var config = new ConfigDto
             {
                 CustomId = Guid.NewGuid().ToString(),
-                OrderChange = Math.Round(minOc + (rangeOc * i), 2),
+                OrderChange = oc,
                 Amount = scanner.Amount,
                 AmountLimit = scanner.AmountLimit,
                 Expire = scanner.ConfigExpire,
@@ -231,6 +234,7 @@ public class BotService : IBotService
                 isNewScan = true
             };
             configs.Add(config);
+            await TelegramHelper.ScannerOpenMessage(scanner.Title, symbol, oc.ToString(), scanner.PositionSide, userSetting.TeleChannel);
         }
         _configService.AddOrEditConfig(configs);
         return configs;
