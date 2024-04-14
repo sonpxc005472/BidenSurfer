@@ -9,13 +9,15 @@ namespace BidenSurfer.Scanner.Services
     {
         private readonly IBotService _botService;        
         private readonly IScannerService _scannerService; 
-        private readonly IConfigService _configService;        
+        private readonly IConfigService _configService;   
+        private readonly IUserService _userService;
 
-        public AutoRunService(IBotService botService, IScannerService scannerService, IConfigService configService)
+        public AutoRunService(IBotService botService, IScannerService scannerService, IConfigService configService, IUserService userService)
         {
             _botService = botService;   
             _scannerService = scannerService;
             _configService = configService;
+            _userService = userService;
         }
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
@@ -32,6 +34,7 @@ namespace BidenSurfer.Scanner.Services
             }
             _scannerService.DeleteAll();
             _configService.GetAllActive();
+            await _userService.GetAllActive();
             await _scannerService.GetAll();
             await _botService.SubscribeSticker();
         }

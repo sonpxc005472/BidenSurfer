@@ -13,6 +13,7 @@ using MassTransit;
 using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
 using BidenSurfer.Infras.Entities;
+using System;
 
 public interface IBotService
 {
@@ -63,19 +64,20 @@ public class BotService : IBotService
                         try
                         {
                             allActiveConfigs = StaticObject.AllConfigs;
-                            var userConfigs = allActiveConfigs.Where(c => c.Symbol == symbol && c.IsActive).ToList();
-                            foreach (var userConfig in userConfigs)
+                            var symbolConfigs = allActiveConfigs.Where(c => c.Symbol == symbol && c.IsActive).ToList();
+                            foreach (var symbolConfig in symbolConfigs)
                             {
-                                bool isLongSide = userConfig.PositionSide == AppConstants.LongSide;
-                                var existingFilledOrders = allActiveConfigs.Where(x => x.UserId == userConfig.UserId && x.OrderStatus == 2 && x.Symbol == userConfig.Symbol).ToList();
-                                var sideOrderExisted = userConfigs.Where(x => x.UserId == userConfig.UserId && !string.IsNullOrEmpty(x.OrderId)).ToList();
-                                if ((existingFilledOrders == null || (existingFilledOrders != null && !existingFilledOrders.Any())) && (sideOrderExisted == null || (sideOrderExisted != null && (!sideOrderExisted.Any() || sideOrderExisted.All(s => s.PositionSide == userConfig.PositionSide)))) && string.IsNullOrEmpty(userConfig.OrderId))
+                                bool isExistedScanner = symbolConfigs.Any(x => x.UserId == symbolConfig.UserId && x.CreatedBy == AppConstants.CreatedByScanner && !string.IsNullOrEmpty(x.OrderId));
+                                bool isLongSide = symbolConfig.PositionSide == AppConstants.LongSide;
+                                var existingFilledOrders = symbolConfigs.Where(x => x.UserId == symbolConfig.UserId && x.OrderStatus == 2).ToList();
+                                var sideOrderExisted = symbolConfigs.Any(x => x.UserId == symbolConfig.UserId && x.PositionSide != symbolConfig.PositionSide);
+                                if ((symbolConfig.CreatedBy != AppConstants.CreatedByScanner || (symbolConfig.CreatedBy == AppConstants.CreatedByScanner && !isExistedScanner)) && !existingFilledOrders.Any() && !sideOrderExisted && string.IsNullOrEmpty(symbolConfig.OrderId))
                                 {
                                     prePrice = currentPrice;
                                     //Place order
-                                    await TakePlaceOrder(userConfig, currentPrice);
+                                    await TakePlaceOrder(symbolConfig, currentPrice);
                                 }
-                                else if (!string.IsNullOrEmpty(userConfig.OrderId) && userConfig.OrderStatus != 2)
+                                else if (!string.IsNullOrEmpty(symbolConfig.OrderId) && symbolConfig.OrderStatus != 2 && !symbolConfig.isClosingFilledOrder)
                                 {
                                     // every 2s change order
                                     if ((currentTime - preTime).TotalMilliseconds >= 2000)
@@ -87,7 +89,7 @@ public class BotService : IBotService
                                         {
                                             prePrice = currentPrice;
                                             //Amend order
-                                            await AmendOrder(userConfig, currentPrice);
+                                            await AmendOrder(symbolConfig, currentPrice);
                                         }
                                     }
                                 }
@@ -205,6 +207,7 @@ public class BotService : IBotService
                             var message = $"Take order {config.Symbol} error: {placedOrder.Error.Message}";
                             Console.WriteLine(message);
                             await TelegramHelper.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, message);
+                            _configService.OffConfig(new List<string> { config.CustomId });
                         }
                     }
 
@@ -268,9 +271,9 @@ public class BotService : IBotService
             }
             else
             {
-                var message = $"{config.Symbol} error: {amendOrder.Error.Message}";
+                var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error.Message}";
                 Console.WriteLine(message);
-                await TelegramHelper.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, message);
+                //await TelegramHelper.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
                 await CancelOrder(config);
             }
             return false;
@@ -312,6 +315,10 @@ public class BotService : IBotService
                 var message = isExpired ? $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}" : $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}";
                 Console.WriteLine(message);
                 await TelegramHelper.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
+                await _bus.Send(new OffConfigMessage
+                {
+                    Configs = new List<string> { config.CustomId }
+                });
                 return true;
             }
         }
@@ -366,14 +373,16 @@ public class BotService : IBotService
                     {
                         var orderState = updatedData?.Status;
                         var orderId = updatedData?.OrderId;
+                        var config = StaticObject.AllConfigs.FirstOrDefault(c => c.OrderId == orderId);
+
                         if (orderState == Bybit.Net.Enums.V5.OrderStatus.PartiallyFilled)
-                        {
-                            Console.WriteLine($"{updatedData?.Symbol}-PartiallyFilled");
-                            var config = StaticObject.AllConfigs.FirstOrDefault(c => c.OrderId == orderId);
-                            await TelegramHelper.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, false, updatedData.QuantityFilled.Value, config.TotalQuantity.Value);
+                        {                            
                             var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.OrderId == orderId && c.OrderStatus == 2);
                             if (closingOrder == null)
                             {
+                                Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange.ToString()} - PartiallyFilled");
+
+                                await TelegramHelper.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, false, updatedData.QuantityFilled.Value, config.TotalQuantity.Value);
                                 BybitRestClient api;
                                 if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
                                 {
@@ -386,21 +395,12 @@ public class BotService : IBotService
                                 (
                                     Category.Spot,
                                     updatedData?.Symbol,
-                                    updatedData?.OrderId,
-                                    updatedData?.ClientOrderId
+                                    updatedData?.OrderId
                                 );
                                 if (cancelOrder.Success)
                                 {
-                                    var (placedOrder, configToUpdate) = await ClosePosition(updatedData, user);
-                                    if (placedOrder.Success && configToUpdate != null)
-                                    {
-                                        configToUpdate.FilledPrice = updatedData.AveragePrice;
-                                        configToUpdate.FilledQuantity = updatedData.QuantityFilled;
-                                        configToUpdate.OrderStatus = 2;
-                                        configToUpdate.EditedDate = DateTime.Now;
-                                        StaticObject.FilledOrders.Add(configToUpdate);
-                                        _configService.AddOrEditConfig(configToUpdate);
-                                    }
+                                    config.isClosingFilledOrder = true;
+                                    await ClosePosition(updatedData, user);                                    
                                 }
                             }
 
@@ -410,46 +410,57 @@ public class BotService : IBotService
                             var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.OrderId == orderId && c.OrderStatus == 2);
                             if (closingOrder == null)
                             {
-                                Console.WriteLine($"{updatedData?.Symbol}-Filled");
-                                
+                                config.isClosingFilledOrder = true;
+                                Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange.ToString()} - Filled");
+                                await TelegramHelper.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled.Value, config.TotalQuantity.Value);
+
                                 var (placedOrder, configToUpdate) = await ClosePosition(updatedData, user);
-                                if (placedOrder.Success && configToUpdate != null)
+                                if (!placedOrder.Success)
                                 {
-                                    configToUpdate.FilledPrice = updatedData.AveragePrice;
-                                    configToUpdate.FilledQuantity = updatedData.QuantityFilled;
-                                    configToUpdate.OrderStatus = 2;
-                                    configToUpdate.EditedDate = DateTime.Now;
-                                    StaticObject.FilledOrders.Add(configToUpdate);
-                                    _configService.AddOrEditConfig(configToUpdate);
-                                    await TelegramHelper.FillMessage(updatedData.Symbol, configToUpdate.OrderChange.ToString(), configToUpdate.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled.Value, configToUpdate.TotalQuantity.Value);
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"Close {updatedData.Symbol} error: {placedOrder.Error}");
-                                }
+                                    Console.WriteLine($"Close {updatedData.Symbol} error: {placedOrder?.Error?.Message}");
+                                }                                
                             }
                             else
                             {
-                                var openPrice = closingOrder.FilledPrice;
-                                var closePrice = updatedData.AveragePrice;
-                                var filledQuantity = updatedData.QuantityFilled;
-                                var pnlCash = closingOrder.PositionSide == AppConstants.LongSide ? (closePrice - openPrice) * filledQuantity : (openPrice - closePrice) * filledQuantity;
-                                var pnlPercent = pnlCash / (openPrice * filledQuantity) * 100;
+                                var openPrice = closingOrder.FilledPrice ?? 0;
+                                var closePrice = updatedData?.AveragePrice ?? 0;
+                                var filledQuantity = updatedData?.QuantityFilled ?? 0;
+                                var pnlCash = Math.Round(Math.Abs((openPrice - closePrice) * filledQuantity), 2);
+                                var pnlPercent = Math.Round((pnlCash / (openPrice * filledQuantity)) * 100, 2);
                                 var pnlText = pnlCash > 0 ? "Win" : "Lose";
-                                Console.WriteLine($"{updatedData?.Symbol}|{pnlText}|PNL: {pnlCash}-{pnlPercent}");
+                                Console.WriteLine($"{updatedData?.Symbol}|{closingOrder.OrderChange}|{pnlText}|PNL: ${pnlCash.ToString("0.00")} {pnlPercent.ToString("0.00")}%");
                                 
                                 StaticObject.FilledOrders.TryTake(out closingOrder);
-                                var configToUpdate = StaticObject.AllConfigs.FirstOrDefault(c => c.OrderId == orderId);
-                                if (configToUpdate != null)
+                                config.OrderId = string.Empty;
+                                config.ClientOrderId = string.Empty;
+                                config.OrderStatus = null;
+                                config.IsActive = pnlCash > 0;
+                                config.isClosingFilledOrder = false;
+                                config.EditedDate = DateTime.Now;
+                                _configService.AddOrEditConfig(config);
+                                await TelegramHelper.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent);
+                                if (pnlCash <= 0)
                                 {
-                                    configToUpdate.OrderId = string.Empty;
-                                    configToUpdate.ClientOrderId = string.Empty;
-                                    configToUpdate.OrderStatus = null;
-                                    _configService.AddOrEditConfig(configToUpdate);
-                                    await TelegramHelper.PnlMessage(updatedData.Symbol, configToUpdate.OrderChange.ToString(), configToUpdate.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash.Value, pnlPercent.Value);
+                                    await _bus.Send(new OffConfigMessage
+                                    {
+                                        Configs = new List<string>
+                                            {
+                                                config.CustomId
+                                            }
+                                    });
                                 }
                             }
                         }
+                        else if(orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled || orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled)
+                        {
+                            await _bus.Send(new OffConfigMessage
+                            {
+                                Configs = new List<string>
+                                {
+                                    config.CustomId
+                                }
+                            });
+                        }    
                     }
 
                 });
@@ -523,10 +534,19 @@ public class BotService : IBotService
             NewOrderType.Limit,
             orderUpdate?.QuantityFilled ?? 0,
             orderPrice,
-            orderUpdate?.IsLeverage,
-            clientOrderId: orderUpdate?.ClientOrderId
+            false
         );
-
+        
+        if (placedOrder.Success && configToUpdate != null)
+        {
+            configToUpdate.OrderId = placedOrder.Data.OrderId;
+            configToUpdate.FilledPrice = orderUpdate.AveragePrice;
+            configToUpdate.FilledQuantity = orderUpdate.QuantityFilled;
+            configToUpdate.OrderStatus = 2;
+            configToUpdate.EditedDate = DateTime.Now;
+            StaticObject.FilledOrders.Add(configToUpdate);
+            _configService.AddOrEditConfig(configToUpdate);
+        }
         return (placedOrder, configToUpdate);
     }
 
@@ -555,11 +575,16 @@ public class BotService : IBotService
                     config.FilledQuantity,
                     orderPriceWithTicksize
                 );
+            if(!amendOrder.Success)
+            {
+                Console.WriteLine($"Close Filled Order {config.Symbol}|{config.PositionSide}|{config.OrderChange}\nError: {amendOrder.Error.Message}");
+            }
             return amendOrder.Success;
         }
         catch (Exception ex)
         {
             // Log error to telegram
+            Console.WriteLine($"Close Filled Order {config.Symbol}|{config.PositionSide}|{config.OrderChange}\nError: {ex.ToString()}");
             return false;
         }
     }

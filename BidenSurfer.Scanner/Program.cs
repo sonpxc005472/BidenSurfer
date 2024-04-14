@@ -43,6 +43,7 @@ namespace BidenSurfer.Scanner
                 });
                 services.AddCustomMassTransit(configuration);
                 services.AddScoped<IRedisCacheService, RedisCacheService>();
+                services.AddScoped<IUserService, UserService>();
                 services.AddScoped<IConfigService, ConfigService>();
                 services.AddScoped<IScannerService, ScannerService>();
                 services.AddScoped<IBotService, BotService>();

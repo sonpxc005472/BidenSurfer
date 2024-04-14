@@ -20,25 +20,25 @@ namespace BidenSurfer.Infras.Helpers
         
         public static async Task OffConfigMessage(string symbol, string oc, string positionSide, string tele, string reason)
         {
-            var text = $"&#128244; Off <i>{symbol}</i> | {positionSide.ToUpper()} | {oc}\n{reason}";
+            var text = $"&#128244; Off <i>{symbol}</i> | {positionSide.ToUpper()} | {oc}\n<code>{reason}</code>";
             await SendMessage(text, tele);
         }
 
         public static async Task FillMessage(string symbol, string oc, string positionSide, string tele, bool filled, decimal filledAmount, decimal orderAmount)
         {
-            var text = $"&#128680; {(filled ? "FILLED": "PARTIALLY FILLED")} <i>{symbol}</i> | {positionSide.ToUpper()} | {oc} \nAMOUNT: {filledAmount}/{orderAmount}";
+            var text = $"&#128680; {(filled ? "FILLED": "PARTIALLY FILLED")} <b>{symbol}</b> | {positionSide.ToUpper()} | {oc} \nAMOUNT: {filledAmount}/{orderAmount}";
             await SendMessage(text, tele);
         }
         
         public static async Task PnlMessage(string symbol, string oc, string positionSide, string tele, bool win, decimal pnlCash, decimal pnlPercent)
         {
-            var text = $"<b>{symbol}<b> | {positionSide.ToUpper()} | {(win? "WIN":"LOSE")} \nOC: {oc}\n PNL: ${pnlCash} {pnlPercent}%";
+            var text = $"<b>{symbol}</b> | {positionSide.ToUpper()} | {(win? "WIN":"LOSE")} | <b>OC:</b> {oc}\n<b>PNL</b>: <code>${pnlCash} {pnlPercent}%</code>";
             await SendMessage(text, tele);
         }
         
         public static async Task ErrorMessage(string symbol, string oc, string positionSide, string tele, string error)
         {
-            var text = $"<b>{symbol}<b> | {positionSide.ToUpper()} | {oc}\n<b>Error</b>: {error}";
+            var text = $"<b>{symbol}</b> | {positionSide.ToUpper()} | {oc}\n<b>Error</b>: <code>{error}</code>";
             await SendMessage(text, tele);
         }
     }
