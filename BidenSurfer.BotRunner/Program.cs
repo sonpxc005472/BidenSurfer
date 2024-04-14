@@ -63,10 +63,10 @@ namespace BidenSurfer.BotRunner
                 {
                     x.Consumer<ScannerIndicatorConsumer>(ctx);
                 });
-                //cfg.ReceiveEndpoint(QueueName.RestartUserBot, x =>
-                //{
-                //    x.Consumer<RestartUserBotConsumer>(ctx);
-                //});
+                cfg.ReceiveEndpoint(QueueName.OnOffConfigMessageBotRunner, x =>
+                {
+                    x.Consumer<OnOffConfigConsumer>(ctx);
+                });
 
                 #endregion
 

@@ -8,5 +8,7 @@ namespace BidenSurfer.Infras.BusEvents
         public static readonly string SaveNewConfig = "SaveNewConfig";
         public static readonly string StartOrStopUserBot = "StartOrStopUserBot";
         public static readonly string RestartUserBot = "RestartUserBot";
+        public static readonly string OnOffConfigMessageBotRunner = "OnOffConfigMessageBotRunner";
+        public static readonly string OnOffConfigMessageScanner = "OnOffConfigMessageScanner";
     }
 }

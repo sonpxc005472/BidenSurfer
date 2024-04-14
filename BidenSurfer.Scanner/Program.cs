@@ -7,6 +7,7 @@ using BidenSurfer.Infras.BusEvents;
 using MassTransit;
 using BidenSurfer.Infras.Domains;
 using BidenSurfer.BotRunner.Services;
+using BidenSurfer.Scanner.Consumers;
 
 namespace BidenSurfer.Scanner
 {
@@ -55,7 +56,14 @@ namespace BidenSurfer.Scanner
         public static IServiceCollection AddCustomMassTransit(this IServiceCollection services, IConfiguration configuration)
         {
             void ConfigureEnpoint(IBusRegistrationContext ctx, IBusFactoryConfigurator cfg)
-            {                
+            {
+                #region Subscribe endpoints
+                cfg.ReceiveEndpoint(QueueName.OnOffConfigMessageScanner, x =>
+                {
+                    x.Consumer<OnOffConfigConsumer>(ctx);
+                });
+                #endregion
+
                 #region Publish endpoints
 
                 EndpointConvention.Map<NewConfigCreatedMessage>(new Uri($"queue:{QueueName.ScannerIndicator}"));
