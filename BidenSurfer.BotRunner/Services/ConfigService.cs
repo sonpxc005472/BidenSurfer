@@ -55,6 +55,7 @@ public class ConfigService : IConfigService
             existedConfig.EditedDate = config.EditedDate;
             existedConfig.Expire = config.Expire;
             existedConfig.FilledQuantity = config.FilledQuantity;
+            
 
             var caconfig = StaticObject.AllConfigs.FirstOrDefault(x => x.CustomId == config.CustomId);
             if (caconfig != null)

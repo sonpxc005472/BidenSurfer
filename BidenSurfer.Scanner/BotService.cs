@@ -234,7 +234,10 @@ public class BotService : IBotService
                 isNewScan = true
             };
             configs.Add(config);
-            await TelegramHelper.ScannerOpenMessage(scanner.Title, symbol, oc.ToString(), scanner.PositionSide, userSetting.TeleChannel);
+            if(userSetting != null)
+            {
+                await TelegramHelper.ScannerOpenMessage(scanner.Title, symbol, oc.ToString(), scanner.PositionSide, userSetting.TeleChannel);
+            }
         }
         _configService.AddOrEditConfig(configs);
         return configs;
