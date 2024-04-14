@@ -9,6 +9,7 @@
         public const string RedisConfigById = "RedisConfigById_{0}";
         public const string RedisAllConfigs = "RedisAllConfigs";
         public const string RedisAllScanners = "RedisAllScanners";
+        public const string RedisAllScannerSetting = "RedisAllScannerSetting";
         public const string RedisAllOrders = "RedisAllOrders";
         public const string RedisFilledOrders = "RedisFilledOrders";
         public const string RedisOrdersByUser = "RedisOrdersByUser_{0}";

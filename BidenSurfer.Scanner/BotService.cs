@@ -103,9 +103,14 @@ public class BotService : IBotService
                                             var scanOcExisted = configs.FirstOrDefault(c => c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId && c.IsActive);
                                             if (scanOcExisted == null)
                                             {
+                                                var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
+                                                var blackList = scannerSetting?.BlackList;
+                                                var maxOpen = scannerSetting?.MaxOpen ?? 4; // We can only open 4 orders by default
+                                                var noScannerOpen = configs.Count(c=>c.CreatedBy == AppConstants.CreatedByScanner && c.IsActive && !string.IsNullOrEmpty(c.OrderId));
+                                                var symbolDetail = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 //If scan indicator matched user's scanner configurations 
                                                 if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
-                                                    && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume
+                                                    && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume && noScannerOpen <= maxOpen && (blackList == null || (blackList != null && !blackList.Any(b=>b == symbolDetail?.BaseAsset)))
                                                     )
                                                 {
                                                     isMatched = true;
@@ -136,11 +141,15 @@ public class BotService : IBotService
                                             var scanOcExisted = configs.FirstOrDefault(c => c.IsActive && c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId);
                                             if (scanOcExisted == null)
                                             {
+                                                var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
+                                                var blackList = scannerSetting?.BlackList;
+                                                var maxOpen = scannerSetting?.MaxOpen ?? 4; // We can only open 4 orders by default
+                                                var noScannerOpen = configs.Count(c => c.CreatedBy == AppConstants.CreatedByScanner && c.IsActive && !string.IsNullOrEmpty(c.OrderId));
                                                 var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
-                                                var isMarginTrading = (instrument.MarginTrading == MarginTrading.Both || instrument.MarginTrading == MarginTrading.UtaOnly);
+                                                var isMarginTrading = (instrument?.MarginTrading == MarginTrading.Both || instrument?.MarginTrading == MarginTrading.UtaOnly);
                                                 //If scan indicator matched user's scanner configurations 
                                                 if (scanner.PositionSide == AppConstants.ShortSide && scanner.OrderChange <= shortPercent
-                                                    && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading
+                                                    && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading && noScannerOpen <= maxOpen && (blackList == null || (blackList != null && !blackList.Any(b => b == instrument?.BaseAsset)))
                                                     )
                                                 {
                                                     isMatched = true;

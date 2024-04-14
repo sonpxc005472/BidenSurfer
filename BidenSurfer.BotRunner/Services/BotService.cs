@@ -65,9 +65,10 @@ public class BotService : IBotService
                         {
                             allActiveConfigs = StaticObject.AllConfigs;
                             var symbolConfigs = allActiveConfigs.Where(c => c.Symbol == symbol && c.IsActive).ToList();
+                            var openScanners = symbolConfigs.Where(x => x.CreatedBy == AppConstants.CreatedByScanner && !string.IsNullOrEmpty(x.OrderId)).ToList();
                             foreach (var symbolConfig in symbolConfigs)
                             {
-                                bool isExistedScanner = symbolConfigs.Any(x => x.UserId == symbolConfig.UserId && x.CreatedBy == AppConstants.CreatedByScanner && !string.IsNullOrEmpty(x.OrderId));
+                                bool isExistedScanner = openScanners.Any(x=>x.UserId == symbolConfig.UserId);
                                 bool isLongSide = symbolConfig.PositionSide == AppConstants.LongSide;
                                 var existingFilledOrders = symbolConfigs.Where(x => x.UserId == symbolConfig.UserId && x.OrderStatus == 2).ToList();
                                 var sideOrderExisted = symbolConfigs.Any(x => x.UserId == symbolConfig.UserId && x.PositionSide != symbolConfig.PositionSide);
@@ -181,7 +182,7 @@ public class BotService : IBotService
                             orderSide = OrderSide.Buy;
                         }
                         string clientOrderId = Guid.NewGuid().ToString();
-                        Console.WriteLine($"Take order {config.Symbol}: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+                        Console.WriteLine($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
                         var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
                             (
                                 Category.Spot,
@@ -204,10 +205,20 @@ public class BotService : IBotService
                         }
                         else
                         {
-                            var message = $"Take order {config.Symbol} error: {placedOrder.Error.Message}";
+                            var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {placedOrder?.Error?.Message}";
                             Console.WriteLine(message);
-                            await TelegramHelper.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, message);
+                            await TelegramHelper.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, placedOrder?.Error?.Message ?? string.Empty);
                             _configService.OffConfig(new List<string> { config.CustomId });
+                            await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
+                            await _bus.Send(new OnOffConfigMessageScanner
+                            {
+                                Configs = new List<ConfigDto> {
+                                    new ConfigDto{
+                                        CustomId = config.CustomId,
+                                        IsActive = false,
+                                    }
+                                }
+                            });
                         }
                     }
 

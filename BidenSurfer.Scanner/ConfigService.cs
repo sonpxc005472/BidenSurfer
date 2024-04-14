@@ -7,6 +7,7 @@ public interface IConfigService
 {
     List<ConfigDto> GetAllActive();
     void AddOrEditConfig(List<ConfigDto> configs);
+    void OnOffConfig(List<ConfigDto> configs);
 }
 
 public class ConfigService : IConfigService
@@ -85,5 +86,26 @@ public class ConfigService : IConfigService
             return activeData;
         }        
         return resultDto;
-    }    
+    }
+
+    public void OnOffConfig(List<ConfigDto> configs)
+    {
+        foreach (var config in configs)
+        {
+            if (!config.IsActive)
+            {
+                StaticObject.AllConfigs.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);                               
+            }
+            var cacheData = StaticObject.AllConfigs.FirstOrDefault(c => c.CustomId == config.CustomId);
+
+            if (cacheData != null)
+            {
+                cacheData.IsActive = config.IsActive;
+                cacheData.OrderId = string.Empty;
+                cacheData.ClientOrderId = string.Empty;
+                cacheData.OrderStatus = null;
+            }
+
+        }
+    }
 }

@@ -9,6 +9,8 @@ public interface IScannerService
 {
     Task<List<ScannerDto>> GetAll();
     void DeleteAll();
+    Task<List<ScannerSettingDto>> GetAllScannerSetting();
+
 }
 
 public class ScannerService : IScannerService
@@ -72,5 +74,38 @@ public class ScannerService : IScannerService
             return resultDto;
         }
         
+    }
+
+    public async Task<List<ScannerSettingDto>> GetAllScannerSetting()
+    {
+        List<ScannerSettingDto> resultDto = new List<ScannerSettingDto>();
+        try
+        {
+            var cachedData = _redisCacheService.GetCachedData<List<ScannerSettingDto>>(AppConstants.RedisAllScannerSetting);
+            if (cachedData != null)
+            {
+                StaticObject.AllScannerSetting = cachedData;
+                return cachedData;
+            }
+            else
+            {
+                var result = await _context.ScannerSetting.ToListAsync();
+                resultDto = result.Select(r => new ScannerSettingDto
+                {
+                    Id = r.Id,
+                    UserId = r.Userid,
+                    BlackList = r.BlackList,
+                    MaxOpen = r.MaxOpen
+                }).ToList();
+                StaticObject.AllScannerSetting = resultDto;
+                _redisCacheService.SetCachedData(AppConstants.RedisAllScannerSetting, resultDto, TimeSpan.FromDays(10));
+            }
+            return resultDto;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+            return resultDto;
+        }
     }
 }

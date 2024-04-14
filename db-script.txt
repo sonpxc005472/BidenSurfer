@@ -64,6 +64,15 @@ CREATE TABLE IF NOT EXISTS scanner (
 	isactive boolean 
 );
 
+CREATE TABLE IF NOT EXISTS scannersetting (
+    id 	BIGSERIAL PRIMARY KEY,
+    userid BIGINT NOT NULL,
+	blacklist JSONB,
+	maxopen INTEGER
+);
+
+INSERT INTO scannersetting(userid, blacklist, maxopen) VALUES (1, '["CORE", "MNT"]', 4)
+
 =====================================================
 INSERT INTO users (fullname, username, password, email, role, status) VALUES('trader1', 'trader1', 'trader1@bybit', 'trader1@gmail.com', 2, 1)
 INSERT INTO usersettings (userid, apikey, secretkey, passphrase, telechannel) VALUES(1, 'O3VED19egBxMXKhJDE', 'ZHW9frPTjrLbqWgDS6qMBFshalpxb1s7iS8m', 'trader1', '-123467')

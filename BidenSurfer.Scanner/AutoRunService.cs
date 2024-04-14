@@ -35,6 +35,7 @@ namespace BidenSurfer.Scanner.Services
             _scannerService.DeleteAll();
             _configService.GetAllActive();
             await _userService.GetAllActive();
+            await _scannerService.GetAllScannerSetting();
             await _scannerService.GetAll();
             await _botService.SubscribeSticker();
         }

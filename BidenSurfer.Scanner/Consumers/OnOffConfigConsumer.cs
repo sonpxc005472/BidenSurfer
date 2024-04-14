@@ -12,10 +12,7 @@ namespace BidenSurfer.Scanner.Consumers
         }
         public async Task Consume(ConsumeContext<OnOffConfigMessageScanner> context)
         {
-            //var allConfigs = await _configService.GetAllActive();
-            //await _botService.SubscribeKline1m();
-            //await _botService.SubscribeSticker();
-            //var count = allConfigs.Count();
+            _configService.OnOffConfig(context.Message.Configs);
         }
     }
 }
