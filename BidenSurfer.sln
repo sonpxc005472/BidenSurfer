@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BidenSurfer.Infras", "Biden
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BidenSurfer.BotRunner", "BidenSurfer.BotRunner\BidenSurfer.BotRunner.csproj", "{F3AD3962-8490-40D3-A2D8-448EEA832E7E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BidenSurfer.Scanner", "BidenSurfer.Scanner\BidenSurfer.Scanner.csproj", "{1852A1D8-8C42-42CF-96A9-F6A60778759C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BidenSurfer.Scanner", "BidenSurfer.Scanner\BidenSurfer.Scanner.csproj", "{1852A1D8-8C42-42CF-96A9-F6A60778759C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

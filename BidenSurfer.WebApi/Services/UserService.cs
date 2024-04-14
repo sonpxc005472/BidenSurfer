@@ -4,6 +4,7 @@ using BidenSurfer.Infras;
 using BidenSurfer.Infras.Domains;
 using BidenSurfer.Infras.Entities;
 using BidenSurfer.Infras.Models;
+using BidenSurfer.WebApi.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -16,6 +17,8 @@ public interface IUserService
     Task<UserDto?> GetById(long id);
     Task<bool> AddOrEdit(UserDto user);
     Task<bool> Delete(long id);
+    Task<UserSettingDto?> GetUserSetting(long id);
+    Task<bool> SaveUserSetting(UserSettingDto userSettingDto);
 }
 
 public class UserService : IUserService
@@ -30,15 +33,16 @@ public class UserService : IUserService
     {
         var userEntity = await _context.Users?.FirstOrDefaultAsync(c => c.Id == user.Id);
         if (userEntity == null)
-        {
+        {            
+            var hashedPassword = SecurityHelper.GenerateHashedPassword(user.Password);
             //Add new
             var userAdd = new User
             {
                 FullName = user.FullName,
                 Username = user.Username,
-                Password = user.Password,
+                Password = hashedPassword,
                 Role = user.Role,
-                Status = user.Status,
+                Status = 1,
                 Email = user.Email
             };
             _context.Users.Add(userAdd);
@@ -48,7 +52,6 @@ public class UserService : IUserService
             //Edit
             userEntity.FullName = user.FullName;
             userEntity.Username = user.Username;
-            userEntity.Password = user.Password;
             userEntity.Role = user.Role;
             userEntity.Status = user.Status;
             userEntity.Email = user.Email;
@@ -60,7 +63,8 @@ public class UserService : IUserService
 
     public async Task<AuthenticateResponse?> Authenticate(AuthenticateRequest model)
     {
-        var user = await _context.Users?.SingleOrDefaultAsync(x => x.Username == model.Username && x.Password == model.Password);
+        var hashedPass = SecurityHelper.GenerateHashedPassword(model.Password);
+        var user = await _context.Users?.SingleOrDefaultAsync(x => x.Email == model.Username && hashedPass == x.Password);
 
         // return null if user not found
         if (user == null) return null;
@@ -128,6 +132,58 @@ public class UserService : IUserService
                 UserId = user.Id
             }
         };
+    }
+
+    public async Task<UserSettingDto?> GetUserSetting(long id)
+    {
+        var user = await _context.UserSettings.FirstOrDefaultAsync(x => x.UserId == id);
+        if (user == null)
+        {
+            return new UserSettingDto
+            {
+                ApiKey = string.Empty,
+                SecretKey = string.Empty,
+                PassPhrase = string.Empty,
+                TeleChannel = string.Empty,
+                UserId = id
+            };
+        }
+        return new UserSettingDto
+        {
+            ApiKey = user?.ApiKey,
+            SecretKey = user?.SecretKey,
+            PassPhrase = user?.PassPhrase,
+            TeleChannel = user?.TeleChannel,
+            Id = user.Id,
+            UserId = user.UserId
+        };
+    }
+
+    public async Task<bool> SaveUserSetting(UserSettingDto userSettingDto)
+    {
+        var userEntity = await _context.UserSettings?.FirstOrDefaultAsync(c => c.UserId == userSettingDto.UserId);
+        if (userEntity == null)
+        {
+            var userSetting = new UserSetting
+            {
+                ApiKey = userSettingDto.ApiKey,
+                SecretKey = userSettingDto.SecretKey,
+                PassPhrase = userSettingDto.PassPhrase,
+                UserId = userSettingDto.UserId,
+                TeleChannel = userSettingDto.TeleChannel
+            };
+            _context.UserSettings.Add(userSetting);
+        }
+        else
+        {
+            userEntity.ApiKey = userSettingDto.ApiKey;
+            userEntity.SecretKey = userSettingDto.SecretKey;
+            userEntity.PassPhrase = userSettingDto.PassPhrase;
+            userEntity.TeleChannel = userSettingDto.TeleChannel;
+            _context.UserSettings?.Update(userEntity);
+        }
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     // helper methods

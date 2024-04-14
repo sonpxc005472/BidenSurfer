@@ -74,3 +74,8 @@ VALUES(10, 3, 100, 100,3,70,true,2,1.5,1,'long','margin long 1', 5000,1)
 ======================================================
 Telegram channel id: -1001847838569
 https://api.telegram.org/bot6519727860:AAH34md0Aqu2RSavKU4kLDWnAzfXKiZSjSQ/getUpdates
+
+===================================================================
+Cài Node.js
+Cài Yarn: npm install --global yarn
+Detail here: https://github.com/altence/lightence-ant-design-react-template?tab=readme-ov-file
