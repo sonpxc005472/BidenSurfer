@@ -99,6 +99,8 @@ public class ConfigService : IConfigService
             config.OrderId = string.Empty;
             config.ClientOrderId = string.Empty;
             config.OrderStatus = null;
+            config.EditedDate = DateTime.Now;
+            config.isClosingFilledOrder = false;
         }
         _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
         var configsToUpdateMem = StaticObject.AllConfigs.Where(c => configIds.Contains(c.CustomId) && c.CreatedBy != AppConstants.CreatedByScanner).ToList();
@@ -108,6 +110,8 @@ public class ConfigService : IConfigService
             config.OrderId = string.Empty;
             config.ClientOrderId = string.Empty;
             config.OrderStatus = null;
+            config.EditedDate = DateTime.Now;
+            config.isClosingFilledOrder = false;
         }
     }
 

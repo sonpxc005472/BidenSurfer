@@ -31,12 +31,14 @@ public class BotService : IBotService
     private readonly IConfigService _configService;
     private readonly IUserService _userService;
     private readonly IBus _bus;
+    private readonly ITeleMessage _teleMessage;
     private SemaphoreSlim _mutex = new SemaphoreSlim(1);
-    public BotService(IConfigService configService, IUserService userService, IBus bus)
+    public BotService(IConfigService configService, IUserService userService, IBus bus, ITeleMessage teleMessage)
     {
         _configService = configService;
         _userService = userService;
         _bus = bus;
+        _teleMessage = teleMessage;
     }
 
     public async Task<BybitSocketClient> SubscribeSticker()
@@ -96,10 +98,10 @@ public class BotService : IBotService
                                 }
                                 else if (existingFilledOrders != null && existingFilledOrders.Any())
                                 {
-                                    //Đóng vị thế giá hiện tại nếu mở quá 1s mà chưa đóng được
+                                    //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được
                                     foreach (var order in existingFilledOrders)
                                     {
-                                        if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 1000)
+                                        if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 3000)
                                         {
                                             await CloseFilledOrder(order, currentPrice);
                                             order.EditedDate = currentTime;
@@ -115,17 +117,8 @@ public class BotService : IBotService
                                 var cancelledConfigs = new List<string>();
                                 foreach (var config in configExpired)
                                 {
-                                    var cancelled = await CancelOrder(config, true);
-                                    if (cancelled)
-                                    {
-                                        cancelledConfigs.Add(config.CustomId);
-                                    }
-                                }
-                                if (cancelledConfigs.Any())
-                                {
-                                    _configService.OffConfig(cancelledConfigs);
-                                    await _bus.Send(new OffConfigMessage { Configs = cancelledConfigs });
-                                }
+                                    await CancelOrder(config, true);                                    
+                                }                                
                             }
                         }
                         finally
@@ -207,7 +200,7 @@ public class BotService : IBotService
                         {
                             var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {placedOrder?.Error?.Message}";
                             Console.WriteLine(message);
-                            await TelegramHelper.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, placedOrder?.Error?.Message ?? string.Empty);
+                            await _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, placedOrder?.Error?.Message ?? string.Empty);
                             _configService.OffConfig(new List<string> { config.CustomId });
                             await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
                             await _bus.Send(new OnOffConfigMessageScanner
@@ -237,9 +230,9 @@ public class BotService : IBotService
 
     public async Task<bool> AmendOrder(ConfigDto config, decimal currentPrice)
     {
+        var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
         try
-        {
-            var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
+        {            
             BybitRestClient api;
             if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
             {
@@ -284,14 +277,17 @@ public class BotService : IBotService
             {
                 var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error.Message}";
                 Console.WriteLine(message);
-                //await TelegramHelper.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
+                await _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
                 await CancelOrder(config);
             }
             return false;
         }
         catch (Exception ex)
         {
-            // Log error to telegram
+            var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {ex.Message}";
+            Console.WriteLine(message);
+            await _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {ex.Message}");
+            await CancelOrder(config);
             return false;
         }
     }
@@ -325,11 +321,7 @@ public class BotService : IBotService
                 var messageSub = isExpired ? $"Expired {config.Expire}m" : $"Cancelled";
                 var message = isExpired ? $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}" : $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}";
                 Console.WriteLine(message);
-                await TelegramHelper.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
-                await _bus.Send(new OffConfigMessage
-                {
-                    Configs = new List<string> { config.CustomId }
-                });
+                await _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
                 return true;
             }
         }
@@ -374,8 +366,8 @@ public class BotService : IBotService
             }
 
             //var activeConfigs = userConfigs.Where(c => c.IsActive).ToList();
-            UpdateSubscription orderId;
-            if (!StaticObject.OrderSubscriptions.TryGetValue(user.Id, out orderId))
+            UpdateSubscription orderSub;
+            if (!StaticObject.OrderSubscriptions.TryGetValue(user.Id, out orderSub))
             {
                 var result = await socket.V5PrivateApi.SubscribeToOrderUpdatesAsync(async (data) =>
                 {
@@ -384,8 +376,14 @@ public class BotService : IBotService
                     {
                         var orderState = updatedData?.Status;
                         var orderId = updatedData?.OrderId;
+                        if(orderState != Bybit.Net.Enums.V5.OrderStatus.New && orderState != Bybit.Net.Enums.V5.OrderStatus.Created)
+                            Console.WriteLine($"{updatedData?.Symbol} | {orderState} | {orderId}");
                         var config = StaticObject.AllConfigs.FirstOrDefault(c => c.OrderId == orderId);
-
+                        if(config == null)
+                        {
+                            Console.WriteLine("Null order: " + orderId);
+                            continue;
+                        }
                         if (orderState == Bybit.Net.Enums.V5.OrderStatus.PartiallyFilled)
                         {                            
                             var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.OrderId == orderId && c.OrderStatus == 2);
@@ -393,7 +391,7 @@ public class BotService : IBotService
                             {
                                 Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange.ToString()} - PartiallyFilled");
 
-                                await TelegramHelper.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, false, updatedData.QuantityFilled.Value, config.TotalQuantity.Value);
+                                await _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, false, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
                                 BybitRestClient api;
                                 if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
                                 {
@@ -423,13 +421,9 @@ public class BotService : IBotService
                             {
                                 config.isClosingFilledOrder = true;
                                 Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange.ToString()} - Filled");
-                                await TelegramHelper.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled.Value, config.TotalQuantity.Value);
+                                await _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
 
-                                var (placedOrder, configToUpdate) = await ClosePosition(updatedData, user);
-                                if (!placedOrder.Success)
-                                {
-                                    Console.WriteLine($"Close {updatedData.Symbol} error: {placedOrder?.Error?.Message}");
-                                }                                
+                                await ClosePosition(updatedData, user);                                                               
                             }
                             else
                             {
@@ -449,9 +443,10 @@ public class BotService : IBotService
                                 config.isClosingFilledOrder = false;
                                 config.EditedDate = DateTime.Now;
                                 _configService.AddOrEditConfig(config);
-                                await TelegramHelper.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent);
-                                if (pnlCash <= 0)
+                                await _teleMessage.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent);
+                                if (pnlCash <= 0 && config.CreatedBy == AppConstants.CreatedByScanner)
                                 {
+                                    _configService.OffConfig(new List<string> { config.CustomId });
                                     await _bus.Send(new OffConfigMessage
                                     {
                                         Configs = new List<string>
@@ -462,13 +457,17 @@ public class BotService : IBotService
                                 }
                             }
                         }
-                        else if(orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled || orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled)
+                        else if(orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled)
                         {
+                            var customId = config.CustomId;
+                            
+                            _configService.OffConfig(new List<string> { customId });
+
                             await _bus.Send(new OffConfigMessage
                             {
                                 Configs = new List<string>
                                 {
-                                    config.CustomId
+                                    customId
                                 }
                             });
                         }    
@@ -521,44 +520,58 @@ public class BotService : IBotService
 
     }
 
-    private async Task<(WebCallResult<BybitOrderId>?, ConfigDto?)> ClosePosition(BybitOrderUpdate orderUpdate, UserDto user)
+    private async Task ClosePosition(BybitOrderUpdate orderUpdate, UserDto user)
     {
         var orderId = orderUpdate?.OrderId;
-        var existedOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.OrderId == orderId);
         var configToUpdate = StaticObject.AllConfigs.FirstOrDefault(c => c.OrderId == orderId);
-        BybitRestClient api;
-        if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
-        {
-            api = new BybitRestClient();
-            var userSetting = user.Setting;
-            api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
-            StaticObject.RestApis.TryAdd(user.Id, api);
-        }
-        var ordSide = orderUpdate?.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-        var orderPrice = configToUpdate?.TPPrice;
+        try
+        {            
+            BybitRestClient api;
+            if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
+            {
+                api = new BybitRestClient();
+                var userSetting = user.Setting;
+                api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
+                StaticObject.RestApis.TryAdd(user.Id, api);
+            }
+            var ordSide = orderUpdate?.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
+            var orderPrice = configToUpdate?.TPPrice;
+            var clientOrderId = Guid.NewGuid().ToString();
+            var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
+            (
+                Category.Spot,
+                orderUpdate?.Symbol,
+                ordSide,
+                NewOrderType.Limit,
+                orderUpdate?.QuantityFilled ?? 0,
+                orderPrice,
+                false,
+                clientOrderId: clientOrderId
+            );
 
-        var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
-        (
-            Category.Spot,
-            orderUpdate?.Symbol,
-            ordSide,
-            NewOrderType.Limit,
-            orderUpdate?.QuantityFilled ?? 0,
-            orderPrice,
-            false
-        );
-        
-        if (placedOrder.Success && configToUpdate != null)
-        {
-            configToUpdate.OrderId = placedOrder.Data.OrderId;
-            configToUpdate.FilledPrice = orderUpdate.AveragePrice;
-            configToUpdate.FilledQuantity = orderUpdate.QuantityFilled;
-            configToUpdate.OrderStatus = 2;
-            configToUpdate.EditedDate = DateTime.Now;
-            StaticObject.FilledOrders.Add(configToUpdate);
-            _configService.AddOrEditConfig(configToUpdate);
+            if (placedOrder.Success && configToUpdate != null)
+            {
+                Console.WriteLine($"Closing Filled Order: {orderUpdate.Symbol}|{configToUpdate.PositionSide}| {configToUpdate.OrderChange}|${orderPrice}- OrderId: {placedOrder.Data.OrderId}");
+                configToUpdate.OrderId = placedOrder.Data.OrderId;
+                configToUpdate.ClientOrderId = clientOrderId;
+                configToUpdate.FilledPrice = orderUpdate.AveragePrice;
+                configToUpdate.FilledQuantity = orderUpdate.QuantityFilled;
+                configToUpdate.OrderStatus = 2;
+                configToUpdate.EditedDate = DateTime.Now;
+                StaticObject.FilledOrders.Add(configToUpdate);
+                _configService.AddOrEditConfig(configToUpdate);
+            }
+            else
+            {
+                Console.WriteLine($"Close {orderUpdate.Symbol} error: {placedOrder?.Error?.Message}");
+            }
+            
         }
-        return (placedOrder, configToUpdate);
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Close Filled Order {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange} Error: {ex.ToString()}");
+        }
+        
     }
 
     private async Task<bool> CloseFilledOrder(ConfigDto config, decimal currentPrice)
@@ -589,6 +602,8 @@ public class BotService : IBotService
             if(!amendOrder.Success)
             {
                 Console.WriteLine($"Close Filled Order {config.Symbol}|{config.PositionSide}|{config.OrderChange}\nError: {amendOrder.Error.Message}");
+                config.isClosingFilledOrder = false;
+                config.OrderStatus = null;
             }
             return amendOrder.Success;
         }

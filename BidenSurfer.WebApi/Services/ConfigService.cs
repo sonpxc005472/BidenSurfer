@@ -279,7 +279,7 @@ public class ConfigService : IConfigService
                 foreach(var entity in toUpdate)
                 {
                     entity.IsActive = false;
-                    entity.EditedDate = DateTime.UtcNow;
+                    entity.EditedDate = DateTime.Now;
                 }
                 _context.UpdateRange(toUpdate);
             }

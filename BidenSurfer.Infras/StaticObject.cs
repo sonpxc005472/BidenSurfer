@@ -22,5 +22,6 @@ namespace BidenSurfer.Infras
         public static List<ScannerSettingDto> AllScannerSetting = new List<ScannerSettingDto>();
         public static List<UserDto> AllUsers = new List<UserDto>();
         public static List<BybitSpotSymbol> Symbols = new List<BybitSpotSymbol>();
+        public static bool IsInternalCancel = false;
     }
 }

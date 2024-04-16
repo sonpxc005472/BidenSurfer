@@ -8,6 +8,7 @@ using MassTransit;
 using BidenSurfer.Infras.Domains;
 using BidenSurfer.BotRunner.Services;
 using BidenSurfer.Scanner.Consumers;
+using BidenSurfer.Infras.Helpers;
 
 namespace BidenSurfer.Scanner
 {
@@ -44,6 +45,7 @@ namespace BidenSurfer.Scanner
                 });
                 services.AddCustomMassTransit(configuration);
                 services.AddScoped<IRedisCacheService, RedisCacheService>();
+                services.AddSingleton<ITeleMessage, TeleMessage>();
                 services.AddScoped<IUserService, UserService>();
                 services.AddScoped<IConfigService, ConfigService>();
                 services.AddScoped<IScannerService, ScannerService>();

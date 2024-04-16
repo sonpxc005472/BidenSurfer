@@ -21,11 +21,13 @@ public class BotService : IBotService
     IBus _bus;
     IConfigService _configService;
     IScannerService _scannerService;
-    public BotService(IBus bus, IConfigService configService, IScannerService scannerService)
+    private readonly ITeleMessage _teleMessage;
+    public BotService(IBus bus, IConfigService configService, IScannerService scannerService, ITeleMessage teleMessage)
     {
         _bus = bus;
         _configService = configService;
         _scannerService = scannerService;
+        _teleMessage = teleMessage;
     }
 
     public async Task<BybitSocketClient> SubscribeSticker()
@@ -245,7 +247,7 @@ public class BotService : IBotService
             configs.Add(config);
             if(userSetting != null)
             {
-                await TelegramHelper.ScannerOpenMessage(scanner.Title, symbol, oc.ToString(), scanner.PositionSide, userSetting.TeleChannel);
+                await _teleMessage.ScannerOpenMessage(scanner.Title, symbol, oc.ToString(), scanner.PositionSide, userSetting.TeleChannel);
             }
         }
         _configService.AddOrEditConfig(configs);

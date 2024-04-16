@@ -8,6 +8,7 @@ using BidenSurfer.Infras.BusEvents;
 using MassTransit;
 using System.Configuration;
 using BidenSurfer.BotRunner.Consumers;
+using BidenSurfer.Infras.Helpers;
 
 namespace BidenSurfer.BotRunner
 {
@@ -45,6 +46,7 @@ namespace BidenSurfer.BotRunner
                 });
                 services.AddCustomMassTransit(configuration);
                 services.AddScoped<IRedisCacheService, RedisCacheService>();
+                services.AddSingleton<ITeleMessage, TeleMessage>();
                 services.AddScoped<IUserService, UserService>();
                 services.AddScoped<IBotService, BotService>();
                 services.AddHostedService<AutoRunBotService>();
