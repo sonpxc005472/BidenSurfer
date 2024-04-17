@@ -41,9 +41,9 @@ namespace BidenSurfer.Infras.Helpers
             await SendMessage(text, tele);
         }
         
-        public async Task PnlMessage(string symbol, string oc, string positionSide, string tele, bool win, decimal pnlCash, decimal pnlPercent)
+        public async Task PnlMessage(string symbol, string oc, string positionSide, string tele, bool win, decimal pnlCash, decimal pnlPercent, int totalWin, int total)
         {
-            var text = $"💰 <b>{symbol}</b> | {positionSide.ToUpper()} | {(win? "WIN":"LOSE")} | {oc}\n<b>PNL</b>: <code>${pnlCash} {pnlPercent}%</code>";
+            var text = $"💰 <b>{symbol} | {positionSide.ToUpper()} | {(win? "WIN":"LOSE")} | {oc}</b>\n<b>PNL</b>: <code>${pnlCash} {pnlPercent}%</code>\nWIN RATE: <code>{totalWin}/{total}</code>";
             await SendMessage(text, tele);
         }
         

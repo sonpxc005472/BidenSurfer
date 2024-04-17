@@ -201,7 +201,13 @@ public class BotService : IBotService
                             var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {placedOrder?.Error?.Message}";
                             Console.WriteLine(message);
                             await _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, placedOrder?.Error?.Message ?? string.Empty);
-                            _configService.OffConfig(new List<string> { config.CustomId });
+                            _configService.UpdateConfig(new List<ConfigDto> { 
+                                new ConfigDto
+                                {
+                                    CustomId = config.CustomId,
+                                    IsActive = false
+                                }
+                            });
                             await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
                             await _bus.Send(new OnOffConfigMessageScanner
                             {
@@ -432,21 +438,41 @@ public class BotService : IBotService
                                 var filledQuantity = updatedData?.QuantityFilled ?? 0;
                                 var pnlCash = Math.Round(Math.Abs((openPrice - closePrice) * filledQuantity), 2);
                                 var pnlPercent = Math.Round((pnlCash / (openPrice * filledQuantity)) * 100, 2);
-                                var pnlText = pnlCash > 0 ? "Win" : "Lose";
+                                var pnlText = pnlCash > 0 ? "WIN" : "LOSE";
                                 Console.WriteLine($"{updatedData?.Symbol}|{closingOrder.OrderChange}|{pnlText}|PNL: ${pnlCash.ToString("0.00")} {pnlPercent.ToString("0.00")}%");
                                 
                                 StaticObject.FilledOrders.TryTake(out closingOrder);
                                 config.OrderId = string.Empty;
                                 config.ClientOrderId = string.Empty;
                                 config.OrderStatus = null;
-                                config.IsActive = pnlCash > 0;
+                                config.IsActive = !(config.CreatedBy == AppConstants.CreatedByScanner && pnlCash <= 0) || pnlCash > 0;
                                 config.isClosingFilledOrder = false;
                                 config.EditedDate = DateTime.Now;
-                                _configService.AddOrEditConfig(config);
-                                await _teleMessage.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent);
+                                var amountIncrease = config.Amount;
+                                if(pnlCash <= 0 && config.CreatedBy != AppConstants.CreatedByScanner && config.IncreaseOcPercent != null && config.IncreaseOcPercent > 0)
+                                {
+                                    config.OrderChange = config.OrderChange + (config.OrderChange * config.IncreaseOcPercent.Value / 100);
+                                }    
+                                if(config.IncreaseAmountPercent != null && config.IncreaseAmountPercent > 0)
+                                {
+                                    amountIncrease = config.Amount + (config.OriginAmount.Value * config.IncreaseAmountPercent.Value / 100);
+                                }
+                                if(config.AmountLimit != null && config.AmountLimit > 0)
+                                {
+                                    amountIncrease = amountIncrease > config.AmountLimit ? config.AmountLimit.Value : amountIncrease;
+                                }    
+                                
+                                config.Amount = config.CreatedBy == AppConstants.CreatedByScanner && pnlCash <= 0? config.OriginAmount.Value : amountIncrease;
+                                                                
                                 if (pnlCash <= 0 && config.CreatedBy == AppConstants.CreatedByScanner)
                                 {
-                                    _configService.OffConfig(new List<string> { config.CustomId });
+                                    _configService.UpdateConfig(new List<ConfigDto> {
+                                        new ConfigDto
+                                        {
+                                            CustomId = config.CustomId,
+                                            IsActive = false
+                                        }
+                                    });
                                     await _bus.Send(new OffConfigMessage
                                     {
                                         Configs = new List<string>
@@ -455,13 +481,28 @@ public class BotService : IBotService
                                             }
                                     });
                                 }
+                                else
+                                {
+                                    _configService.UpdateConfig(new List<ConfigDto> {
+                                        config
+                                    });
+                                }
+                                _configService.UpsertWinLose(config, pnlCash > 0);
+                                var configWin = _configService.GetWinLose(config);
+                                await _teleMessage.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent, configWin.Win, configWin.Total);
                             }
                         }
                         else if(orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled)
                         {
                             var customId = config.CustomId;
-                            
-                            _configService.OffConfig(new List<string> { customId });
+
+                            _configService.UpdateConfig(new List<ConfigDto> {
+                                new ConfigDto
+                                {
+                                    CustomId = customId,
+                                    IsActive = false
+                                }
+                            });
 
                             await _bus.Send(new OffConfigMessage
                             {

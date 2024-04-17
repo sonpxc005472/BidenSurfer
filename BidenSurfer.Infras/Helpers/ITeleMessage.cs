@@ -12,7 +12,7 @@ namespace BidenSurfer.Infras.Helpers
         Task ScannerOpenMessage(string title, string symbol, string oc, string positionSide, string tele);
         Task OffConfigMessage(string symbol, string oc, string positionSide, string tele, string reason);
         Task FillMessage(string symbol, string oc, string positionSide, string tele, bool filled, decimal filledAmount, decimal orderAmount, decimal price);
-        Task PnlMessage(string symbol, string oc, string positionSide, string tele, bool win, decimal pnlCash, decimal pnlPercent);
+        Task PnlMessage(string symbol, string oc, string positionSide, string tele, bool win, decimal pnlCash, decimal pnlPercent, int totalWin, int total);
         Task ErrorMessage(string symbol, string oc, string positionSide, string tele, string error);
     }
 }

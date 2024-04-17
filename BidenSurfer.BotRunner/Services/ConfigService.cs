@@ -13,8 +13,10 @@ public interface IConfigService
     ConfigDto GetById(long id);
     List<ConfigDto> GetByUserId(long userid);
     void AddOrEditConfig(ConfigDto config);
-    void OffConfig(List<string> configIds);
+    void UpdateConfig(List<ConfigDto> configs);
     void DeleteAllConfig();
+    void UpsertWinLose(ConfigDto configDto, bool isWin);
+    ConfigWinLose GetWinLose(ConfigDto configDto);
 }
 
 public class ConfigService : IConfigService
@@ -55,6 +57,8 @@ public class ConfigService : IConfigService
             existedConfig.EditedDate = config.EditedDate;
             existedConfig.Expire = config.Expire;
             existedConfig.FilledQuantity = config.FilledQuantity;
+            existedConfig.isClosingFilledOrder = config.isClosingFilledOrder;
+            existedConfig.OriginAmount = config.OriginAmount;
             
 
             var caconfig = StaticObject.AllConfigs.FirstOrDefault(x => x.CustomId == config.CustomId);
@@ -76,6 +80,8 @@ public class ConfigService : IConfigService
                 caconfig.EditedDate = config.EditedDate;
                 caconfig.Expire = config.Expire;
                 caconfig.FilledQuantity = config.FilledQuantity;
+                caconfig.isClosingFilledOrder = config.isClosingFilledOrder;
+                caconfig.OriginAmount = config.OriginAmount;
             }
         }
         _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
@@ -87,32 +93,47 @@ public class ConfigService : IConfigService
         StaticObject.AllConfigs.Clear();
     }
 
-    public void OffConfig(List<string> configIds)
+    public void UpdateConfig(List<ConfigDto> configs)
     {
         var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
-        cachedData.RemoveAll(c => configIds.Contains(c.CustomId) && c.CreatedBy == AppConstants.CreatedByScanner);
-        StaticObject.AllConfigs.RemoveAll(c => configIds.Contains(c.CustomId) && c.CreatedBy == AppConstants.CreatedByScanner);
-        var configsToUpdate = cachedData.Where(c => configIds.Contains(c.CustomId) && c.CreatedBy != AppConstants.CreatedByScanner).ToList();
-        foreach (var config in configsToUpdate)
+        
+        foreach (var config in configs)
         {
-            config.IsActive = false;
-            config.OrderId = string.Empty;
-            config.ClientOrderId = string.Empty;
-            config.OrderStatus = null;
-            config.EditedDate = DateTime.Now;
-            config.isClosingFilledOrder = false;
+            if(config.IsActive)
+            {
+                AddOrEditConfig(config);
+            }
+            else
+            {
+                cachedData.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);
+                StaticObject.AllConfigs.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);
+                var configToUpdate = cachedData.FirstOrDefault(c => config.CustomId == c.CustomId && c.CreatedBy != AppConstants.CreatedByScanner);
+                if(configToUpdate != null)
+                {
+                    configToUpdate.IsActive = false;
+                    configToUpdate.OrderId = string.Empty;
+                    configToUpdate.ClientOrderId = string.Empty;
+                    configToUpdate.OrderStatus = null;
+                    configToUpdate.EditedDate = DateTime.Now;
+                    configToUpdate.isClosingFilledOrder = false;
+                    configToUpdate.Amount = configToUpdate.OriginAmount ?? configToUpdate.Amount;
+                };                
+               
+                var configsToUpdateMem = StaticObject.AllConfigs.FirstOrDefault(c => config.CustomId == c.CustomId && c.CreatedBy != AppConstants.CreatedByScanner);
+                if(configsToUpdateMem != null)
+                {
+                    configsToUpdateMem.IsActive = false;
+                    configsToUpdateMem.OrderId = string.Empty;
+                    configsToUpdateMem.ClientOrderId = string.Empty;
+                    configsToUpdateMem.OrderStatus = null;
+                    configsToUpdateMem.EditedDate = DateTime.Now;
+                    configsToUpdateMem.isClosingFilledOrder = false;
+                    configsToUpdateMem.Amount = configsToUpdateMem.OriginAmount ?? configsToUpdateMem.Amount;
+                }                
+            }
         }
         _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
-        var configsToUpdateMem = StaticObject.AllConfigs.Where(c => configIds.Contains(c.CustomId) && c.CreatedBy != AppConstants.CreatedByScanner).ToList();
-        foreach (var config in configsToUpdateMem)
-        {
-            config.IsActive = false;
-            config.OrderId = string.Empty;
-            config.ClientOrderId = string.Empty;
-            config.OrderStatus = null;
-            config.EditedDate = DateTime.Now;
-            config.isClosingFilledOrder = false;
-        }
+
     }
 
     public async Task<List<ConfigDto>> GetAllActive()
@@ -184,5 +205,39 @@ public class ConfigService : IConfigService
     public List<ConfigDto> GetByUserId(long userid)
     {
         return StaticObject.AllConfigs.Where(c => c.UserId == userid).ToList();
+    }
+
+    public void UpsertWinLose(ConfigDto configDto, bool isWin)
+    {
+        var winDict = _redisCacheService.GetCachedData<Dictionary<string, ConfigWinLose>>(AppConstants.RedisConfigWinLose);
+        var key = $"{configDto.UserId}_{configDto.Symbol}_{configDto.PositionSide}_{configDto.OrderChange}";
+        if (winDict != null && winDict.ContainsKey(key))
+        {
+            var win = winDict[key];
+            win.Total = win.Total + 1;
+            if(isWin) win.Win = win.Win + 1;
+            winDict[key] = win;
+        }
+        else
+        {
+            winDict ??= new Dictionary<string, ConfigWinLose>();
+            winDict.Add(key, new ConfigWinLose
+            {
+                Total = 1,
+                Win = isWin? 1 : 0
+            });
+        }
+        _redisCacheService.SetCachedData(AppConstants.RedisConfigWinLose, winDict, TimeSpan.FromDays(100));
+    }
+
+    public ConfigWinLose GetWinLose(ConfigDto configDto)
+    {
+        var key = $"{configDto.UserId}_{configDto.Symbol}_{configDto.PositionSide}_{configDto.OrderChange}";
+        var winDict = _redisCacheService.GetCachedData<Dictionary<string, ConfigWinLose>>(AppConstants.RedisConfigWinLose);
+        if (winDict != null && winDict.ContainsKey(key))
+        {
+            return winDict[key];
+        }
+        return new ConfigWinLose();
     }
 }
