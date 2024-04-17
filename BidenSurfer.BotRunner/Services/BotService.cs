@@ -322,6 +322,17 @@ public class BotService : IBotService
                 var message = isExpired ? $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}" : $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}";
                 Console.WriteLine(message);
                 await _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
+                await _bus.Send(new OnOffConfigMessageScanner()
+                {
+                    Configs = new List<ConfigDto>
+                    {
+                        new ConfigDto
+                        {
+                            CustomId = config.CustomId,
+                            IsActive = false
+                        }
+                    }
+                });
                 return true;
             }
         }

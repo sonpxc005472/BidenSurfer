@@ -104,6 +104,8 @@ public class ConfigService : IConfigService
                 cacheData.OrderId = string.Empty;
                 cacheData.ClientOrderId = string.Empty;
                 cacheData.OrderStatus = null;
+                cacheData.isClosingFilledOrder = false;
+                cacheData.isNewScan = false;
             }
 
         }

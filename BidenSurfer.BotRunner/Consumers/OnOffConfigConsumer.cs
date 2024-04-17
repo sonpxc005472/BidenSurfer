@@ -15,10 +15,7 @@ namespace BidenSurfer.BotRunner.Consumers
         }
         public async Task Consume(ConsumeContext<OnOffConfigMessageBotRunner> context)
         {
-            //var allConfigs = await _configService.GetAllActive();
-            //await _botService.SubscribeKline1m();
-            //await _botService.SubscribeSticker();
-            //var count = allConfigs.Count();
+            _configService.OnOffConfig(context.Message.Configs);
         }
     }
 }

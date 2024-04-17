@@ -15,6 +15,7 @@ public interface IConfigService
     void AddOrEditConfig(ConfigDto config);
     void OffConfig(List<string> configIds);
     void DeleteAllConfig();
+    void OnOffConfig(List<ConfigDto> configs);
 }
 
 public class ConfigService : IConfigService
@@ -184,5 +185,27 @@ public class ConfigService : IConfigService
     public List<ConfigDto> GetByUserId(long userid)
     {
         return StaticObject.AllConfigs.Where(c => c.UserId == userid).ToList();
+    }
+
+    public void OnOffConfig(List<ConfigDto> configs)
+    {
+        foreach (var config in configs)
+        {
+            if (!config.IsActive)
+            {
+                StaticObject.AllConfigs.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);
+            }
+            var cacheData = StaticObject.AllConfigs.FirstOrDefault(c => c.CustomId == config.CustomId);
+
+            if (cacheData != null)
+            {
+                cacheData.IsActive = config.IsActive;
+                cacheData.OrderId = string.Empty;
+                cacheData.ClientOrderId = string.Empty;
+                cacheData.OrderStatus = null;
+                cacheData.isClosingFilledOrder = false;
+                cacheData.isNewScan = false;
+            }
+        }
     }
 }

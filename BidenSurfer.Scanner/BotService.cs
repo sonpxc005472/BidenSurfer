@@ -10,6 +10,7 @@ using BidenSurfer.BotRunner.Services;
 using BidenSurfer.Infras.Models;
 using System.Collections.Generic;
 using BidenSurfer.Infras.Helpers;
+using BidenSurfer.Infras.Entities;
 
 public interface IBotService
 {
@@ -100,19 +101,20 @@ public class BotService : IBotService
                                         var scanners = StaticObject.AllScanners;
                                         var configs = StaticObject.AllConfigs;
                                         bool isMatched = false;
+                                        var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
                                             var scanOcExisted = configs.FirstOrDefault(c => c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId && c.IsActive);
                                             if (scanOcExisted == null)
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
-                                                var blackList = scannerSetting?.BlackList;
+                                                var blackList = scannerSetting?.BlackList ?? new List<string>();
                                                 var maxOpen = scannerSetting?.MaxOpen ?? 4; // We can only open 4 orders by default
-                                                var noScannerOpen = configs.Count(c=>c.CreatedBy == AppConstants.CreatedByScanner && c.IsActive && !string.IsNullOrEmpty(c.OrderId));
+                                                var numScannerOpen = configs.Count(c=> c.UserId == scanner.UserId && c.CreatedBy == AppConstants.CreatedByScanner && c.IsActive && !string.IsNullOrEmpty(c.OrderId));
                                                 var symbolDetail = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 //If scan indicator matched user's scanner configurations 
                                                 if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
-                                                    && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume && noScannerOpen <= maxOpen && (blackList == null || (blackList != null && !blackList.Any(b=>b == symbolDetail?.BaseAsset)))
+                                                    && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume && !blackList.Any(b => b == symbolDetail?.BaseAsset)
                                                     )
                                                 {
                                                     isMatched = true;
@@ -123,14 +125,20 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for long side
-                                                    var newConfigs = await CalculateOcs(symbol, longPercent, scanner);
+                                                    newConfigs = await CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen);
                                                 }
                                             }
                                         }
-                                        if (isMatched)
+                                        if (isMatched && newConfigs.Any())
                                         {
+                                            _configService.AddOrEditConfig(newConfigs);
                                             await _bus.Send(new NewConfigCreatedMessage());
                                             await _bus.Send(new SaveNewConfigMessage());
+                                            foreach (var config in newConfigs)
+                                            {
+                                                var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == config.UserId)?.Setting;
+                                                await _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
+                                            }
                                         }
                                     }
                                     if (shortPercent > (decimal)1 && shortElastic >= 70)
@@ -138,20 +146,21 @@ public class BotService : IBotService
                                         var scanners = StaticObject.AllScanners;
                                         var configs = StaticObject.AllConfigs;
                                         bool isMatched = false;
+                                        var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
                                             var scanOcExisted = configs.FirstOrDefault(c => c.IsActive && c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId);
                                             if (scanOcExisted == null)
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
-                                                var blackList = scannerSetting?.BlackList;
+                                                var blackList = scannerSetting?.BlackList ?? new List<string>();
                                                 var maxOpen = scannerSetting?.MaxOpen ?? 4; // We can only open 4 orders by default
-                                                var noScannerOpen = configs.Count(c => c.CreatedBy == AppConstants.CreatedByScanner && c.IsActive && !string.IsNullOrEmpty(c.OrderId));
+                                                var numScannerOpen = configs.Count(c => c.UserId == scanner.UserId && c.CreatedBy == AppConstants.CreatedByScanner && c.IsActive && !string.IsNullOrEmpty(c.OrderId));
                                                 var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 var isMarginTrading = (instrument?.MarginTrading == MarginTrading.Both || instrument?.MarginTrading == MarginTrading.UtaOnly);
                                                 //If scan indicator matched user's scanner configurations 
                                                 if (scanner.PositionSide == AppConstants.ShortSide && scanner.OrderChange <= shortPercent
-                                                    && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading && noScannerOpen <= maxOpen && (blackList == null || (blackList != null && !blackList.Any(b => b == instrument?.BaseAsset)))
+                                                    && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading && !blackList.Any(b => b == instrument?.BaseAsset)
                                                     )
                                                 {
                                                     isMatched = true;
@@ -162,14 +171,20 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for short side
-                                                    var newConfigs = await CalculateOcs(symbol, shortPercent, scanner);
+                                                    newConfigs = await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen);
                                                 }
                                             }
                                         }
-                                        if (isMatched)
+                                        if (isMatched && newConfigs.Any())
                                         {
+                                            _configService.AddOrEditConfig(newConfigs);
                                             await _bus.Send(new NewConfigCreatedMessage());
                                             await _bus.Send(new SaveNewConfigMessage());
+                                            foreach (var config in newConfigs)
+                                            {
+                                                var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == config.UserId)?.Setting;
+                                                await _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
+                                            }
                                         }
                                     }
                                 }
@@ -214,7 +229,7 @@ public class BotService : IBotService
         
     }
 
-    private async Task<List<ConfigDto>> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner)
+    private async Task<List<ConfigDto>> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner, int maxOpen, int currentOpen)
     {
         var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == scanner.UserId)?.Setting;
         var maxOcAbs = Math.Abs(maxOC);
@@ -224,6 +239,13 @@ public class BotService : IBotService
         for (var i = 1; i <= scanner.OcNumber; i++)
         {
             var oc = Math.Round(minOc + (rangeOc * i), 2);
+
+            if (currentOpen + i > maxOpen)
+            {
+                await _teleMessage.ErrorMessage(symbol, oc.ToString(), scanner.PositionSide, userSetting.TeleChannel, $"Exceeded open limt {maxOpen}");
+                continue;
+            }
+            currentOpen++;
             var config = new ConfigDto
             {
                 CustomId = Guid.NewGuid().ToString(),
@@ -242,15 +264,11 @@ public class BotService : IBotService
                 CreatedBy = AppConstants.CreatedByScanner,
                 CreatedDate = DateTime.Now,
                 EditedDate = DateTime.Now,
-                isNewScan = true
+                isNewScan = true,
+                ScannerTitle = scanner.Title
             };
-            configs.Add(config);
-            if(userSetting != null)
-            {
-                await _teleMessage.ScannerOpenMessage(scanner.Title, symbol, oc.ToString(), scanner.PositionSide, userSetting.TeleChannel);
-            }
+            configs.Add(config);            
         }
-        _configService.AddOrEditConfig(configs);
         return configs;
     }
 }
