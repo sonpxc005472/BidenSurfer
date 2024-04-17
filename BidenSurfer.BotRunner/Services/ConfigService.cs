@@ -17,6 +17,7 @@ public interface IConfigService
     void DeleteAllConfig();
     void UpsertWinLose(ConfigDto configDto, bool isWin);
     ConfigWinLose GetWinLose(ConfigDto configDto);
+    void OnOffConfig(List<ConfigDto> configs);
 }
 
 public class ConfigService : IConfigService
@@ -239,5 +240,27 @@ public class ConfigService : IConfigService
             return winDict[key];
         }
         return new ConfigWinLose();
+    }
+
+    public void OnOffConfig(List<ConfigDto> configs)
+    {
+        foreach (var config in configs)
+        {
+            if (!config.IsActive)
+            {
+                StaticObject.AllConfigs.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);
+            }
+            var cacheData = StaticObject.AllConfigs.FirstOrDefault(c => c.CustomId == config.CustomId);
+
+            if (cacheData != null)
+            {
+                cacheData.IsActive = config.IsActive;
+                cacheData.OrderId = string.Empty;
+                cacheData.ClientOrderId = string.Empty;
+                cacheData.OrderStatus = null;
+                cacheData.isClosingFilledOrder = false;
+                cacheData.isNewScan = false;
+            }
+        }
     }
 }
