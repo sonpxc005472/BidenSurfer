@@ -195,7 +195,7 @@ public class UserService : IUserService
         var key = Encoding.ASCII.GetBytes(AppConstants.PrivateKey);
         var tokenDescriptor = new SecurityTokenDescriptor
         {
-            Subject = new ClaimsIdentity(new[] { new Claim("id", user.Id.ToString()) }),
+            Subject = new ClaimsIdentity(new[] { new Claim("userId", user.Id.ToString()), new Claim("role", user.Role.ToString()) }),
             Expires = DateTime.UtcNow.AddDays(15),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };

@@ -18,5 +18,7 @@
         public const string ShortSide = "short";
         public const string CreatedByScanner = "scanner";
         public const string CreatedByUser = "user";
+        public const string USER_CLAIM_TYPE = "userId";
+        public const string ROLE_CLAIM_TYPE = "role";
     }
 }

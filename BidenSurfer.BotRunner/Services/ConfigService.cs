@@ -159,6 +159,7 @@ public class ConfigService : IConfigService
                 OrderChange = r.OrderChange,
                 IsActive = r.IsActive,
                 Amount = r.Amount,
+                OriginAmount = r.Amount,
                 OrderType = r.OrderType,
                 AmountLimit = r.AmountLimit,
                 IncreaseAmountPercent = r.IncreaseAmountPercent,

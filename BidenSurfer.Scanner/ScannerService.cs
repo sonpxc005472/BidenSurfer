@@ -26,6 +26,7 @@ public class ScannerService : IScannerService
     public void DeleteAll()
     {
         _redisCacheService.RemoveCachedData(AppConstants.RedisAllScanners);
+        _redisCacheService.RemoveCachedData(AppConstants.RedisAllScannerSetting);
     }
 
     public async Task<List<ScannerDto>> GetAll()

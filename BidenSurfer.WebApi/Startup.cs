@@ -31,6 +31,7 @@ namespace BidenSurfer.WebApi
             services.AddScoped<IConfigService, ConfigService>();
             services.AddControllers();
             services.AddHttpContextAccessor();
+            services.AddScoped<ISecurityContextAccessor, SecurityContextAccessor>(); 
             services.AddCustomMassTransit(Configuration);
             services.AddStackExchangeRedisCache(options =>
             {

@@ -2,9 +2,8 @@ using MassTransit;
 
 namespace BidenSurfer.Infras.BusEvents
 {
-    public class RestartBotMessage : CorrelatedBy<Guid>   
+    public class ScannerUpdateMessage : CorrelatedBy<Guid>   
     {
         public Guid CorrelationId { get; set; } = Guid.NewGuid();
-        public Guid UserId { get; set; }
     }
 }
