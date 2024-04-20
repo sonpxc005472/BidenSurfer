@@ -267,12 +267,13 @@ public class ConfigService : IConfigService
     {
         try
         {
+            Console.WriteLine("OffConfigs: " + string.Join(",", customIds));
             var configEntitys = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
             var toRemove = configEntitys?.Where(c => c.CreatedBy == AppConstants.CreatedByScanner).ToList();
             var toUpdate = configEntitys?.Where(c => c.CreatedBy != AppConstants.CreatedByScanner).ToList();
             if(toRemove.Any())
             {
-                _context.RemoveRange(toRemove);
+                _context.Configs.RemoveRange(toRemove);
             }
             if(toUpdate.Any())
             {
@@ -281,13 +282,14 @@ public class ConfigService : IConfigService
                     entity.IsActive = false;
                     entity.EditedDate = DateTime.Now;
                 }
-                _context.UpdateRange(toUpdate);
+                _context.Configs.UpdateRange(toUpdate);
             }
             await _context.SaveChangesAsync();
             return true;
         }
         catch (Exception ex)
         {
+            Console.WriteLine("OffConfigs Error: " + ex.Message);
             return false;
         }
     }

@@ -16,8 +16,8 @@ namespace BidenSurfer.Infras
         public static Dictionary<string, BybitKlineUpdate> Kline1mSubscriptions = new Dictionary<string, BybitKlineUpdate>();
         public static Dictionary<string, decimal> SymbolTurnover = new Dictionary<string, decimal>();
         public static ConcurrentDictionary<long, UpdateSubscription> OrderSubscriptions = new ConcurrentDictionary<long, UpdateSubscription>();
-        public static ConcurrentBag<ConfigDto> FilledOrders = new ConcurrentBag<ConfigDto>();
-        public static List<ConfigDto> AllConfigs = new List<ConfigDto>();
+        public static ConcurrentDictionary<string,ConfigDto> FilledOrders = new ConcurrentDictionary<string,ConfigDto>();
+        public static ConcurrentDictionary<string,ConfigDto> AllConfigs = new ConcurrentDictionary<string,ConfigDto>();
         public static List<ScannerDto> AllScanners = new List<ScannerDto>();
         public static List<ScannerSettingDto> AllScannerSetting = new List<ScannerSettingDto>();
         public static List<UserDto> AllUsers = new List<UserDto>();

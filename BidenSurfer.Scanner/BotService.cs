@@ -104,13 +104,13 @@ public class BotService : IBotService
                                         var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
-                                            var scanOcExisted = configs.FirstOrDefault(c => c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId && c.IsActive);
-                                            if (scanOcExisted == null)
+                                            var scanOcExisted = configs.Any(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.UserId == scanner.UserId && c.Value.IsActive);
+                                            if (!scanOcExisted)
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
                                                 var maxOpen = scannerSetting?.MaxOpen ?? 4; // We can only open 4 orders by default
-                                                var numScannerOpen = configs.Count(c=> c.UserId == scanner.UserId && c.CreatedBy == AppConstants.CreatedByScanner && c.IsActive && !string.IsNullOrEmpty(c.OrderId));
+                                                var numScannerOpen = configs.Count(c=> c.Value.UserId == scanner.UserId && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.OrderId));
                                                 var symbolDetail = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 //If scan indicator matched user's scanner configurations 
                                                 if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
@@ -149,13 +149,13 @@ public class BotService : IBotService
                                         var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
-                                            var scanOcExisted = configs.FirstOrDefault(c => c.IsActive && c.Symbol == symbol && c.CreatedBy == AppConstants.CreatedByScanner && c.UserId == scanner.UserId);
-                                            if (scanOcExisted == null)
+                                            var scanOcExisted = configs.Any(c => c.Value.IsActive && c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.UserId == scanner.UserId);
+                                            if (!scanOcExisted)
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
                                                 var maxOpen = scannerSetting?.MaxOpen ?? 4; // We can only open 4 orders by default
-                                                var numScannerOpen = configs.Count(c => c.UserId == scanner.UserId && c.CreatedBy == AppConstants.CreatedByScanner && c.IsActive && !string.IsNullOrEmpty(c.OrderId));
+                                                var numScannerOpen = configs.Count(c => c.Value.UserId == scanner.UserId && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.OrderId));
                                                 var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 var isMarginTrading = (instrument?.MarginTrading == MarginTrading.Both || instrument?.MarginTrading == MarginTrading.UtaOnly);
                                                 //If scan indicator matched user's scanner configurations 
@@ -173,6 +173,10 @@ public class BotService : IBotService
                                                     // create new configs for short side
                                                     newConfigs = await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen);
                                                 }
+                                            }
+                                            else
+                                            {
+                                                Console.WriteLine($"Scan OC existed: {symbol}");
                                             }
                                         }
                                         if (isMatched && newConfigs.Any())

@@ -4,6 +4,7 @@ using BidenSurfer.Infras.Domains;
 using BidenSurfer.Infras.Entities;
 using BidenSurfer.Infras.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
 using System.Linq;
 
 namespace BidenSurfer.BotRunner.Services;
@@ -11,7 +12,6 @@ public interface IConfigService
 {
     Task<List<ConfigDto>> GetAllActive();
     ConfigDto GetById(long id);
-    List<ConfigDto> GetByUserId(long userid);
     void AddOrEditConfig(ConfigDto config);
     void UpdateConfig(List<ConfigDto> configs);
     void DeleteAllConfig();
@@ -33,59 +33,67 @@ public class ConfigService : IConfigService
 
     public void AddOrEditConfig(ConfigDto config)
     {
-        var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
-        var existedConfig = cachedData.FirstOrDefault(c => c.CustomId == config.CustomId);
-        if (existedConfig == null)
+        try
         {
-            cachedData.Add(config);
-            StaticObject.AllConfigs.Add(config);
-        }
-        else
-        {
-            existedConfig.Amount = config.Amount;
-            existedConfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
-            existedConfig.IsActive = config.IsActive;
-            existedConfig.OrderChange = config.OrderChange;
-            existedConfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
-            existedConfig.IncreaseOcPercent = config.IncreaseOcPercent;
-            existedConfig.AmountLimit = config.AmountLimit;
-            existedConfig.FilledPrice = config.FilledPrice;
-            existedConfig.OrderId = config.OrderId;
-            existedConfig.ClientOrderId = config.ClientOrderId;
-            existedConfig.TPPrice = config.TPPrice;
-            existedConfig.OrderStatus = config.OrderStatus;
-            existedConfig.CreatedDate = config.CreatedDate;
-            existedConfig.EditedDate = config.EditedDate;
-            existedConfig.Expire = config.Expire;
-            existedConfig.FilledQuantity = config.FilledQuantity;
-            existedConfig.isClosingFilledOrder = config.isClosingFilledOrder;
-            existedConfig.OriginAmount = config.OriginAmount;
-            
-
-            var caconfig = StaticObject.AllConfigs.FirstOrDefault(x => x.CustomId == config.CustomId);
-            if (caconfig != null)
+            var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
+            var existedConfig = cachedData.FirstOrDefault(c => c.CustomId == config.CustomId);
+            if (existedConfig == null)
             {
-                caconfig.Amount = config.Amount;
-                caconfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
-                caconfig.IsActive = config.IsActive;
-                caconfig.OrderChange = config.OrderChange;
-                caconfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
-                caconfig.IncreaseOcPercent = config.IncreaseOcPercent;
-                caconfig.AmountLimit = config.AmountLimit;
-                caconfig.FilledPrice = config.FilledPrice;
-                caconfig.OrderId = config.OrderId;
-                caconfig.ClientOrderId = config.ClientOrderId;
-                caconfig.TPPrice = config.TPPrice;
-                caconfig.OrderStatus = config.OrderStatus;
-                caconfig.CreatedDate = config.CreatedDate;
-                caconfig.EditedDate = config.EditedDate;
-                caconfig.Expire = config.Expire;
-                caconfig.FilledQuantity = config.FilledQuantity;
-                caconfig.isClosingFilledOrder = config.isClosingFilledOrder;
-                caconfig.OriginAmount = config.OriginAmount;
+                cachedData.Add(config);
+                StaticObject.AllConfigs.TryAdd(config.CustomId, config);
             }
+            else
+            {
+                existedConfig.Amount = config.Amount;
+                existedConfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
+                existedConfig.IsActive = config.IsActive;
+                existedConfig.OrderChange = config.OrderChange;
+                existedConfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
+                existedConfig.IncreaseOcPercent = config.IncreaseOcPercent;
+                existedConfig.AmountLimit = config.AmountLimit;
+                existedConfig.FilledPrice = config.FilledPrice;
+                existedConfig.OrderId = config.OrderId;
+                existedConfig.ClientOrderId = config.ClientOrderId;
+                existedConfig.TPPrice = config.TPPrice;
+                existedConfig.OrderStatus = config.OrderStatus;
+                existedConfig.CreatedDate = config.CreatedDate;
+                existedConfig.EditedDate = config.EditedDate;
+                existedConfig.Expire = config.Expire;
+                existedConfig.FilledQuantity = config.FilledQuantity;
+                existedConfig.isClosingFilledOrder = config.isClosingFilledOrder;
+                existedConfig.OriginAmount = config.OriginAmount;
+
+
+                var caconfig = StaticObject.AllConfigs[config.CustomId];
+                if (caconfig != null)
+                {
+                    caconfig.Amount = config.Amount;
+                    caconfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
+                    caconfig.IsActive = config.IsActive;
+                    caconfig.OrderChange = config.OrderChange;
+                    caconfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
+                    caconfig.IncreaseOcPercent = config.IncreaseOcPercent;
+                    caconfig.AmountLimit = config.AmountLimit;
+                    caconfig.FilledPrice = config.FilledPrice;
+                    caconfig.OrderId = config.OrderId;
+                    caconfig.ClientOrderId = config.ClientOrderId;
+                    caconfig.TPPrice = config.TPPrice;
+                    caconfig.OrderStatus = config.OrderStatus;
+                    caconfig.CreatedDate = config.CreatedDate;
+                    caconfig.EditedDate = config.EditedDate;
+                    caconfig.Expire = config.Expire;
+                    caconfig.FilledQuantity = config.FilledQuantity;
+                    caconfig.isClosingFilledOrder = config.isClosingFilledOrder;
+                    caconfig.OriginAmount = config.OriginAmount;
+                    StaticObject.AllConfigs[config.CustomId] = caconfig;
+                }
+            }
+            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
         }
-        _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AddOrEditConfig Error: {ex.Message}");
+        }        
     }
 
     public void DeleteAllConfig()
@@ -96,45 +104,59 @@ public class ConfigService : IConfigService
 
     public void UpdateConfig(List<ConfigDto> configs)
     {
-        var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
-        
-        foreach (var config in configs)
+        try
         {
-            if(config.IsActive)
-            {
-                AddOrEditConfig(config);
-            }
-            else
-            {
-                cachedData.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);
-                StaticObject.AllConfigs.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);
-                var configToUpdate = cachedData.FirstOrDefault(c => config.CustomId == c.CustomId && c.CreatedBy != AppConstants.CreatedByScanner);
-                if(configToUpdate != null)
-                {
-                    configToUpdate.IsActive = false;
-                    configToUpdate.OrderId = string.Empty;
-                    configToUpdate.ClientOrderId = string.Empty;
-                    configToUpdate.OrderStatus = null;
-                    configToUpdate.EditedDate = DateTime.Now;
-                    configToUpdate.isClosingFilledOrder = false;
-                    configToUpdate.Amount = configToUpdate.OriginAmount ?? configToUpdate.Amount;
-                };                
-               
-                var configsToUpdateMem = StaticObject.AllConfigs.FirstOrDefault(c => config.CustomId == c.CustomId && c.CreatedBy != AppConstants.CreatedByScanner);
-                if(configsToUpdateMem != null)
-                {
-                    configsToUpdateMem.IsActive = false;
-                    configsToUpdateMem.OrderId = string.Empty;
-                    configsToUpdateMem.ClientOrderId = string.Empty;
-                    configsToUpdateMem.OrderStatus = null;
-                    configsToUpdateMem.EditedDate = DateTime.Now;
-                    configsToUpdateMem.isClosingFilledOrder = false;
-                    configsToUpdateMem.Amount = configsToUpdateMem.OriginAmount ?? configsToUpdateMem.Amount;
-                }                
-            }
-        }
-        _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
+            var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
 
+            foreach (var config in configs)
+            {
+                if (config.IsActive)
+                {
+                    AddOrEditConfig(config);
+                }
+                else
+                {
+                    cachedData.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);
+                    if (config.CreatedBy == AppConstants.CreatedByScanner)
+                    {
+                        StaticObject.AllConfigs.TryRemove(config.CustomId, out _);
+                    }
+
+                    var configToUpdate = cachedData.FirstOrDefault(c => config.CustomId == c.CustomId && c.CreatedBy != AppConstants.CreatedByScanner);
+                    if (configToUpdate != null)
+                    {
+                        configToUpdate.IsActive = false;
+                        configToUpdate.OrderId = string.Empty;
+                        configToUpdate.ClientOrderId = string.Empty;
+                        configToUpdate.OrderStatus = null;
+                        configToUpdate.EditedDate = DateTime.Now;
+                        configToUpdate.isClosingFilledOrder = false;
+                        configToUpdate.Amount = configToUpdate.OriginAmount ?? configToUpdate.Amount;
+                    };
+                    if (config.CreatedBy != AppConstants.CreatedByScanner)
+                    {
+                        var configsToUpdateMem = StaticObject.AllConfigs[config.CustomId];
+                        if (configsToUpdateMem != null)
+                        {
+                            configsToUpdateMem.IsActive = false;
+                            configsToUpdateMem.OrderId = string.Empty;
+                            configsToUpdateMem.ClientOrderId = string.Empty;
+                            configsToUpdateMem.OrderStatus = null;
+                            configsToUpdateMem.EditedDate = DateTime.Now;
+                            configsToUpdateMem.isClosingFilledOrder = false;
+                            configsToUpdateMem.Amount = configsToUpdateMem.OriginAmount ?? configsToUpdateMem.Amount;
+                            StaticObject.AllConfigs[config.CustomId] = configsToUpdateMem;
+                        }
+                    }
+
+                }
+            }
+            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Bot Runner UpdateConfigs Error: " + ex.Message);
+        }
     }
 
     public async Task<List<ConfigDto>> GetAllActive()
@@ -143,7 +165,7 @@ public class ConfigService : IConfigService
         var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
         if (cachedData != null)
         {
-            StaticObject.AllConfigs = cachedData;
+            StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(cachedData.ToDictionary(c => c.CustomId, c => c));
             return cachedData;
         }
         else
@@ -187,7 +209,7 @@ public class ConfigService : IConfigService
                     }
                 }
             }).ToList();
-            StaticObject.AllConfigs = resultDto;
+            StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(resultDto.ToDictionary(c => c.CustomId, c => c));
             _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, resultDto, TimeSpan.FromDays(10));
         }
         return resultDto;
@@ -202,11 +224,6 @@ public class ConfigService : IConfigService
         }
         
         return null;
-    }
-
-    public List<ConfigDto> GetByUserId(long userid)
-    {
-        return StaticObject.AllConfigs.Where(c => c.UserId == userid).ToList();
     }
 
     public void UpsertWinLose(ConfigDto configDto, bool isWin)
@@ -245,23 +262,35 @@ public class ConfigService : IConfigService
 
     public void OnOffConfig(List<ConfigDto> configs)
     {
-        foreach (var config in configs)
+        try
         {
-            if (!config.IsActive)
+            foreach (var config in configs)
             {
-                StaticObject.AllConfigs.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);
-            }
-            var cacheData = StaticObject.AllConfigs.FirstOrDefault(c => c.CustomId == config.CustomId);
+                if (!config.IsActive)
+                {
+                    if(config.CreatedBy == AppConstants.CreatedByScanner)
+                    {
+                        StaticObject.AllConfigs.TryRemove(config.CustomId, out _);
+                    }                    
+                }
+                var cacheData = StaticObject.AllConfigs[config.CustomId];
 
-            if (cacheData != null)
-            {
-                cacheData.IsActive = config.IsActive;
-                cacheData.OrderId = string.Empty;
-                cacheData.ClientOrderId = string.Empty;
-                cacheData.OrderStatus = null;
-                cacheData.isClosingFilledOrder = false;
-                cacheData.isNewScan = false;
+                if (cacheData != null)
+                {
+                    cacheData.IsActive = config.IsActive;
+                    cacheData.OrderId = string.Empty;
+                    cacheData.ClientOrderId = string.Empty;
+                    cacheData.OrderStatus = null;
+                    cacheData.isClosingFilledOrder = false;
+                    cacheData.isNewScan = false;
+                    cacheData.EditedDate = DateTime.Now;
+                    StaticObject.AllConfigs[config.CustomId] = cacheData;
+                }
             }
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"On/Off Config Error: {ex.Message}");
+        }        
     }
 }

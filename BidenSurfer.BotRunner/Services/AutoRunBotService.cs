@@ -15,15 +15,22 @@ namespace BidenSurfer.BotRunner.Services
         }
         protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-            Console.WriteLine("Running...");
-            _configService.DeleteAllConfig();
-            _userService.DeleteAllCached();
-            await _userService.GetAllActive();
-            await _configService.GetAllActive();
-            await _botService.InitUserApis();
-            await _botService.SubscribeKline1m();
-            await _botService.SubscribeSticker();
-            await _botService.SubscribeOrderChannel();
+            try
+            {
+                Console.WriteLine("Running v1.0.3...");
+                _configService.DeleteAllConfig();
+                _userService.DeleteAllCached();
+                await _userService.GetAllActive();
+                await _configService.GetAllActive();
+                await _botService.InitUserApis();
+                await _botService.SubscribeKline1m();
+                await _botService.SubscribeSticker();
+                await _botService.SubscribeOrderChannel();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }            
         }
     }
 }
