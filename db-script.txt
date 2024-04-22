@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS configs (
 	ordertype integer,
 	orderchange numeric(4,2),
 	amount numeric(8,2),
+	originamount numeric(8,2),
 	increaseamountpercent INTEGER,
 	amountlimit numeric(8,2),
 	amountexpire integer,

@@ -76,7 +76,7 @@ public class BotService : IBotService
                                 {
                                     bool isExistedScanner = openScanners.Any(x => x.UserId == symbolConfig.UserId);
                                     bool isLongSide = symbolConfig.PositionSide == AppConstants.LongSide;
-                                    var existingFilledOrders = symbolConfigs.Where(x => x.UserId == symbolConfig.UserId && x.OrderStatus == 2).ToList();
+                                    var existingFilledOrders = StaticObject.FilledOrders.Where(x => x.Value.UserId == symbolConfig.UserId && x.Value.OrderStatus == 2 && x.Value.Symbol == symbol).Select(r=>r.Value).ToList();
                                     var sideOrderExisted = symbolConfigs.Any(x => x.UserId == symbolConfig.UserId && x.PositionSide != symbolConfig.PositionSide);
                                     if ((symbolConfig.CreatedBy != AppConstants.CreatedByScanner || (symbolConfig.CreatedBy == AppConstants.CreatedByScanner && !isExistedScanner)) && !existingFilledOrders.Any() && !sideOrderExisted && string.IsNullOrEmpty(symbolConfig.ClientOrderId))
                                     {
@@ -121,13 +121,27 @@ public class BotService : IBotService
                                     var cancelledConfigs = new List<string>();
                                     foreach (var config in configExpired)
                                     {
+                                        config.IsActive = false;
                                         await CancelOrder(config, true);
                                     }
-                                    await _bus.Send(new OnOffConfigMessageScanner()
+                                    if(configExpired.Any())
                                     {
-                                        Configs = configExpired
-                                    });
-                                    await _bus.Send(new OffConfigMessage { Configs = configExpired.Select(c => c.CustomId).ToList() });
+                                        await _bus.Send(new OnOffConfigMessageScanner()
+                                        {
+                                            Configs = configExpired
+                                        });
+                                        await _bus.Send(new OffConfigMessage { Configs = configExpired.Select(c => c.CustomId).ToList() });
+                                    }
+                                    var configAmountExpired = allActiveConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.OrderStatus != 2 && x.Value.EditedDate != null && x.Value.IncreaseAmountExpire != null && x.Value.IncreaseAmountExpire.Value > 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.IncreaseAmountExpire.Value) < currentTime)).Select(c => c.Value).ToList();
+                                    if (configAmountExpired.Any())
+                                    {
+                                        foreach (var config in configAmountExpired)
+                                        {
+                                            config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
+                                            _configService.AddOrEditConfig(config);
+                                        }
+                                        await _bus.Send(new AmountExpireMessage { Configs = configAmountExpired.Select(c => c.CustomId).ToList() });
+                                    }
                                 }
                             }
                             finally
@@ -242,7 +256,7 @@ public class BotService : IBotService
         catch (Exception ex)
         {
             // log error to the telegram channels
-            Console.WriteLine($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {ex.Message}");
+            Console.WriteLine($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} Ex: {ex.Message}");
             return false;
         }
 
@@ -294,7 +308,7 @@ public class BotService : IBotService
             }
             else
             {
-                var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error.Message}";
+                var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
                 Console.WriteLine(message);
                 await _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
                 await CancelOrder(config);
@@ -303,7 +317,7 @@ public class BotService : IBotService
         }
         catch (Exception ex)
         {
-            var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {ex.Message}";
+            var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} Ex: {ex.Message}";
             Console.WriteLine(message);
             await _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {ex.Message}");
             await CancelOrder(config);
@@ -330,6 +344,7 @@ public class BotService : IBotService
 
             if (api != null)
             {
+                StaticObject.IsInternalCancel = true;
                 var cancelOrder = await api.V5Api.Trading.CancelOrderAsync
                     (
                         Category.Spot,
@@ -342,6 +357,7 @@ public class BotService : IBotService
                 config.isClosingFilledOrder = false;
                 config.IsActive = false;
                 config.EditedDate = DateTime.Now;
+                config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;                
                 _configService.AddOrEditConfig(config);
 
                 if (cancelOrder.Success)
@@ -355,14 +371,17 @@ public class BotService : IBotService
                 }
                 else
                 {
-                    Console.WriteLine($"Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
+                    Console.WriteLine($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
                 }
+                await Task.Delay(200);
+                StaticObject.IsInternalCancel = false;
             }
         }
         catch (Exception ex)
         {
             // log error to the telegram channels
-            Console.WriteLine($"Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {ex.Message}");
+            Console.WriteLine($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} Ex: {ex.Message}");
+            StaticObject.IsInternalCancel = false;
             return false;
         }
         return false;
@@ -437,7 +456,7 @@ public class BotService : IBotService
                                 var closingOrder = StaticObject.FilledOrders.Any(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2);
                                 if (!closingOrder)
                                 {
-                                    Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange.ToString()} - PartiallyFilled");
+                                    Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange.ToString()} - PartiallyFilled - {clientOrderId}");
 
                                     await _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, false, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
                                     BybitRestClient api;
@@ -452,10 +471,12 @@ public class BotService : IBotService
                                     (
                                         Category.Spot,
                                         updatedData?.Symbol,
-                                        updatedData?.OrderId
+                                        clientOrderId: clientOrderId
                                     );
                                     if (cancelOrder.Success)
                                     {
+                                        config.OrderStatus = 2;
+                                        _configService.AddOrEditConfig(config);
                                         await TakeProfit(updatedData, user);
                                     }
                                 }
@@ -466,8 +487,10 @@ public class BotService : IBotService
                                 var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
                                 if (closingOrder == null)
                                 {
+                                    config.OrderStatus = 2;
+                                    _configService.AddOrEditConfig(config);
                                     await TakeProfit(updatedData, user);
-                                    Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} - Filled");
+                                    Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}| {clientOrderId} - Filled");
                                     await _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
                                 }
                                 else
@@ -495,14 +518,14 @@ public class BotService : IBotService
                                     }
                                     if (config.IncreaseAmountPercent != null && config.IncreaseAmountPercent > 0)
                                     {
-                                        amountIncrease = config.Amount + (config.OriginAmount.Value * config.IncreaseAmountPercent.Value / 100);
+                                        amountIncrease = config.Amount + ((config.OriginAmount.HasValue ? config.OriginAmount.Value : 0) * config.IncreaseAmountPercent.Value / 100);
                                     }
                                     if (config.AmountLimit != null && config.AmountLimit > 0)
                                     {
                                         amountIncrease = amountIncrease > config.AmountLimit ? config.AmountLimit.Value : amountIncrease;
                                     }
 
-                                    config.Amount = config.CreatedBy == AppConstants.CreatedByScanner && pnlCash <= 0 ? config.OriginAmount.Value : amountIncrease;
+                                    config.Amount = config.CreatedBy == AppConstants.CreatedByScanner && pnlCash <= 0 ? (config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount) : amountIncrease;
 
                                     if (pnlCash <= 0 && config.CreatedBy == AppConstants.CreatedByScanner)
                                     {
@@ -524,32 +547,41 @@ public class BotService : IBotService
                                     }
                                     else
                                     {
-                                        _configService.UpdateConfig(new List<ConfigDto> {
-                                            config
-                                        });
+                                        _configService.AddOrEditConfig(config);
                                     }
                                     _configService.UpsertWinLose(config, pnlCash > 0);
                                     var configWin = _configService.GetWinLose(config);
                                     await _teleMessage.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent, configWin.Win, configWin.Total);
                                 }
                             }
-                            else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled)
+                            else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled && !StaticObject.IsInternalCancel)
                             {
                                 var customId = config.CustomId;
 
                                 _configService.UpdateConfig(new List<ConfigDto> {
-                                new ConfigDto
-                                {
-                                    CustomId = customId,
-                                    IsActive = false
-                                }
-                            });
+                                    new ConfigDto
+                                        {
+                                            CustomId = customId,
+                                            IsActive = false
+                                        }
+                                });
 
                                 await _bus.Send(new OffConfigMessage
                                 {
                                     Configs = new List<string>
                                     {
                                         customId
+                                    }
+                                });
+                                await _bus.Send(new OnOffConfigMessageScanner
+                                {
+                                    Configs = new List<ConfigDto>
+                                    {
+                                        new ConfigDto
+                                        {
+                                            CustomId = customId,
+                                            IsActive = false,
+                                        }
                                     }
                                 });
                             }
@@ -609,11 +641,10 @@ public class BotService : IBotService
 
     private async Task TakeProfit(BybitOrderUpdate orderUpdate, UserDto user)
     {
-        var orderId = orderUpdate?.OrderId;
-        var configToUpdate = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.OrderId == orderId).Value;
+        var configToUpdate = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.ClientOrderId == orderUpdate?.ClientOrderId).Value;
         if (configToUpdate == null)
         {
-            Console.WriteLine($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange} error: Config not found");
+            Console.WriteLine($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange}| {orderUpdate?.ClientOrderId} error: Config not found");
             return;
         }
         try
@@ -629,6 +660,7 @@ public class BotService : IBotService
             var ordSide = orderUpdate?.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
             var orderPrice = configToUpdate?.TPPrice;
             var clientOrderId = Guid.NewGuid().ToString();
+            Console.WriteLine($"Taking profit {orderUpdate.Symbol} - {ordSide} - {clientOrderId}");
             var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
             (
                 Category.Spot,
@@ -643,7 +675,7 @@ public class BotService : IBotService
 
             if (placedOrder.Success && configToUpdate != null)
             {
-                Console.WriteLine($"Closing Filled Order: {orderUpdate.Symbol}|{configToUpdate.PositionSide}| {configToUpdate.OrderChange}|${orderPrice}- OrderId: {placedOrder.Data.OrderId}");
+                Console.WriteLine($"Closing Filled Order: {orderUpdate.Symbol}|{configToUpdate.PositionSide}| {configToUpdate.OrderChange}|${orderPrice}- ClientOrderId: {placedOrder.Data.ClientOrderId}");
                 configToUpdate.OrderId = placedOrder.Data.OrderId;
                 configToUpdate.ClientOrderId = clientOrderId;
                 configToUpdate.FilledPrice = orderUpdate.AveragePrice;
@@ -692,18 +724,17 @@ public class BotService : IBotService
                 );
             if (!amendOrder.Success)
             {
-                Console.WriteLine($"Try to take profit {config.Symbol}|{config.PositionSide}|{config.OrderChange} Error: {amendOrder.Error.Message}");
-                config.isClosingFilledOrder = false;
-                config.OrderStatus = null;
+                Console.WriteLine($"Try to take profit {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId} Error: {amendOrder.Error?.Code}-{amendOrder.Error?.Message}");
             }
             config.EditedDate = DateTime.Now;
-            _configService.AddOrEditConfig(config);
+            StaticObject.FilledOrders[config.CustomId] = config;
+            _configService.AddOrEditConfig(config);            
             return amendOrder.Success;
         }
         catch (Exception ex)
         {
             // Log error to telegram
-            Console.WriteLine($"Try to take profit {config.Symbol}|{config.PositionSide}|{config.OrderChange} Error: {ex.Message}");
+            Console.WriteLine($"Try to take profit {config.Symbol}|{config.PositionSide}|{config.OrderChange} Ex: {ex.Message}");
             return false;
         }
     }

@@ -17,6 +17,7 @@ public interface IConfigService
     Task<bool> SaveNewScanToDb();
     Task<bool> Delete(long id);
     Task<bool> OffConfigs(List<string> customIds);
+    Task AmountExpireUpdate(List<string> customIds);
 }
 
 public class ConfigService : IConfigService
@@ -54,7 +55,10 @@ public class ConfigService : IConfigService
                 IncreaseOcPercent = config.IncreaseOcPercent,
                 OrderType = config.OrderType,
                 CreatedBy = config.CreatedBy,
-                Expire = config.Expire
+                Expire = config.Expire,
+                OriginAmount = config.Amount,
+                CreatedDate = DateTime.Now,
+                EditedDate = DateTime.Now
             };
             _context.Configs.Add(configAdd);
             await _context.SaveChangesAsync();
@@ -76,6 +80,8 @@ public class ConfigService : IConfigService
             configEntity.OrderType = config.OrderType;
             configEntity.IncreaseOcPercent = config.IncreaseOcPercent;
             configEntity.Expire = config.Expire;
+            configEntity.EditedDate = DateTime.Now;
+            configEntity.OriginAmount = config.Amount;
             _context.Configs.Update(configEntity);
             await _context.SaveChangesAsync();
 
@@ -93,9 +99,11 @@ public class ConfigService : IConfigService
                 configDto.PositionSide = config.PositionSide;
                 configDto.Symbol = config.Symbol;
                 configDto.Expire = config.Expire;
+                configDto.EditedDate = DateTime.Now;
+                configDto.OriginAmount = config.Amount;
             }
         }
-        _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allConfigs, TimeSpan.FromDays(10));
+        _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allConfigs, TimeSpan.FromDays(100));
         await _bus.Send(new RestartBotMessage { CorrelationId = Guid.NewGuid() });
         return true;
     }
@@ -241,7 +249,8 @@ public class ConfigService : IConfigService
                         OrderType = c.OrderType,
                         PositionSide = c.PositionSide,
                         Symbol = c.Symbol,
-                        Userid = c.UserId
+                        Userid = c.UserId,
+                        OriginAmount = c.Amount
                     });
                     await _context.Configs.AddRangeAsync(configs);
                     await _context.SaveChangesAsync();
@@ -268,9 +277,9 @@ public class ConfigService : IConfigService
         try
         {
             Console.WriteLine("OffConfigs: " + string.Join(",", customIds));
-            var configEntitys = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
-            var toRemove = configEntitys?.Where(c => c.CreatedBy == AppConstants.CreatedByScanner).ToList();
-            var toUpdate = configEntitys?.Where(c => c.CreatedBy != AppConstants.CreatedByScanner).ToList();
+            var configEntities = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
+            var toRemove = configEntities?.Where(c => c.CreatedBy == AppConstants.CreatedByScanner).ToList();
+            var toUpdate = configEntities?.Where(c => c.CreatedBy != AppConstants.CreatedByScanner).ToList();
             if(toRemove.Any())
             {
                 _context.Configs.RemoveRange(toRemove);
@@ -291,6 +300,29 @@ public class ConfigService : IConfigService
         {
             Console.WriteLine("OffConfigs Error: " + ex.Message);
             return false;
+        }
+    }
+
+    public async Task AmountExpireUpdate(List<string> customIds)
+    {
+        try
+        {
+            var configEntities = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
+            if (!configEntities.Any())
+            {
+                return;
+            }
+            foreach (var entity in configEntities)
+            {
+                entity.Amount = entity.OriginAmount.HasValue ? entity.OriginAmount.Value : entity.Amount;
+                entity.EditedDate = DateTime.Now;
+            }
+            _context.Configs.UpdateRange(configEntities);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("AmountExpireUpdate Error: " + ex.Message);
         }
     }
 }

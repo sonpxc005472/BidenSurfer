@@ -68,6 +68,10 @@ namespace BidenSurfer.WebApi
                 {
                     x.Consumer<OffConfigConsumer>(ctx);
                 });
+                cfg.ReceiveEndpoint(QueueName.AmountExpireMessage, x =>
+                {
+                    x.Consumer<AmountExpireConsumer>(ctx);
+                });
 
                 #endregion
 

@@ -14,6 +14,7 @@ public class Config
     public string PositionSide { get; set; }
     public decimal OrderChange { get; set; }         
     public decimal Amount { get; set; }
+    public decimal? OriginAmount { get; set; }
     public int? IncreaseAmountPercent { get; set; }
     public int? IncreaseOcPercent { get; set; }
     public int? IncreaseAmountExpire { get; set; }

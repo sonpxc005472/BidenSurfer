@@ -53,6 +53,10 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
                  .HasColumnName("amount")
                  .HasColumnType("numeric(8,2)");
 
+            builder.Property(x => x.OriginAmount)
+                 .HasColumnName("originamount")
+                 .HasColumnType("numeric(8,2)");
+
             builder.Property(x => x.IncreaseAmountPercent)
                  .HasColumnName("increaseamountpercent")
                  .HasColumnType("integer");

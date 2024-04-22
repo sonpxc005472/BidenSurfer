@@ -12,7 +12,9 @@ namespace BidenSurfer.Scanner.Consumers
         }
         public async Task Consume(ConsumeContext<OnOffConfigMessageScanner> context)
         {
+            Console.WriteLine($"OnOffConfigConsumer {string.Join(",", context.Message.Configs.Select(c => c.CustomId).ToList())}");
             _configService.OnOffConfig(context.Message.Configs);
+            await Task.CompletedTask;
         }
     }
 }

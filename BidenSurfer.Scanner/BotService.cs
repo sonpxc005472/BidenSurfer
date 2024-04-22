@@ -255,6 +255,7 @@ public class BotService : IBotService
                 CustomId = Guid.NewGuid().ToString(),
                 OrderChange = oc,
                 Amount = scanner.Amount,
+                OriginAmount = scanner.Amount,
                 AmountLimit = scanner.AmountLimit,
                 Expire = scanner.ConfigExpire,
                 IncreaseAmountExpire = scanner.AmountExpire,

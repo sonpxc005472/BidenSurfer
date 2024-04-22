@@ -44,49 +44,56 @@ public class ConfigService : IConfigService
             }
             else
             {
-                existedConfig.Amount = config.Amount;
-                existedConfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
-                existedConfig.IsActive = config.IsActive;
-                existedConfig.OrderChange = config.OrderChange;
-                existedConfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
-                existedConfig.IncreaseOcPercent = config.IncreaseOcPercent;
-                existedConfig.AmountLimit = config.AmountLimit;
-                existedConfig.FilledPrice = config.FilledPrice;
-                existedConfig.OrderId = config.OrderId;
-                existedConfig.ClientOrderId = config.ClientOrderId;
-                existedConfig.TPPrice = config.TPPrice;
-                existedConfig.OrderStatus = config.OrderStatus;
-                existedConfig.CreatedDate = config.CreatedDate;
-                existedConfig.EditedDate = config.EditedDate;
-                existedConfig.Expire = config.Expire;
-                existedConfig.FilledQuantity = config.FilledQuantity;
-                existedConfig.isClosingFilledOrder = config.isClosingFilledOrder;
-                existedConfig.OriginAmount = config.OriginAmount;
-
-
-                var caconfig = StaticObject.AllConfigs[config.CustomId];
-                if (caconfig != null)
+                if(!config.IsActive && config.CreatedBy == AppConstants.CreatedByScanner)
                 {
-                    caconfig.Amount = config.Amount;
-                    caconfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
-                    caconfig.IsActive = config.IsActive;
-                    caconfig.OrderChange = config.OrderChange;
-                    caconfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
-                    caconfig.IncreaseOcPercent = config.IncreaseOcPercent;
-                    caconfig.AmountLimit = config.AmountLimit;
-                    caconfig.FilledPrice = config.FilledPrice;
-                    caconfig.OrderId = config.OrderId;
-                    caconfig.ClientOrderId = config.ClientOrderId;
-                    caconfig.TPPrice = config.TPPrice;
-                    caconfig.OrderStatus = config.OrderStatus;
-                    caconfig.CreatedDate = config.CreatedDate;
-                    caconfig.EditedDate = config.EditedDate;
-                    caconfig.Expire = config.Expire;
-                    caconfig.FilledQuantity = config.FilledQuantity;
-                    caconfig.isClosingFilledOrder = config.isClosingFilledOrder;
-                    caconfig.OriginAmount = config.OriginAmount;
-                    StaticObject.AllConfigs[config.CustomId] = caconfig;
+                    StaticObject.AllConfigs.TryRemove(config.CustomId, out _);
+                    cachedData.RemoveAll(c => c.CustomId == config.CustomId);
                 }
+                else
+                {
+                    var caconfig = StaticObject.AllConfigs[config.CustomId];
+                    if (caconfig != null)
+                    {
+                        caconfig.Amount = config.Amount;
+                        caconfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
+                        caconfig.IsActive = config.IsActive;
+                        caconfig.OrderChange = config.OrderChange;
+                        caconfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
+                        caconfig.IncreaseOcPercent = config.IncreaseOcPercent;
+                        caconfig.AmountLimit = config.AmountLimit;
+                        caconfig.FilledPrice = config.FilledPrice;
+                        caconfig.OrderId = config.OrderId;
+                        caconfig.ClientOrderId = config.ClientOrderId;
+                        caconfig.TPPrice = config.TPPrice;
+                        caconfig.OrderStatus = config.OrderStatus;
+                        caconfig.CreatedDate = config.CreatedDate;
+                        caconfig.EditedDate = config.EditedDate;
+                        caconfig.Expire = config.Expire;
+                        caconfig.FilledQuantity = config.FilledQuantity;
+                        caconfig.isClosingFilledOrder = config.isClosingFilledOrder;
+                        caconfig.OriginAmount = config.OriginAmount;
+                        StaticObject.AllConfigs[config.CustomId] = caconfig;
+                    }
+                    existedConfig.Amount = config.Amount;
+                    existedConfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
+                    existedConfig.IsActive = config.IsActive;
+                    existedConfig.OrderChange = config.OrderChange;
+                    existedConfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
+                    existedConfig.IncreaseOcPercent = config.IncreaseOcPercent;
+                    existedConfig.AmountLimit = config.AmountLimit;
+                    existedConfig.FilledPrice = config.FilledPrice;
+                    existedConfig.OrderId = config.OrderId;
+                    existedConfig.ClientOrderId = config.ClientOrderId;
+                    existedConfig.TPPrice = config.TPPrice;
+                    existedConfig.OrderStatus = config.OrderStatus;
+                    existedConfig.CreatedDate = config.CreatedDate;
+                    existedConfig.EditedDate = config.EditedDate;
+                    existedConfig.Expire = config.Expire;
+                    existedConfig.FilledQuantity = config.FilledQuantity;
+                    existedConfig.isClosingFilledOrder = config.isClosingFilledOrder;
+                    existedConfig.OriginAmount = config.OriginAmount;                    
+                }
+                
             }
             _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
         }
@@ -181,7 +188,7 @@ public class ConfigService : IConfigService
                 OrderChange = r.OrderChange,
                 IsActive = r.IsActive,
                 Amount = r.Amount,
-                OriginAmount = r.Amount,
+                OriginAmount = r.OriginAmount,
                 OrderType = r.OrderType,
                 AmountLimit = r.AmountLimit,
                 IncreaseAmountPercent = r.IncreaseAmountPercent,

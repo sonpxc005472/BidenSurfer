@@ -136,7 +136,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Scanner On/Off config Error: " + ex.Message);
+            Console.WriteLine("Scanner On/Off config Ex: " + ex.Message);
         }        
     }
 }
