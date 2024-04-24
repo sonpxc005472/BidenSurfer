@@ -35,47 +35,14 @@ const ConfigurationPage: React.FC = () => {
     { name: 'passPhrase', value: '' },
     { name: 'teleChannel', value: '' }    
   ]);
-  const [tableData, setTableData] = useState<{ [key:string] : ConfigurationTableRow[]}>({
-    data: []
-  });
-  const fetch = useCallback(
-    () => {
-      getConfigurationData(user?.id).then((res) => {
-        if (isMounted.current) {
-          const groupedData = res.reduce((group: {[key: string]: ConfigurationTableRow[]}, item) => {
-            if (!group[item.symbol]) {
-             group[item.symbol] = [];
-            }
-            group[item.symbol].push(item);
-            return group;
-           }, {});
-
-          setTableData(groupedData);
-        }
-      });
-    },
-    [isMounted],
-  );
-
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
   
   return (
     <>
       <PageTitle>Configurations</PageTitle>
       <BaseCol>        
         <S.Card title='Configurations'>
-          <BaseSpace direction="vertical" style={{width: "100%"}} size={24}>            
-            <BaseTabs
-              size='small'
-              tabPosition='top'
-              items={Object.entries(tableData).map(([grpId, tlbRows])=>({
-                key: `${grpId}`,
-                label: `${grpId}`,
-                children: <ConfigurationTable configData={tlbRows} />,
-              }))}
-            />
+          <BaseSpace direction="vertical" style={{width: "100%"}} size={24}>      
+            <ConfigurationTable />
           </BaseSpace>
         </S.Card>
       </BaseCol>

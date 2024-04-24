@@ -8,14 +8,16 @@ namespace BidenSurfer.WebApi.Helpers
     {
         public static string GenerateHashedPassword(string password)
         {
-            using (var hmac = new HMACSHA256())
-            {
-                // Compute hash from the password
-                var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+            SHA1 sha1 = System.Security.Cryptography.SHA1.Create();
+            byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(password);
+            byte[] hash = sha1.ComputeHash(inputBytes);
 
-                // Convert byte array to a string
-                return Convert.ToBase64String(hash);
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < hash.Length; i++)
+            {
+                sb.Append(hash[i].ToString("X2"));
             }
+            return sb.ToString();
         }
     }
 }

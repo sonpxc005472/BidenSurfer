@@ -1,4 +1,5 @@
 using BidenSurfer.Infras.Models;
+using BidenSurfer.WebApi.Helpers;
 using BidenSurfer.WebApi.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,7 +16,7 @@ namespace BidenSurfer.WebApi.Controllers
             _userService = userService;
         }
 
-        [HttpPost("authenticate")]
+        [HttpPost("login")]
         public async Task<IActionResult> Authenticate(AuthenticateRequest model)
         {
             var response = await _userService.Authenticate(model);
@@ -27,6 +28,7 @@ namespace BidenSurfer.WebApi.Controllers
         }
 
         [HttpGet("all")]
+        [Authorize]
         public async Task<IActionResult> GetAll()
         {
             var users = await _userService.GetAll();
@@ -39,7 +41,14 @@ namespace BidenSurfer.WebApi.Controllers
             var user = await _userService.GetById(id);
             return Ok(user);
         }
-        
+
+        [HttpGet("gen-hash")]
+        public IActionResult GenHash([FromQuery] string text)
+        {
+            var hash = _userService.GenHash(text);
+            return Ok(hash);
+        }
+
         [HttpPost("addoredit")]
         public async Task<IActionResult> AddOrEdit(UserDto user)
         {

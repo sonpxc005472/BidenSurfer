@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { ConfigurationTableRow } from 'api/table.api';
+import React, { useEffect, useCallback , useState } from 'react';
 import { BaseTable } from '@app/components/common/BaseTable/BaseTable';
 import { ColumnsType } from 'antd/es/table';
 import { BaseButton } from '@app/components/common/BaseButton/BaseButton';
@@ -9,28 +8,42 @@ import { BaseTooltip } from '@app/components/common/BaseTooltip/BaseTooltip';
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { BaseRadio } from '@app/components/common/BaseRadio/BaseRadio';
 import { BaseSwitch } from '@app/components/common/BaseSwitch/BaseSwitch';
+import { ConfigurationTableRow, getConfigurationData } from 'api/table.api';
+import { useMounted } from '@app/hooks/useMounted';
 
 interface ConfigurationTableProps {
   configData: ConfigurationTableRow[];
 }
-export const ConfigurationTable: React.FC<ConfigurationTableProps> = ({ configData }) => {
+export const ConfigurationTable: React.FC = () => {
   const [tableData, setTableData] = useState<{ data: ConfigurationTableRow[] }>({
     data: [],
   });
   const { t } = useTranslation();
+  const { isMounted } = useMounted();
+  const fetch = useCallback(
+    () => {
+      getConfigurationData().then((res) => {
+        if (isMounted.current) {          
+          setTableData({data: res});
+        }
+      });
+    },
+    [isMounted],
+  );
 
   useEffect(() => {
-    setTableData({ data: configData });
-  }, []);
-  
-  const handleDeleteRow = (rowId: string) => {
+    fetch();
+  }, [fetch]);
+
+    
+  const handleDeleteRow = (rowId: number) => {
     setTableData({
       ...tableData,
       data: tableData.data.filter((item) => item.id !== rowId)
     });
   };
 
-  const handleActiveRow = (rowId: string, isActive: boolean) => {
+  const handleActiveRow = (rowId: number, isActive: boolean) => {
     var cloneData = {...tableData };
     cloneData.data.forEach(function(part, index, theArray) {
       if(theArray[index].id === rowId)
@@ -46,7 +59,7 @@ export const ConfigurationTable: React.FC<ConfigurationTableProps> = ({ configDa
       title: t('tables.actions'),
       dataIndex: 'actions',
       width: '10%',
-      render: (text: string, record: { id: string; isActive: boolean }) => {
+      render: (text: string, record: { id: number; isActive: boolean }) => {
         return (
           <BaseSpace>
             {/* <BaseButton
@@ -66,6 +79,10 @@ export const ConfigurationTable: React.FC<ConfigurationTableProps> = ({ configDa
       },
     },
     {
+      title: 'Symbol',
+      dataIndex: 'symbol'
+    },
+    {
       title: 'Position',
       dataIndex: 'positionSide'
     }, 
@@ -78,30 +95,26 @@ export const ConfigurationTable: React.FC<ConfigurationTableProps> = ({ configDa
       dataIndex: 'orderChange',
     },
     {
-      title: 'Candle',
-      dataIndex: 'candleStick',
+      title: 'Auto Amount',
+      dataIndex: 'increaseAmountPercent',
     },
     {
-      title: 'TP',
-      dataIndex: 'takeProfit',
+      title: 'Amount Expire',
+      dataIndex: 'increaseAmountExpire',
     },
     {
-      title: 'Reduce',
-      dataIndex: 'reduceTakeProfit',
+      title: 'Amount Limit',
+      dataIndex: 'amountLimit',
     },  
     {
-      title: 'Extend',
-      dataIndex: 'extend',
+      title: 'Expire',
+      dataIndex: 'expire',
     },
-    {
-      title: 'Stoploss',
-      dataIndex: 'stopLoss',
-    }, 
     {
       title: '',
       dataIndex: 'delete',
       width: '5%',
-      render: (text: string, record: { id: string }) => {
+      render: (text: string, record: { id: number }) => {
         return (
           <BaseSpace>            
             <BaseTooltip title="Delete">

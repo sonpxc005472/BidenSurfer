@@ -3,13 +3,14 @@ namespace BidenSurfer.WebApi.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using BidenSurfer.Infras.Entities;
+using BidenSurfer.Infras.Models;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class AuthorizeAttribute : Attribute, IAuthorizationFilter
 {
     public void OnAuthorization(AuthorizationFilterContext context)
     {
-        User? user = context.HttpContext.Items["User"] as User;
+        UserDto? user = context.HttpContext.Items["User"] as UserDto;
         if (user == null)
         {
             // not logged in

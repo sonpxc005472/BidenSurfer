@@ -173,11 +173,7 @@ public class BotService : IBotService
                                                     // create new configs for short side
                                                     newConfigs = await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen);
                                                 }
-                                            }
-                                            else
-                                            {
-                                                Console.WriteLine($"Scan OC existed: {symbol}");
-                                            }
+                                            }                                            
                                         }
                                         if (isMatched && newConfigs.Any())
                                         {

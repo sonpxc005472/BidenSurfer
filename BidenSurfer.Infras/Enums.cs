@@ -1,4 +1,6 @@
-﻿namespace BidenSurfer.Infras
+﻿using System;
+
+namespace BidenSurfer.Infras
 {
     public enum BotStatusEnums
     {
@@ -33,5 +35,13 @@
         Spot = 0,
         Margin = 1,
         Perpetual = 2
+    }
+
+    public static class EnumHelpers
+    {
+        public static string GetUserRoleName(this int role)
+        {
+            return Enum.GetName(typeof(UserRoleEnums), role) ?? string.Empty;
+        }
     }
 }

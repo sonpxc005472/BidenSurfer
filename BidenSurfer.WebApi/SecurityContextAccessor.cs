@@ -1,4 +1,5 @@
 ﻿using BidenSurfer.Infras;
+using BidenSurfer.Infras.Models;
 
 namespace BidenSurfer.WebApi
 {
@@ -14,8 +15,8 @@ namespace BidenSurfer.WebApi
         {
             get
             {
-                var claim = _httpContextAccessor.HttpContext?.User?.FindFirst(AppConstants.USER_CLAIM_TYPE);
-                return claim != null ? long.Parse(claim.Value) : 0;
+                UserDto? user = _httpContextAccessor?.HttpContext?.Items["User"] as UserDto;                
+                return user != null ? user.Id : 0;
             }
         }
 
@@ -23,8 +24,8 @@ namespace BidenSurfer.WebApi
         {
             get
             {
-                var claim = _httpContextAccessor.HttpContext?.User?.FindFirst(AppConstants.ROLE_CLAIM_TYPE);
-                return claim != null ? int.Parse(claim.Value) : 0;
+                UserDto? user = _httpContextAccessor?.HttpContext?.Items["User"] as UserDto;
+                return user != null ? user.Role : 0;
             }
         }        
     }

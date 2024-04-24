@@ -131,7 +131,7 @@ public class ConfigService : IConfigService
 
     public async Task<IEnumerable<ConfigDto>> GetConfigsByUser(long userId)
     {
-        var result = await _context.Configs?.Include(i => i.User).ThenInclude(c => c.UserSetting).Where(b => b.Userid == userId).ToListAsync() ?? new List<Config>();
+        var result = await _context.Configs.Where(b => b.Userid == userId).ToListAsync() ?? new List<Config>();
         return result.Select(r => new ConfigDto
         {
             Id = r.Id,

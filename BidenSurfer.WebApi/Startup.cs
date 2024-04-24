@@ -5,6 +5,7 @@ using BidenSurfer.Infras.Domains;
 using BidenSurfer.WebApi;
 using BidenSurfer.WebApi.Services;
 using BidenSurfer.WebApi.Consumers;
+using BidenSurfer.WebApi.Helpers;
 
 namespace BidenSurfer.WebApi
 {
@@ -39,16 +40,25 @@ namespace BidenSurfer.WebApi
                 options.InstanceName = "BidenSurfer_ByBit_";
             });
             services.AddScoped<IRedisCacheService,RedisCacheService>();
+            services.AddCors(options =>
+            {
+                options.AddPolicy("api", policy =>
+                {
+                    policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+                });
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app)
         {
+            app.UseCors("api");
             app.UseRouting()
+               .UseMiddleware<JwtMiddleware>()
                .UseEndpoints(endpoints =>
                 {
                     endpoints.MapControllers();
-                });        
+                });
         }
     }
 

@@ -19,6 +19,7 @@ public interface IUserService
     Task<bool> Delete(long id);
     Task<UserSettingDto?> GetUserSetting(long id);
     Task<bool> SaveUserSetting(UserSettingDto userSettingDto);
+    string GenHash(string text);
 }
 
 public class UserService : IUserService
@@ -64,7 +65,7 @@ public class UserService : IUserService
     public async Task<AuthenticateResponse?> Authenticate(AuthenticateRequest model)
     {
         var hashedPass = SecurityHelper.GenerateHashedPassword(model.Password);
-        var user = await _context.Users?.SingleOrDefaultAsync(x => x.Email == model.Username && hashedPass == x.Password);
+        var user = await _context.Users?.SingleOrDefaultAsync(x => x.Username == model.Username && hashedPass == x.Password);
 
         // return null if user not found
         if (user == null) return null;
@@ -85,6 +86,11 @@ public class UserService : IUserService
         _context.Users.Remove(userEntity);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public string GenHash(string text)
+    {
+        return SecurityHelper.GenerateHashedPassword(text);
     }
 
     public async Task<IEnumerable<UserDto>> GetAll()

@@ -16,17 +16,18 @@ export interface BasicTableRow {
 }
 
 export interface ConfigurationTableRow {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   symbol: string;
   positionSide: string;
   amount: number;
   orderChange: number;
-  candleStick: string;
-  takeProfit: number;
-  reduceTakeProfit: number;
-  extend: number;
-  stopLoss: number;
+  orderType: number;
+  increaseAmountPercent: number;
+  increaseOcPercent: number;
+  increaseAmountExpire: number;
+  expire: number;
+  amountLimit: number;
   isActive: boolean;
 }
 
@@ -57,8 +58,8 @@ export interface ConfigurationTableData {
   data: ConfigurationTableRow[];
 }
 
-export const getConfigurationData = (userid?: string): Promise<ConfigurationTableRow[]> =>
-  httpApi.get<ConfigurationTableRow[]>('configuration/getbyuser?userid='+userid).then(({ data }) => data);
+export const getConfigurationData = (): Promise<ConfigurationTableRow[]> =>
+  httpApi.get<ConfigurationTableRow[]>('configuration/getall').then(({ data }) => data);
 
 export const getBasicTableData = (pagination: Pagination): Promise<BasicTableData> => {
   return new Promise((res) => {
