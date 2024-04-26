@@ -89,3 +89,16 @@ https://api.telegram.org/bot6519727860:AAH34md0Aqu2RSavKU4kLDWnAzfXKiZSjSQ/getUp
 Cài Node.js
 Cài Yarn: npm install --global yarn
 Detail here: https://github.com/altence/lightence-ant-design-react-template?tab=readme-ov-file
+
+==========================================================
+DISM /online /Set-Edition:ServerStandard /ProductKey:N69G4-B89J2-4G8F4-WWYCC-J464C /AcceptEula
+slmgr /ipk N69G4-B89J2-4G8F4-WWYCC-J464C
+slmgr /skms kms.digiboy.ir
+slmgr /ato
+
+=============================
+slmgr /ipk W269N-WFGWX-YVC9B-4J6C9-T83GX
+
+slmgr /skms kms8.msguides.com
+
+slmgr /ato

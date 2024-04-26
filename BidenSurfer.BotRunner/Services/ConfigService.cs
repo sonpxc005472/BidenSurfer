@@ -197,24 +197,7 @@ public class ConfigService : IConfigService
                 CreatedBy = r.CreatedBy,
                 CreatedDate = r.CreatedDate,
                 EditedDate = r.EditedDate,
-                Expire = r.Expire,
-                UserDto = new UserDto
-                {
-                    Id = r.Userid,
-                    FullName = r.User?.FullName,
-                    Username = r.User?.Username,
-                    Email = r.User?.Email,
-                    Status = r.User?.Status ?? 0,
-                    Role = r.User?.Role ?? 0,
-                    Setting = new UserSettingDto
-                    {
-                        Id = r.User.UserSetting.Id,
-                        ApiKey = r.User.UserSetting.ApiKey,
-                        SecretKey = r.User.UserSetting.SecretKey,
-                        PassPhrase = r.User.UserSetting.PassPhrase,
-                        TeleChannel = r.User.UserSetting.TeleChannel
-                    }
-                }
+                Expire = r.Expire                
             }).ToList();
             StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(resultDto.ToDictionary(c => c.CustomId, c => c));
             _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, resultDto, TimeSpan.FromDays(10));

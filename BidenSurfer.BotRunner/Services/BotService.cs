@@ -117,12 +117,16 @@ public class BotService : IBotService
                                 if ((currentTime - preTimeCancel).TotalMilliseconds >= 5000)
                                 {
                                     preTimeCancel = currentTime;
-                                    var configExpired = allActiveConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.OrderStatus != 2 && x.Value.EditedDate != null && x.Value.Expire != null && x.Value.Expire.Value != 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.Expire.Value) < currentTime)).Select(c => c.Value).ToList();
+                                    var configExpired = allActiveConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.EditedDate != null && x.Value.Expire != null && x.Value.Expire.Value != 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.Expire.Value) < currentTime)).Select(c => c.Value).ToList();
                                     var cancelledConfigs = new List<string>();
                                     foreach (var config in configExpired)
                                     {
-                                        config.IsActive = false;
-                                        await CancelOrder(config, true);
+                                        var isFilledOrder = StaticObject.FilledOrders.Any(x => x.Key == config.CustomId);
+                                        if (!isFilledOrder)
+                                        {
+                                            config.IsActive = false;
+                                            await CancelOrder(config, true);
+                                        }                                        
                                     }
                                     if(configExpired.Any())
                                     {
@@ -474,9 +478,7 @@ public class BotService : IBotService
                                         clientOrderId: clientOrderId
                                     );
                                     if (cancelOrder.Success)
-                                    {
-                                        config.OrderStatus = 2;
-                                        _configService.AddOrEditConfig(config);
+                                    {                                        
                                         await TakeProfit(updatedData, user);
                                     }
                                 }
@@ -486,9 +488,7 @@ public class BotService : IBotService
                             {
                                 var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
                                 if (closingOrder == null)
-                                {
-                                    config.OrderStatus = 2;
-                                    _configService.AddOrEditConfig(config);
+                                {                                    
                                     await TakeProfit(updatedData, user);
                                     Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}| {clientOrderId} - Filled");
                                     await _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
@@ -496,15 +496,16 @@ public class BotService : IBotService
                                 else
                                 {
                                     Console.WriteLine("Take profit");
+                                    StaticObject.FilledOrders.TryRemove(closingOrder.CustomId, out _);
                                     var openPrice = closingOrder.FilledPrice ?? 0;
                                     var closePrice = updatedData?.AveragePrice ?? 0;
                                     var filledQuantity = updatedData?.QuantityFilled ?? 0;
-                                    var pnlCash = Math.Round(Math.Abs((openPrice - closePrice) * filledQuantity), 2);
+                                    var tp = closingOrder.PositionSide == AppConstants.ShortSide ? (openPrice - closePrice) * filledQuantity : (closePrice - openPrice) * filledQuantity;
+                                    var pnlCash = Math.Round(tp, 2);
                                     var pnlPercent = Math.Round((pnlCash / (openPrice * filledQuantity)) * 100, 2);
                                     var pnlText = pnlCash > 0 ? "WIN" : "LOSE";
                                     Console.WriteLine($"{updatedData?.Symbol}|{closingOrder.OrderChange}|{pnlText}|PNL: ${pnlCash.ToString("0.00")} {pnlPercent.ToString("0.00")}%");
-
-                                    StaticObject.FilledOrders.TryRemove(closingOrder.CustomId, out _);
+                                 
                                     config.OrderId = string.Empty;
                                     config.ClientOrderId = string.Empty;
                                     config.OrderStatus = null;
@@ -658,9 +659,15 @@ public class BotService : IBotService
                 StaticObject.RestApis.TryAdd(user.Id, api);
             }
             var ordSide = orderUpdate?.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-            var orderPrice = configToUpdate?.TPPrice;
+            var orderPrice = CalculateTP(orderUpdate.AveragePrice, configToUpdate);
             var clientOrderId = Guid.NewGuid().ToString();
             Console.WriteLine($"Taking profit {orderUpdate.Symbol} - {ordSide} - {clientOrderId}");
+            configToUpdate.ClientOrderId = clientOrderId;
+            configToUpdate.FilledPrice = orderUpdate.AveragePrice;
+            configToUpdate.FilledQuantity = orderUpdate.QuantityFilled;
+            configToUpdate.OrderStatus = 2;
+            configToUpdate.EditedDate = DateTime.Now;
+            StaticObject.FilledOrders.TryAdd(configToUpdate.CustomId, configToUpdate);
             var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
             (
                 Category.Spot,
@@ -675,18 +682,12 @@ public class BotService : IBotService
 
             if (placedOrder.Success && configToUpdate != null)
             {
-                Console.WriteLine($"Closing Filled Order: {orderUpdate.Symbol}|{configToUpdate.PositionSide}| {configToUpdate.OrderChange}|${orderPrice}- ClientOrderId: {placedOrder.Data.ClientOrderId}");
-                configToUpdate.OrderId = placedOrder.Data.OrderId;
-                configToUpdate.ClientOrderId = clientOrderId;
-                configToUpdate.FilledPrice = orderUpdate.AveragePrice;
-                configToUpdate.FilledQuantity = orderUpdate.QuantityFilled;
-                configToUpdate.OrderStatus = 2;
-                configToUpdate.EditedDate = DateTime.Now;
-                StaticObject.FilledOrders.TryAdd(configToUpdate.CustomId, configToUpdate);
                 _configService.AddOrEditConfig(configToUpdate);
+                Console.WriteLine($"Closing Filled Order: {orderUpdate.Symbol}|{configToUpdate.PositionSide}| {configToUpdate.OrderChange}|${orderPrice}- ClientOrderId: {placedOrder.Data.ClientOrderId}");
             }
             else
             {
+                StaticObject.FilledOrders.TryRemove(configToUpdate.CustomId, out _);
                 Console.WriteLine($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange} error: {placedOrder?.Error?.Message}");
             }
 
@@ -722,12 +723,21 @@ public class BotService : IBotService
                     quantity: config.FilledQuantity,
                     price: orderPriceWithTicksize
                 );
+
+            config.EditedDate = DateTime.Now;
             if (!amendOrder.Success)
             {
                 Console.WriteLine($"Try to take profit {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId} Error: {amendOrder.Error?.Code}-{amendOrder.Error?.Message}");
+                StaticObject.FilledOrders.TryRemove(config.CustomId, out _);
+                config.OrderId = string.Empty;
+                config.ClientOrderId = string.Empty;
+                config.OrderStatus = 1;
+                config.isClosingFilledOrder = false;
             }
-            config.EditedDate = DateTime.Now;
-            StaticObject.FilledOrders[config.CustomId] = config;
+            else
+            {
+                StaticObject.FilledOrders[config.CustomId] = config;
+            }
             _configService.AddOrEditConfig(config);            
             return amendOrder.Success;
         }
@@ -754,5 +764,17 @@ public class BotService : IBotService
 
 
         return (orderPriceWithTicksize ?? 0, quantityWithTicksize ?? 0, tpPriceWithTicksize ?? 0);
+    }
+
+    private decimal? CalculateTP(decimal? filledPrice, ConfigDto config)
+    {
+        if (filledPrice == null) return 0;
+        var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
+        var startPrice = config.PositionSide == AppConstants.ShortSide ? (100*filledPrice/(100 + config.OrderChange)) : (100*filledPrice/(100 - config.OrderChange));
+        var tpPrice = config.PositionSide == AppConstants.ShortSide ? filledPrice - ((startPrice * config.OrderChange / 100) * _tp / 100) : filledPrice + ((startPrice * config.OrderChange / 100) * _tp / 100);
+        var tpPriceWithTicksize = ((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
+
+
+        return tpPriceWithTicksize;
     }
 }
