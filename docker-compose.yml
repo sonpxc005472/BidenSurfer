@@ -1,0 +1,26 @@
+
+version: '3.7'
+
+services:
+
+  bot-runner:
+    image: ${REGISTRY:-bidensurfer}/bot-runner:${TAG:-latest}
+    container_name: bot-runner
+    build:
+      context: .
+      dockerfile: BidenSurfer.BotRunner/Dockerfile
+    networks:
+      - livestock-2
+      
+  scanner:
+    image: ${REGISTRY:-bidensurfer}/scanner:${TAG:-latest}
+    container_name: scanner
+    build:
+      context: .
+      dockerfile: BidenSurfer.Scanner/Dockerfile
+    networks:
+      - livestock-2
+
+networks:
+  livestock-2:
+    name: livestock-network
