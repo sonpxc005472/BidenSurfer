@@ -77,15 +77,15 @@ INSERT INTO scannersetting(userid, blacklist, maxopen) VALUES (1, '["CORE", "MNT
 
 =====================================================
 INSERT INTO users (fullname, username, password, email, role, status) VALUES('admin1', 'admin', '23D42F5F3F66498B2C8FF4C20B8C5AC826E47146', 'trader1@gmail.com', 2, 1)
-Go
+
 INSERT INTO usersettings (userid, apikey, secretkey, passphrase, telechannel) VALUES(1, 'O3VED19egBxMXKhJDE', 'ZHW9frPTjrLbqWgDS6qMBFshalpxb1s7iS8m', 'trader1', '-1001847838569')
-Go
+
 INSERT into scanner(amount,amountexpire,amountlimit,autoamount,configexpire,elastic,isactive,ocnumber,orderchange,ordertype,positionside,title,turnover,userid)
 VALUES(20, 3, 40, 100,3,80,true,2,1.5,1,'long','margin long 1', 5000,1)
-Go
+
 INSERT into scanner(amount,amountexpire,amountlimit,autoamount,configexpire,elastic,isactive,ocnumber,orderchange,ordertype,positionside,title,turnover,userid)
 VALUES(20, 3, 40, 100,3,80,true,2,1.5,1,'short','margin short 1', 5000,1)
-Go
+
 INSERT INTO configs (userid, symbol, positionside, ordertype, orderchange, amount, originamount, amountlimit, amountexpire, increaseocpercent, increaseamountpercent, createdby, createddate, editeddate, expire, isactive, customid)
 VALUES (1, 'TONUSDT', 'short', 1, 1.5, 20, 20, 40, 3, 10, 100, 'user', current_timestamp, current_timestamp, 0, true, gen_random_uuid());
 

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useAppSelector } from '@app/hooks/reduxHooks';
 import { formatNumberWithCommas, getCurrencyPrice } from '@app/utils/utils';
 import { Balance as IBalance, getBalance } from '@app/api/earnings.api';
