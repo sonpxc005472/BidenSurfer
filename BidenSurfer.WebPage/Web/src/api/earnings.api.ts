@@ -1,10 +1,10 @@
 import { CurrencyTypeEnum } from '@app/interfaces/interfaces';
+import { httpApi } from './http.api';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export interface Balance {
-  USD: number;
-  ETH: number;
-  BTC: number;
+  Total: number;
+  Available: number;
 }
 
 export interface Earning {
@@ -19,17 +19,9 @@ export interface TotalEarning {
   timeline: Earning[];
 }
 
-export const getBalance = (id: string): Promise<Balance> => {
-  return new Promise((res) => {
-    setTimeout(() => {
-      res({
-        USD: 3040.51,
-        ETH: 1040.51,
-        BTC: 5373.51,
-      });
-    }, 0);
-  });
-};
+export const getBalance = (): Promise<Balance> => 
+  httpApi.get<Balance>('user/get-balance').then(({ data }) => data);
+
 
 export const getTotalEarning = (id: number, currency: CurrencyTypeEnum): Promise<TotalEarning> => {
   return new Promise((res) => {

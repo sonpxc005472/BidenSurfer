@@ -11,21 +11,49 @@ services:
   #   ports:
   #     - 8025:8025
   #     - 1025:1025
+  
+  # bidensurferrabbitmq:
+    # restart: unless-stopped
+    # ports:
+      # - "15672:15672"
+      # - "5672:5672"
 
-  background-jobs:
-   restart: unless-stopped
+  # bidensurferredis:
+    # ports:
+      # - "6379:6379"
+      
+  # bidensurferdb:
+    # ports:
+      # - "5432:5432"
+
+  # bot-runner:
+   # restart: unless-stopped
+   # environment:
+     # - ASPNETCORE_ENVIRONMENT=Development
+     # - ConnectionStrings__WebApiDatabase=Host=bidensurferdb; Database=bidensurferbybit; Username=admin; Password=Mtl@1987
+     # - ConnectionStrings__RedisConn=bidensurferredis:6379
+     # - MessageBus__username=guest
+     # - MessageBus__password=guest
+     # - MessageBus__url=amqp://bidensurferrabbitmq
+     
+  # bot-scanner:
+   # restart: unless-stopped
+   # environment:
+     # - ASPNETCORE_ENVIRONMENT=Development
+     # - ConnectionStrings__WebApiDatabase=Host=bidensurferdb; Database=bidensurferbybit; Username=admin; Password=Mtl@1987
+     # - ConnectionStrings__RedisConn=bidensurferredis:6379
+     # - MessageBus__username=guest
+     # - MessageBus__password=guest
+     # - MessageBus__url=amqp://bidensurferrabbitmq
+     
+  bot-webapi:
+   ports:
+      - 5501:5501
+      - 15501:15501
    environment:
      - ASPNETCORE_ENVIRONMENT=Development
-     - ConnectionStrings__background_jobs_sagas=Server=sqlserver;Database=master;User Id=sa;Password=P@ssw0rd;Trusted_Connection=False; MultipleActiveResultSets=true;
-     - MessageBus__TransportType=RabbitMQ
-     - MessageBus__RabbitMQ__Url=amqp://rabbitmq
-     - MessageBus__AzureSB__ConnectionString=<config>
-     # At every 5th minute
-     - Jobs__ProducerScanningSchedule=* * * * *
-     - Jobs__ProducerScanningEnabled=true
-     - Services__PersonalDataService__GrpcUrl=http://personal-api:15003
-     - Services__PersonalDataService__Url=http://personal-api:5003
-     - Logging__Seq__Url=http://seq/
-     - Logging__Seq__ApiKey=${SEQ_KEY:-}
-     - Logging__Seq__Enabled=false
-     - Metrics__Enabled=false
+     - ConnectionStrings__WebApiDatabase=Host=bidensurferdb; Database=bidensurferbybit; Username=admin; Password=Mtl@1987
+     - ConnectionStrings__RedisConn=bidensurferredis:6379
+     - MessageBus__username=guest
+     - MessageBus__password=guest
+     - MessageBus__url=amqp://bidensurferrabbitmq

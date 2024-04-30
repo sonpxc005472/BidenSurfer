@@ -7,7 +7,7 @@ export const Table = styled(AntdTable)`
     color: var(--primary-color);
     font-size: ${FONT_SIZE.xs};
     line-height: 1.25rem;
-
+    padding: 8px;
     & .anticon {
       color: var(--primary-color);
     }
@@ -17,6 +17,7 @@ export const Table = styled(AntdTable)`
     color: var(--text-main-color);
     font-size: ${FONT_SIZE.xs};
     line-height: 1.25rem;
+    padding: 8px;
   }
 
   & tbody .ant-table-row-expand-icon {

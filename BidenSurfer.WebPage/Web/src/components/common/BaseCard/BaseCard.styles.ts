@@ -39,7 +39,7 @@ export const Card = styled(AntCard)<CardInternalProps>`
   .ant-card-body {
     flex-grow: 1;
 
-    padding: ${(props) => props.$padding && normalizeProp(props.$padding)};
+    padding: 6px;
   }
 
   .ant-card-bordered {

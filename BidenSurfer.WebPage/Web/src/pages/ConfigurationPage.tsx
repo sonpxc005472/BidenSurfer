@@ -26,29 +26,7 @@ const ConfigurationPage: React.FC = () => {
             <ConfigurationTable />
           </BaseSpace>
         </S.Card>
-      </BaseCol>
-      <BaseTooltip title='Add configurations'>
-        <AddConfigurationButton type="primary" shape="circle" icon={<PlusOutlined />} size="large" onClick={()=> setIsModalOpen(true)}></AddConfigurationButton>
-      </BaseTooltip>
-      <BaseModal
-            title='Add/Edit configurations'
-            centered
-            open={isModalOpen}
-            onOk={() => setIsModalOpen(false)}
-            onCancel={() => setIsModalOpen(false)}
-            size="large"
-          >
-            <BaseForm
-              name="addForm"
-              form={form}              
-            >
-              <BaseRow>
-                  <BaseCol xs={24} md={24}>
-                    <SymbolItem />
-                  </BaseCol>
-              </BaseRow>              
-            </BaseForm>
-      </BaseModal>
+      </BaseCol>      
     </>
   );
 };

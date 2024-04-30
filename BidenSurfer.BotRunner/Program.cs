@@ -23,7 +23,8 @@ namespace BidenSurfer.BotRunner
         Host.CreateDefaultBuilder(args)
             .ConfigureAppConfiguration((context, config) =>
             {
-                config.AddJsonFile("appsettings.json", optional: true);
+                config.SetBasePath(Directory.GetCurrentDirectory());
+                config.AddJsonFile("appsettings.json", optional: true, true);
                 config.AddEnvironmentVariables();
                 config.AddCommandLine(args);
             })

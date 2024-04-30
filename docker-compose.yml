@@ -2,25 +2,66 @@
 version: '3.7'
 
 services:
+  # bidensurferrabbitmq:
+    # image: rabbitmq:3-management
+    # container_name: bidensurferrabbitmq
+    # networks:
+      # - bidensurfer
 
-  bot-runner:
-    image: ${REGISTRY:-bidensurfer}/bot-runner:${TAG:-latest}
-    container_name: bot-runner
-    build:
-      context: .
-      dockerfile: BidenSurfer.BotRunner/Dockerfile
-    networks:
-      - livestock-2
+  # bidensurferredis:
+    # image: redis
+    # container_name: bidensurferredis
+    # networks:
+      # - bidensurfer
       
-  scanner:
-    image: ${REGISTRY:-bidensurfer}/scanner:${TAG:-latest}
-    container_name: scanner
+  # bidensurferdb:
+    # image: postgres:latest
+    # container_name: bidensurferdb
+    # environment:
+      # POSTGRES_USER: admin
+      # POSTGRES_PASSWORD: Mtl@1987
+      # POSTGRES_DB: bidensurferbybit
+    # volumes:
+      # - ./scripts/postgres/dbschema.sql:/docker-entrypoint-initdb.d/dbschema.sql
+    # networks:
+      # - bidensurfer
+      
+  # bot-runner:
+    # image: ${REGISTRY:-bidensurfer}/bot-runner:${TAG:-latest}
+    # container_name: bot-runner
+    # build:
+      # context: .
+      # dockerfile: BidenSurfer.BotRunner/Dockerfile
+    # networks:
+      # - bidensurfer
+    # depends_on:
+      # - bidensurferrabbitmq
+      # - bidensurferredis
+  
+  # bot-scanner:
+    # image: ${REGISTRY:-bidenscanner}/bot-scanner:${TAG:-latest}
+    # container_name: bot-scanner
+    # build:
+      # context: .
+      # dockerfile: BidenSurfer.Scanner/Dockerfile
+    # networks:
+      # - bidensurfer
+    # depends_on:
+      # - bidensurferrabbitmq
+      # - bidensurferredis
+      
+  bot-webapi:
+    image: ${REGISTRY:-bidensurfer}/bot-webapi:${TAG:-latest}
+    container_name: bot-webapi
     build:
       context: .
-      dockerfile: BidenSurfer.Scanner/Dockerfile
+      dockerfile: BidenSurfer.WebApi/Dockerfile
     networks:
-      - livestock-2
+      - bidensurfer
+    # depends_on:
+      # - bidensurferrabbitmq
+      # - bidensurferredis
 
 networks:
-  livestock-2:
-    name: livestock-network
+  bidensurfer:
+    name: bidensurfer-network

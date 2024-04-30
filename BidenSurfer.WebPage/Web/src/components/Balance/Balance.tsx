@@ -10,28 +10,43 @@ import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
 
 export const Balance: React.FC = () => {
   const [balance, setBalance] = useState<IBalance>({
-    USD: 0,
-    ETH: 0,
-    BTC: 0,
+    Total: 0,
+    Available: 0
   });
 
   const userId = useAppSelector((state) => state.user.user?.id);
 
   useEffect(() => {
-    userId && getBalance(userId).then((res) => setBalance(res));
+    userId && getBalance().then((res) => setBalance(res));
   }, [userId]);
 
-  const { t } = useTranslation();
   return (
-    <BaseRow>
-      <BaseCol span={24}>
-        <S.TitleText level={2}>{t('nft.yourBalance')}</S.TitleText>
+    <BaseRow justify="space-between" align="middle">
+      <BaseCol>
+        <BaseRow>
+          <BaseCol span={24}>
+            <S.TitleText level={2}>Balance</S.TitleText>
+          </BaseCol>
+          <BaseCol span={24}>
+            <S.TitleBalanceText level={5}>
+              {getCurrencyPrice(formatNumberWithCommas(balance.Total), CurrencyTypeEnum['USD'])}
+            </S.TitleBalanceText>
+          </BaseCol>          
+        </BaseRow>
       </BaseCol>
-      <BaseCol span={24}>
-        <S.TitleBalanceText level={4}>
-          {getCurrencyPrice(formatNumberWithCommas(balance.USD), CurrencyTypeEnum['USD'])}
-        </S.TitleBalanceText>
+      <BaseCol>
+        <BaseRow>          
+          <BaseCol span={24}>
+            <S.TitleText level={2}>Available</S.TitleText>
+          </BaseCol>
+          <BaseCol span={24}>
+            <S.TitleBalanceText level={5}>
+              {getCurrencyPrice(formatNumberWithCommas(balance.Available), CurrencyTypeEnum['USD'])}
+            </S.TitleBalanceText>
+          </BaseCol>
+        </BaseRow>
       </BaseCol>
     </BaseRow>
+    
   );
 };

@@ -17,17 +17,19 @@ public interface IUserService
     Task<UserDto?> GetById(long id);
     Task<bool> AddOrEdit(UserDto user);
     Task<bool> Delete(long id);
-    Task<UserSettingDto?> GetUserSetting(long id);
-    Task<bool> SaveUserSetting(UserSettingDto userSettingDto);
+    Task<UserSettingDto?> GetApiSetting();
+    Task<bool> SaveApiSetting(UserSettingDto userSettingDto);
     string GenHash(string text);
 }
 
 public class UserService : IUserService
 {
     private readonly AppDbContext _context;
-    public UserService(AppDbContext context)
+    private ISecurityContextAccessor _securityContextAccessor;
+    public UserService(AppDbContext context, ISecurityContextAccessor securityContextAccessor)
     {
         _context = context;
+        _securityContextAccessor = securityContextAccessor;
     }
 
     public async Task<bool> AddOrEdit(UserDto user)
@@ -140,9 +142,10 @@ public class UserService : IUserService
         };
     }
 
-    public async Task<UserSettingDto?> GetUserSetting(long id)
+    public async Task<UserSettingDto?> GetApiSetting()
     {
-        var user = await _context.UserSettings.FirstOrDefaultAsync(x => x.UserId == id);
+        var userId = _securityContextAccessor.UserId;
+        var user = await _context.UserSettings.FirstOrDefaultAsync(x => x.UserId == userId);
         if (user == null)
         {
             return new UserSettingDto
@@ -151,7 +154,7 @@ public class UserService : IUserService
                 SecretKey = string.Empty,
                 PassPhrase = string.Empty,
                 TeleChannel = string.Empty,
-                UserId = id
+                UserId = userId
             };
         }
         return new UserSettingDto
@@ -165,9 +168,10 @@ public class UserService : IUserService
         };
     }
 
-    public async Task<bool> SaveUserSetting(UserSettingDto userSettingDto)
+    public async Task<bool> SaveApiSetting(UserSettingDto userSettingDto)
     {
-        var userEntity = await _context.UserSettings?.FirstOrDefaultAsync(c => c.UserId == userSettingDto.UserId);
+        var userId = _securityContextAccessor.UserId;
+        var userEntity = await _context.UserSettings?.FirstOrDefaultAsync(c => c.UserId == userId);
         if (userEntity == null)
         {
             var userSetting = new UserSetting
@@ -175,7 +179,7 @@ public class UserService : IUserService
                 ApiKey = userSettingDto.ApiKey,
                 SecretKey = userSettingDto.SecretKey,
                 PassPhrase = userSettingDto.PassPhrase,
-                UserId = userSettingDto.UserId,
+                UserId = userId,
                 TeleChannel = userSettingDto.TeleChannel
             };
             _context.UserSettings.Add(userSetting);

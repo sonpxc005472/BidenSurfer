@@ -17,7 +17,8 @@ namespace BidenSurfer.Infras.Domains
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         {
             // connect to postgres with connection string from app settings
-            options.UseNpgsql(Configuration.GetConnectionString("WebApiDatabase"));
+            var connectionString = Configuration.GetConnectionString("WebApiDatabase");
+            options.UseNpgsql(connectionString);
         }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

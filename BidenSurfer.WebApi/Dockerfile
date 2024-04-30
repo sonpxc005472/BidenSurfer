@@ -15,17 +15,17 @@ WORKDIR /src
 
 COPY ["nuget.config", "./"]
 RUN true
-COPY ["BidenSurfer.BotRunner/*.csproj", "BidenSurfer.BotRunner/"]
+COPY ["BidenSurfer.WebApi/*.csproj", "BidenSurfer.WebApi/"]
 RUN true
 COPY ["BidenSurfer.Infras/*.csproj", "BidenSurfer.Infras/"]
 
-RUN dotnet restore BidenSurfer.BotRunner/ /property:Configuration=Release -nowarn:msb3202,nu1503 --configfile nuget.config
+RUN dotnet restore BidenSurfer.WebApi/ /property:Configuration=Release -nowarn:msb3202,nu1503 --configfile nuget.config
 
-COPY ["BidenSurfer.BotRunner/.", "BidenSurfer.BotRunner/"]
+COPY ["BidenSurfer.WebApi/.", "BidenSurfer.WebApi/"]
 RUN true
 COPY ["BidenSurfer.Infras/.", "BidenSurfer.Infras/"]
 
-RUN dotnet publish BidenSurfer.BotRunner/ -c Release -o /app --no-restore
+RUN dotnet publish BidenSurfer.WebApi/ -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:6.0-alpine3.14
 
@@ -35,4 +35,4 @@ ENV ASPNETCORE_ENVIRONMENT docker
 
 COPY --from=builder /app .
 
-ENTRYPOINT ["dotnet", "BidenSurfer.BotRunner.dll"]
+ENTRYPOINT ["dotnet", "BidenSurfer.WebApi.dll"]

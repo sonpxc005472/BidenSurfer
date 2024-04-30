@@ -23,7 +23,8 @@ namespace BidenSurfer.Scanner
         Host.CreateDefaultBuilder(args)
             .ConfigureAppConfiguration((context, config) =>
             {
-                config.AddJsonFile("appsettings.json", optional: true);
+                config.SetBasePath(Directory.GetCurrentDirectory());
+                config.AddJsonFile("appsettings.json", optional: true, true);
                 config.AddEnvironmentVariables();
                 config.AddCommandLine(args);
             })
@@ -40,7 +41,8 @@ namespace BidenSurfer.Scanner
                 services.AddScoped<AppDbContext>();
                 services.AddStackExchangeRedisCache(options =>
                 {
-                    options.Configuration = configuration.GetConnectionString("RedisConn");
+                    var redisConn = configuration.GetConnectionString("RedisConn");
+                    options.Configuration = redisConn;
                     options.InstanceName = "BidenSurfer_ByBit_";
                 });
                 services.AddCustomMassTransit(configuration);

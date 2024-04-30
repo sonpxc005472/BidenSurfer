@@ -5,21 +5,56 @@ import { BaseButton } from '@app/components/common/BaseButton/BaseButton';
 import { useTranslation } from 'react-i18next';
 import { BaseSpace } from '@app/components/common/BaseSpace/BaseSpace';
 import { BaseTooltip } from '@app/components/common/BaseTooltip/BaseTooltip';
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { BaseRadio } from '@app/components/common/BaseRadio/BaseRadio';
 import { BaseSwitch } from '@app/components/common/BaseSwitch/BaseSwitch';
 import { ConfigurationTableRow, getConfigurationData } from 'api/table.api';
 import { useMounted } from '@app/hooks/useMounted';
-
-interface ConfigurationTableProps {
-  configData: ConfigurationTableRow[];
+import { BaseModal } from '@app/components/common/BaseModal/BaseModal';
+import { BaseForm } from '@app/components/common/forms/BaseForm/BaseForm';
+import { BaseRow } from '@app/components/common/BaseRow/BaseRow';
+import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
+import { SymbolItem } from './symbolItem';
+import { AddConfigurationButton } from './Configuration.styles';
+interface AddEditFormValues {
+  id?: number;
+  symbol?: string;
+  positionSide?: string;
+  oc?: number;
+  autoAmount?: number;
+  amount?: number;
+  amountLimit?: number;
+  amountExpire?: number;
+  expire?: number;
+  autoOc?: number;
+  isActive?: boolean;  
 }
+
+const initialFormValues: AddEditFormValues = {
+  id: undefined,
+  symbol: '',
+  positionSide: 'short',
+  oc: undefined,
+  autoAmount: undefined,
+  amount: undefined,
+  amountExpire: undefined,
+  amountLimit: undefined,
+  expire: undefined,
+  autoOc: undefined,
+  isActive: true
+};
+
 export const ConfigurationTable: React.FC = () => {
   const [tableData, setTableData] = useState<{ data: ConfigurationTableRow[] }>({
     data: [],
   });
   const { t } = useTranslation();
   const { isMounted } = useMounted();
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isEditConfig, setIsEditConfig] = useState<boolean>(false);
+
+  const [form] = BaseForm.useForm();  
+
   const fetch = useCallback(
     () => {
       getConfigurationData().then((res) => {
@@ -34,7 +69,31 @@ export const ConfigurationTable: React.FC = () => {
   useEffect(() => {
     fetch();
   }, [fetch]);
-
+ 
+  const handleOpenAddEdit = (rowId?: number) => {
+    if(rowId)
+      {
+        setIsEditConfig(true);
+        var cloneData = {...tableData };
+        cloneData.data.forEach(function(part, index, theArray) {
+          if(theArray[index].id === rowId)
+          {
+            form.setFieldsValue({
+              ...initialFormValues,
+              symbol: theArray[index].symbol
+            })
+          }
+        });        
+      }
+    else
+      {
+        setIsEditConfig(false);
+        form.setFieldsValue({
+          ...initialFormValues
+        })
+      }
+      setIsModalOpen(true);
+  };
     
   const handleDeleteRow = (rowId: number) => {
     setTableData({
@@ -58,7 +117,7 @@ export const ConfigurationTable: React.FC = () => {
     {
       title: t('tables.actions'),
       dataIndex: 'actions',
-      width: '10%',
+      width: '10px',
       render: (text: string, record: { id: number; isActive: boolean }) => {
         return (
           <BaseSpace>
@@ -71,20 +130,22 @@ export const ConfigurationTable: React.FC = () => {
               {t('tables.invite')}
             </BaseButton> */}
             <BaseTooltip title="edit">
-              <BaseButton type="default" size='small' icon={<EditOutlined />} onClick={() => handleDeleteRow(record.id)} />
+              <BaseButton type="default" size='small' icon={<EditOutlined />} onClick={() => handleOpenAddEdit(record.id)} />
             </BaseTooltip>
-            <BaseSwitch checked={record.isActive} onChange={() => handleActiveRow(record.id, !record.isActive)} />
+            <BaseSwitch size='small' checked={record.isActive} onChange={() => handleActiveRow(record.id, !record.isActive)} />
           </BaseSpace>
         );
       },
     },
     {
       title: 'Symbol',
-      dataIndex: 'symbol'
+      dataIndex: 'symbol',
+      width: '10px'
     },
     {
       title: 'Position',
-      dataIndex: 'positionSide'
+      dataIndex: 'positionSide',
+      width: '10px',
     }, 
     {
       title: 'Amount',
@@ -127,12 +188,36 @@ export const ConfigurationTable: React.FC = () => {
   ];
 
   return (
-    <BaseTable
+    <>
+      <BaseTable
       columns={columns}
       dataSource={tableData.data}
       pagination={false}
       scroll={{ x: 800 }}
-      bordered
-    />
+      />
+      <BaseModal
+            title={ isEditConfig ? 'Edit configuration': 'Add configuration'}
+            centered
+            open={isModalOpen}
+            onOk={() => setIsModalOpen(false)}
+            onCancel={() => setIsModalOpen(false)}
+            size="large"
+          >
+            <BaseForm
+              name="editForm"
+              form={form}      
+              initialValues={initialFormValues}        
+            >
+              <BaseRow>
+                  <BaseCol xs={24} md={24}>
+                    <SymbolItem />
+                  </BaseCol>
+              </BaseRow>              
+            </BaseForm>
+      </BaseModal>
+      <BaseTooltip title='Add configurations'>
+        <AddConfigurationButton type="primary" shape="circle" icon={<PlusOutlined />} size="large" onClick={()=> handleOpenAddEdit()}></AddConfigurationButton>
+      </BaseTooltip>      
+    </>    
   );
 };

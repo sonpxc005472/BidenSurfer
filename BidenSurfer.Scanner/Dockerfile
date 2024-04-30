@@ -1,23 +1,38 @@
-#See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
+FROM mcr.microsoft.com/dotnet/sdk:6.0-alpine3.14 AS builder
 
-FROM mcr.microsoft.com/dotnet/runtime:6.0 AS base
-WORKDIR /app
+ENV GLIBC_REPO=https://github.com/sgerrand/alpine-pkg-glibc
+ENV GLIBC_VERSION=2.30-r0
+RUN set -ex && \
+    apk --update add libstdc++ curl ca-certificates && \
+    for pkg in glibc-${GLIBC_VERSION} glibc-bin-${GLIBC_VERSION}; \
+        do curl -sSL ${GLIBC_REPO}/releases/download/${GLIBC_VERSION}/${pkg}.apk -o /tmp/${pkg}.apk; done && \
+    apk add --allow-untrusted /tmp/*.apk && \
+    rm -v /tmp/*.apk && \
+    /usr/glibc-compat/sbin/ldconfig /lib /usr/glibc-compat/lib
 
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
-ARG BUILD_CONFIGURATION=Release
+
 WORKDIR /src
-COPY ["BidenSurfer.Scanner/BidenSurfer.Scanner.csproj", "BidenSurfer.Scanner/"]
-COPY ["BidenSurfer.Infras/BidenSurfer.Infras.csproj", "BidenSurfer.Infras/"]
-RUN dotnet restore "./BidenSurfer.Scanner/BidenSurfer.Scanner.csproj"
-COPY . .
-WORKDIR "/src/BidenSurfer.Scanner"
-RUN dotnet build "./BidenSurfer.Scanner.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./BidenSurfer.Scanner.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+COPY ["nuget.config", "./"]
+RUN true
+COPY ["BidenSurfer.Scanner/*.csproj", "BidenSurfer.Scanner/"]
+RUN true
+COPY ["BidenSurfer.Infras/*.csproj", "BidenSurfer.Infras/"]
 
-FROM base AS final
+RUN dotnet restore BidenSurfer.Scanner/ /property:Configuration=Release -nowarn:msb3202,nu1503 --configfile nuget.config
+
+COPY ["BidenSurfer.Scanner/.", "BidenSurfer.Scanner/"]
+RUN true
+COPY ["BidenSurfer.Infras/.", "BidenSurfer.Infras/"]
+
+RUN dotnet publish BidenSurfer.Scanner/ -c Release -o /app --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:6.0-alpine3.14
+
 WORKDIR /app
-COPY --from=publish /app/publish .
+
+ENV ASPNETCORE_ENVIRONMENT docker
+
+COPY --from=builder /app .
+
 ENTRYPOINT ["dotnet", "BidenSurfer.Scanner.dll"]

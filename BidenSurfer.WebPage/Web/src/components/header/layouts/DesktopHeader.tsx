@@ -21,15 +21,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({ isTwoColumnsLayout
           <BaseCol>
             <BaseRow gutter={[{ xxl: 5 }, { xxl: 5 }]}>
               <BaseCol>
-              </BaseCol>
-
-              <BaseCol>
-                <NotificationsDropdown />
-              </BaseCol>
-
-              <BaseCol>
-                <SettingsDropdown />
-              </BaseCol>
+              </BaseCol>              
             </BaseRow>
           </BaseCol>
 

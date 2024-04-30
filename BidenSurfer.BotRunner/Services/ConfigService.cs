@@ -199,6 +199,7 @@ public class ConfigService : IConfigService
                 EditedDate = r.EditedDate,
                 Expire = r.Expire                
             }).ToList();
+            Console.WriteLine("GetAllConfigActive - db: " + resultDto.Count);
             StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(resultDto.ToDictionary(c => c.CustomId, c => c));
             _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, resultDto, TimeSpan.FromDays(10));
         }

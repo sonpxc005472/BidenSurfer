@@ -55,5 +55,22 @@ namespace BidenSurfer.WebApi.Controllers
             var isSuccess = await _userService.AddOrEdit(user);
             return Ok(isSuccess);
         }
+
+        [HttpGet("api-setting")]
+        [Authorize]
+        public async Task<IActionResult> ApiSetting()
+        {
+            var setting = await _userService.GetApiSetting();
+            return Ok(setting);
+        }
+
+
+        [HttpPost("save-api-setting")]
+        [Authorize]
+        public async Task<IActionResult> SaveApiSetting(UserSettingDto setting)
+        {
+            await _userService.SaveApiSetting(setting);
+            return Ok();
+        }
     }
 }
