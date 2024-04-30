@@ -78,7 +78,7 @@ export const defineColorBySeverity = (severity: NotificationType | undefined, rg
   }
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+//  
 export const mergeBy = (a: any[], b: any[], key: string): any[] =>
   a.filter((elem) => !b.find((subElem) => subElem[key] === elem[key])).concat(b);
 

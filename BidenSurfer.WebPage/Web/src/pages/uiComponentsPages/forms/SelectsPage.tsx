@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/*   */
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BaseSelect, Option } from '@app/components/common/selects/BaseSelect/BaseSelect';

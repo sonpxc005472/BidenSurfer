@@ -30,7 +30,7 @@ interface PaymentsTableProps {
 export const PaymentsTable: React.FC<PaymentsTableProps> = ({ payments }) => {
   const { t } = useTranslation();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  //  
   const columns: ColumnType<any>[] = useMemo(() => {
     return [
       {

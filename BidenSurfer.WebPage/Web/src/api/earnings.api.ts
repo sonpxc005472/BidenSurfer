@@ -1,7 +1,7 @@
 import { CurrencyTypeEnum } from '@app/interfaces/interfaces';
 import { httpApi } from './http.api';
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+/*   */
 export interface Balance {
   Total: number;
   Available: number;

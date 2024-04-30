@@ -30,7 +30,7 @@ export const SearchDropdown: React.FC<SearchOverlayProps> = ({
     setOverlayOpen(!!query || isFilterOpen);
   }, [query, isFilterOpen, setOverlayOpen]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  //  
   const ref = useRef<any>(null);
 
   return (

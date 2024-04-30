@@ -7,7 +7,7 @@ import { BaseFormItem } from '@app/components/common/forms/components/BaseFormIt
 import { BaseFormList } from '@app/components/common/forms/components/BaseFormList/BaseFormList';
 import { notificationController } from '@app/controllers/notificationController';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+//  
 export type BaseFormProps = Omit<ComponentProps<typeof Form>, 'onFinish'> & { onFinish?: (values: any) => void };
 
 export type BaseFormInstance = FormInstance;

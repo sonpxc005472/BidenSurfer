@@ -13,7 +13,7 @@ interface TimePickerProps {
 export const TimeRangePicker: React.FC<TimePickerProps> = ({ timeRange, setTimeRange }) => {
   const timeRangePrepared = useMemo(() => timeRange.map((time) => clearDate.add(time)), [timeRange]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  //  
   const onChange = (timeRange: any) => {
     const timeRangeSinceTodayMs = timeRange
       .map((time: AppDate) => time.subtract(clearDateMs, 'ms'))

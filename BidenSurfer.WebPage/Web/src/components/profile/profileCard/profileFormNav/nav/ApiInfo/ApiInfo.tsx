@@ -20,7 +20,7 @@ import { BaseButton } from '@app/components/common/BaseButton/BaseButton';
 
 interface FieldData {
   name: string | number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  //  
   value?: any;
 }
 export const ApiInfo: React.FC = () => {

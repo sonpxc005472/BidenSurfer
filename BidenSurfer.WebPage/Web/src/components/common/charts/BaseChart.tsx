@@ -9,7 +9,7 @@ import { BORDER_RADIUS } from '@app/styles/themes/constants';
 
 export interface BaseChartProps {
   option?: EChartsOption;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  //  
   onEvents?: Record<string, (e: any) => void>;
   width?: string | number;
   height?: string | number;

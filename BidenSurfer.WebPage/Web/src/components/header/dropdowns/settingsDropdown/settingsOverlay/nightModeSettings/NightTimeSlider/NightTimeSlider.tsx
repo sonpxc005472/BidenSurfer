@@ -16,7 +16,7 @@ const RoundSliderComponent = createComponent(React, 'round-slider', RoundSlider,
   onChange: 'value-changing',
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+//  
 const handleSlider = (event: any, onLow: (value: number) => void, onHigh: (value: number) => void) => {
   const entries = event.detail && Object.entries(event.detail)[0];
 
