@@ -3,7 +3,7 @@ docker pull redis
 docker run --name my-redis -p 6379:6379 -d redis
 docker pull rabbitmq
 docker run -d --hostname my-rabbit --name my-rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
-psql -h localhost -U postgres -d world -f world.sql
+docker-compose -f docker-compose.yml -f docker-compose.override.yml up --build
 
 =========================================================================================================
 
@@ -87,7 +87,7 @@ INSERT into scanner(amount,amountexpire,amountlimit,autoamount,configexpire,elas
 VALUES(20, 3, 40, 100,3,80,true,2,1.5,1,'short','margin short 1', 5000,1)
 Go
 INSERT INTO configs (userid, symbol, positionside, ordertype, orderchange, amount, originamount, amountlimit, amountexpire, increaseocpercent, increaseamountpercent, createdby, createddate, editeddate, expire, isactive, customid)
-VALUES (1, 'TONUSDT', 'short', 1, 1.5, 20, 20, 40, 3, 10, 100, 'user', current_timestamp, current_timestamp, 0, true, uuid_generate_v4());
+VALUES (1, 'TONUSDT', 'short', 1, 1.5, 20, 20, 40, 3, 10, 100, 'user', current_timestamp, current_timestamp, 0, true, gen_random_uuid());
 
 
 ======================================================

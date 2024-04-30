@@ -1,50 +1,40 @@
 version: '3.7'
 
-services:
-  # vault:
-  #   ports:
-  #     - 8200:8200
-  #   environment:
-  #     - VAULT_DEV_ROOT_TOKEN_ID=secret
-
-  # smtp-server:
-  #   ports:
-  #     - 8025:8025
-  #     - 1025:1025
+services:  
   
-  # bidensurferrabbitmq:
-    # restart: unless-stopped
-    # ports:
-      # - "15672:15672"
-      # - "5672:5672"
+  bidensurferrabbitmq:
+    restart: unless-stopped
+    ports:
+      - "15672:15672"
+      - "5672:5672"
 
-  # bidensurferredis:
-    # ports:
-      # - "6379:6379"
+  bidensurferredis:
+    ports:
+      - "6379:6379"
       
-  # bidensurferdb:
-    # ports:
-      # - "5432:5432"
+  bidensurferdb:
+    ports:
+      - "5432:5432"
 
-  # bot-runner:
-   # restart: unless-stopped
-   # environment:
-     # - ASPNETCORE_ENVIRONMENT=Development
-     # - ConnectionStrings__WebApiDatabase=Host=bidensurferdb; Database=bidensurferbybit; Username=admin; Password=Mtl@1987
-     # - ConnectionStrings__RedisConn=bidensurferredis:6379
-     # - MessageBus__username=guest
-     # - MessageBus__password=guest
-     # - MessageBus__url=amqp://bidensurferrabbitmq
+  bot-runner:
+   restart: unless-stopped
+   environment:
+     - ASPNETCORE_ENVIRONMENT=Development
+     - ConnectionStrings__WebApiDatabase=Host=bidensurferdb; Database=bidensurferbybit; Username=admin; Password=Mtl@1987
+     - ConnectionStrings__RedisConn=bidensurferredis:6379
+     - MessageBus__username=guest
+     - MessageBus__password=guest
+     - MessageBus__url=amqp://bidensurferrabbitmq
      
-  # bot-scanner:
-   # restart: unless-stopped
-   # environment:
-     # - ASPNETCORE_ENVIRONMENT=Development
-     # - ConnectionStrings__WebApiDatabase=Host=bidensurferdb; Database=bidensurferbybit; Username=admin; Password=Mtl@1987
-     # - ConnectionStrings__RedisConn=bidensurferredis:6379
-     # - MessageBus__username=guest
-     # - MessageBus__password=guest
-     # - MessageBus__url=amqp://bidensurferrabbitmq
+  bot-scanner:
+   restart: unless-stopped
+   environment:
+     - ASPNETCORE_ENVIRONMENT=Development
+     - ConnectionStrings__WebApiDatabase=Host=bidensurferdb; Database=bidensurferbybit; Username=admin; Password=Mtl@1987
+     - ConnectionStrings__RedisConn=bidensurferredis:6379
+     - MessageBus__username=guest
+     - MessageBus__password=guest
+     - MessageBus__url=amqp://bidensurferrabbitmq
      
   bot-webapi:
    ports:

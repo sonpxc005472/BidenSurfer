@@ -2,53 +2,53 @@
 version: '3.7'
 
 services:
-  # bidensurferrabbitmq:
-    # image: rabbitmq:3-management
-    # container_name: bidensurferrabbitmq
-    # networks:
-      # - bidensurfer
+  bidensurferrabbitmq:
+    image: rabbitmq:3-management
+    container_name: bidensurferrabbitmq
+    networks:
+      - bidensurfer
 
-  # bidensurferredis:
-    # image: redis
-    # container_name: bidensurferredis
-    # networks:
-      # - bidensurfer
+  bidensurferredis:
+    image: redis
+    container_name: bidensurferredis
+    networks:
+      - bidensurfer
       
-  # bidensurferdb:
-    # image: postgres:latest
-    # container_name: bidensurferdb
-    # environment:
-      # POSTGRES_USER: admin
-      # POSTGRES_PASSWORD: Mtl@1987
-      # POSTGRES_DB: bidensurferbybit
-    # volumes:
-      # - ./scripts/postgres/dbschema.sql:/docker-entrypoint-initdb.d/dbschema.sql
-    # networks:
-      # - bidensurfer
+  bidensurferdb:
+    image: postgres:latest
+    container_name: bidensurferdb
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: Mtl@1987
+      POSTGRES_DB: bidensurferbybit
+    volumes:
+      - ./scripts/postgres/dbschema.sql:/docker-entrypoint-initdb.d/dbschema.sql
+    networks:
+      - bidensurfer
       
-  # bot-runner:
-    # image: ${REGISTRY:-bidensurfer}/bot-runner:${TAG:-latest}
-    # container_name: bot-runner
-    # build:
-      # context: .
-      # dockerfile: BidenSurfer.BotRunner/Dockerfile
-    # networks:
-      # - bidensurfer
-    # depends_on:
-      # - bidensurferrabbitmq
-      # - bidensurferredis
+  bot-runner:
+    image: ${REGISTRY:-bidensurfer}/bot-runner:${TAG:-latest}
+    container_name: bot-runner
+    build:
+      context: .
+      dockerfile: BidenSurfer.BotRunner/Dockerfile
+    networks:
+      - bidensurfer
+    depends_on:
+      - bidensurferrabbitmq
+      - bidensurferredis
   
-  # bot-scanner:
-    # image: ${REGISTRY:-bidenscanner}/bot-scanner:${TAG:-latest}
-    # container_name: bot-scanner
-    # build:
-      # context: .
-      # dockerfile: BidenSurfer.Scanner/Dockerfile
-    # networks:
-      # - bidensurfer
-    # depends_on:
-      # - bidensurferrabbitmq
-      # - bidensurferredis
+  bot-scanner:
+    image: ${REGISTRY:-bidenscanner}/bot-scanner:${TAG:-latest}
+    container_name: bot-scanner
+    build:
+      context: .
+      dockerfile: BidenSurfer.Scanner/Dockerfile
+    networks:
+      - bidensurfer
+    depends_on:
+      - bidensurferrabbitmq
+      - bidensurferredis
       
   bot-webapi:
     image: ${REGISTRY:-bidensurfer}/bot-webapi:${TAG:-latest}
@@ -58,9 +58,9 @@ services:
       dockerfile: BidenSurfer.WebApi/Dockerfile
     networks:
       - bidensurfer
-    # depends_on:
-      # - bidensurferrabbitmq
-      # - bidensurferredis
+    depends_on:
+      - bidensurferrabbitmq
+      - bidensurferredis
 
 networks:
   bidensurfer:
