@@ -3,8 +3,8 @@ import { httpApi } from './http.api';
 
 /*   */
 export interface Balance {
-  Total: number;
-  Available: number;
+  total: number;
+  available: number;
 }
 
 export interface Earning {

@@ -5,6 +5,8 @@ using BidenSurfer.Infras.Domains;
 using BidenSurfer.Infras.Entities;
 using BidenSurfer.Infras.Models;
 using BidenSurfer.WebApi.Helpers;
+using Bybit.Net.Clients;
+using CryptoExchange.Net.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -14,6 +16,7 @@ public interface IUserService
 {
     Task<AuthenticateResponse?> Authenticate(AuthenticateRequest model);
     Task<IEnumerable<UserDto>> GetAll();
+    Task<BalanceDto> GetBalance();
     Task<UserDto?> GetById(long id);
     Task<bool> AddOrEdit(UserDto user);
     Task<bool> Delete(long id);
@@ -195,6 +198,28 @@ public class UserService : IUserService
         await _context.SaveChangesAsync();
         return true;
     }
+    public async Task<BalanceDto> GetBalance()
+    {
+        try
+        {
+            var userSetting = await GetApiSetting();
+            if (userSetting == null || string.IsNullOrEmpty(userSetting?.ApiKey) || string.IsNullOrEmpty(userSetting?.SecretKey))
+                return new BalanceDto();
+            BybitRestClient api = new BybitRestClient();
+            api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
+            var balance = await api.V5Api.Account.GetBalancesAsync(Bybit.Net.Enums.AccountType.Unified);
+            return new BalanceDto
+            {
+                Total = Math.Round(balance.Data?.List?.FirstOrDefault()?.TotalWalletBalance ?? 0, 0),
+                Available = Math.Round(balance.Data?.List?.FirstOrDefault()?.TotalAvailableBalance ?? 0,0)
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return new BalanceDto();
+        }
+    }
 
     // helper methods
 
@@ -211,5 +236,5 @@ public class UserService : IUserService
         };
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
-    }
+    }    
 }

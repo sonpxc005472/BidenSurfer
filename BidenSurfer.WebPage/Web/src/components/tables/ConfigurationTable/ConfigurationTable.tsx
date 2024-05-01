@@ -192,6 +192,7 @@ export const ConfigurationTable: React.FC = () => {
       <BaseTable
       columns={columns}
       dataSource={tableData.data}
+      rowKey="id"
       pagination={false}
       scroll={{ x: 800 }}
       />

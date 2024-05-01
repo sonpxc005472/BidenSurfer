@@ -34,6 +34,14 @@ namespace BidenSurfer.WebApi.Controllers
             var users = await _userService.GetAll();
             return Ok(users);
         }
+        
+        [HttpGet("get-balance")]
+        [Authorize]
+        public async Task<IActionResult> GetBalance()
+        {
+            var balanceDto = await _userService.GetBalance();
+            return Ok(balanceDto);
+        }
 
         [HttpGet("byId")]
         public async Task<IActionResult> GetById([FromQuery]long id)

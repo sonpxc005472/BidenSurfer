@@ -9,14 +9,16 @@ import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
 
 export const Balance: React.FC = () => {
   const [balance, setBalance] = useState<IBalance>({
-    Total: 0,
-    Available: 0
+    total: 0,
+    available: 0
   });
 
   const userId = useAppSelector((state) => state.user.user?.id);
 
   useEffect(() => {
-    userId && getBalance().then((res) => setBalance(res));
+    userId && getBalance().then((res) => {
+      setBalance(res)
+    });
   }, [userId]);
 
   return (
@@ -28,7 +30,7 @@ export const Balance: React.FC = () => {
           </BaseCol>
           <BaseCol span={24}>
             <S.TitleBalanceText level={5}>
-              {getCurrencyPrice(formatNumberWithCommas(balance.Total), CurrencyTypeEnum['USD'])}
+              {getCurrencyPrice(formatNumberWithCommas(balance.total), CurrencyTypeEnum['USD'])}
             </S.TitleBalanceText>
           </BaseCol>          
         </BaseRow>
@@ -40,7 +42,7 @@ export const Balance: React.FC = () => {
           </BaseCol>
           <BaseCol span={24}>
             <S.TitleBalanceText level={5}>
-              {getCurrencyPrice(formatNumberWithCommas(balance.Available), CurrencyTypeEnum['USD'])}
+              {getCurrencyPrice(formatNumberWithCommas(balance.available), CurrencyTypeEnum['USD'])}
             </S.TitleBalanceText>
           </BaseCol>
         </BaseRow>

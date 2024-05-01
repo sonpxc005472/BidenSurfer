@@ -7,7 +7,7 @@ export const FirstNameItem: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <BaseButtonsForm.Item name="fullName" label="Name">
+    <BaseButtonsForm.Item name="username" label="Name">
       <BaseInput disabled={true} />
     </BaseButtonsForm.Item>
   );

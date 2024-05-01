@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { LeftOutlined } from '@ant-design/icons';
-import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Outlet, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -17,7 +16,6 @@ import { BaseCol } from '../common/BaseCol/BaseCol';
 const ProfileLayout: React.FC = () => {
   const user = useAppSelector((state) => state.user.user);
 
-  const { t } = useTranslation();
   const { isTablet: isTabletOrHigher, mobileOnly } = useResponsive();
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,10 +31,10 @@ const ProfileLayout: React.FC = () => {
 
   return (
     <>
-      <PageTitle>{t('profile.title')}</PageTitle>
+      <PageTitle>Profile</PageTitle>
       {!isTitleShown && (
         <Btn icon={<LeftOutlined />} type="text" onClick={() => navigate('/profile')}>
-          {t('common.back')}
+          Back
         </Btn>
       )}
 

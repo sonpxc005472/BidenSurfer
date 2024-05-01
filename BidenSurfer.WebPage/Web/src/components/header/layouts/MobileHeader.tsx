@@ -17,6 +17,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({ toggleSider, isSider
   return (
     <BaseRow justify="space-between" align="middle">
       <BaseCol>
+        <ProfileDropdown />
+      </BaseCol>
+      <BaseCol>
         <BaseRow align="middle">
           <BaseCol>
             <Balance />

@@ -3,14 +3,23 @@ import { UserModel } from '@app/domain/UserModel';
 import {
   ApiData, saveApi
 } from '@app/api/user.api';
+import { persistUser, readUser } from '@app/services/localStorage.service';
 
 export interface UserState {
   user: UserModel | null;
 }
 
 const initialState: UserState = {
-  user: null,
+  user: readUser(),
 };
+
+export const setUser = createAction<PrepareAction<UserModel>>('user/setUser', (newUser) => {
+  persistUser(newUser);
+
+  return {
+    payload: newUser,
+  };
+});
 
 export const doSaveApi = createAsyncThunk(
   'user/doSaveApi',

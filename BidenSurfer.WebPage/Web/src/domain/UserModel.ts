@@ -2,7 +2,7 @@ export interface UserModel {
   id: string;
   fullName?: string;
   imgUrl?: string;
-  userName: string;
+  username: string;
   email: string;
   role: number;
   sex?: 'male' | 'female';

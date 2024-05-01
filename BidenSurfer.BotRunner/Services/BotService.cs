@@ -208,7 +208,7 @@ public class BotService : IBotService
                     orderSide = OrderSide.Buy;
                 }
                 string clientOrderId = Guid.NewGuid().ToString();
-                Console.WriteLine($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+                Console.WriteLine($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: {clientOrderId}");
                 var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
                     (
                         Category.Spot,
@@ -452,6 +452,11 @@ public class BotService : IBotService
                             var config = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId).Value;
                             if (config == null)
                             {
+                                config = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
+                            }
+                           
+                            if (config == null)
+                            {
                                 Console.WriteLine("Null order: " + clientOrderId);
                                 continue;
                             }
@@ -668,6 +673,7 @@ public class BotService : IBotService
             configToUpdate.OrderStatus = 2;
             configToUpdate.EditedDate = DateTime.Now;
             StaticObject.FilledOrders.TryAdd(configToUpdate.CustomId, configToUpdate);
+            _configService.AddOrEditConfig(configToUpdate);
             var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
             (
                 Category.Spot,
@@ -682,7 +688,6 @@ public class BotService : IBotService
 
             if (placedOrder.Success && configToUpdate != null)
             {
-                _configService.AddOrEditConfig(configToUpdate);
                 Console.WriteLine($"Closing Filled Order: {orderUpdate.Symbol}|{configToUpdate.PositionSide}| {configToUpdate.OrderChange}|${orderPrice}- ClientOrderId: {placedOrder.Data.ClientOrderId}");
             }
             else
@@ -694,6 +699,7 @@ public class BotService : IBotService
         }
         catch (Exception ex)
         {
+            StaticObject.FilledOrders.TryRemove(configToUpdate.CustomId, out _);
             Console.WriteLine($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange} Error: {ex.Message}");
         }
 
