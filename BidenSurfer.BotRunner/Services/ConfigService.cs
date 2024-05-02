@@ -13,9 +13,10 @@ public interface IConfigService
     Task<List<ConfigDto>> GetAllActive();
     ConfigDto GetById(long id);
     void AddOrEditConfig(ConfigDto config);
-    void UpdateConfig(List<ConfigDto> configs);
+    void UpsertConfigs(List<ConfigDto> configs);
+    void UpdateCache();
     void DeleteAllConfig();
-    void UpsertWinLose(ConfigDto configDto, bool isWin);
+    ConfigWinLose UpsertWinLose(ConfigDto configDto, bool isWin);
     ConfigWinLose GetWinLose(ConfigDto configDto);
     void OnOffConfig(List<ConfigDto> configs);
 }
@@ -35,11 +36,9 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
-            var existedConfig = cachedData.FirstOrDefault(c => c.CustomId == config.CustomId);
-            if (existedConfig == null)
+            var existedConfig = StaticObject.AllConfigs.ContainsKey(config.CustomId);
+            if (!existedConfig)
             {
-                cachedData.Add(config);
                 StaticObject.AllConfigs.TryAdd(config.CustomId, config);
             }
             else
@@ -47,7 +46,6 @@ public class ConfigService : IConfigService
                 if(!config.IsActive && config.CreatedBy == AppConstants.CreatedByScanner)
                 {
                     StaticObject.AllConfigs.TryRemove(config.CustomId, out _);
-                    cachedData.RemoveAll(c => c.CustomId == config.CustomId);
                 }
                 else
                 {
@@ -73,29 +71,9 @@ public class ConfigService : IConfigService
                         caconfig.isClosingFilledOrder = config.isClosingFilledOrder;
                         caconfig.OriginAmount = config.OriginAmount;
                         StaticObject.AllConfigs[config.CustomId] = caconfig;
-                    }
-                    existedConfig.Amount = config.Amount;
-                    existedConfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
-                    existedConfig.IsActive = config.IsActive;
-                    existedConfig.OrderChange = config.OrderChange;
-                    existedConfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
-                    existedConfig.IncreaseOcPercent = config.IncreaseOcPercent;
-                    existedConfig.AmountLimit = config.AmountLimit;
-                    existedConfig.FilledPrice = config.FilledPrice;
-                    existedConfig.OrderId = config.OrderId;
-                    existedConfig.ClientOrderId = config.ClientOrderId;
-                    existedConfig.TPPrice = config.TPPrice;
-                    existedConfig.OrderStatus = config.OrderStatus;
-                    existedConfig.CreatedDate = config.CreatedDate;
-                    existedConfig.EditedDate = config.EditedDate;
-                    existedConfig.Expire = config.Expire;
-                    existedConfig.FilledQuantity = config.FilledQuantity;
-                    existedConfig.isClosingFilledOrder = config.isClosingFilledOrder;
-                    existedConfig.OriginAmount = config.OriginAmount;                    
-                }
-                
-            }
-            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
+                    }                                      
+                }                
+            }           
         }
         catch (Exception ex)
         {
@@ -109,12 +87,10 @@ public class ConfigService : IConfigService
         StaticObject.AllConfigs.Clear();
     }
 
-    public void UpdateConfig(List<ConfigDto> configs)
+    public void UpsertConfigs(List<ConfigDto> configs)
     {
         try
         {
-            var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
-
             foreach (var config in configs)
             {
                 if (config.IsActive)
@@ -123,27 +99,14 @@ public class ConfigService : IConfigService
                 }
                 else
                 {
-                    cachedData.RemoveAll(c => config.CustomId == c.CustomId && c.CreatedBy == AppConstants.CreatedByScanner);
                     if (config.CreatedBy == AppConstants.CreatedByScanner)
                     {
                         StaticObject.AllConfigs.TryRemove(config.CustomId, out _);
-                    }
-
-                    var configToUpdate = cachedData.FirstOrDefault(c => config.CustomId == c.CustomId && c.CreatedBy != AppConstants.CreatedByScanner);
-                    if (configToUpdate != null)
+                    }                    
+                    else
                     {
-                        configToUpdate.IsActive = false;
-                        configToUpdate.OrderId = string.Empty;
-                        configToUpdate.ClientOrderId = string.Empty;
-                        configToUpdate.OrderStatus = null;
-                        configToUpdate.EditedDate = DateTime.Now;
-                        configToUpdate.isClosingFilledOrder = false;
-                        configToUpdate.Amount = configToUpdate.OriginAmount ?? configToUpdate.Amount;
-                    };
-                    if (config.CreatedBy != AppConstants.CreatedByScanner)
-                    {
-                        var configsToUpdateMem = StaticObject.AllConfigs[config.CustomId];
-                        if (configsToUpdateMem != null)
+                        var canGet = StaticObject.AllConfigs.TryGetValue(config.CustomId, out var configsToUpdateMem);
+                        if (canGet)
                         {
                             configsToUpdateMem.IsActive = false;
                             configsToUpdateMem.OrderId = string.Empty;
@@ -157,8 +120,7 @@ public class ConfigService : IConfigService
                     }
 
                 }
-            }
-            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
+            }            
         }
         catch (Exception ex)
         {
@@ -168,17 +130,10 @@ public class ConfigService : IConfigService
 
     public async Task<List<ConfigDto>> GetAllActive()
     {
-        List<ConfigDto> resultDto = new List<ConfigDto>();
-        var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
-        if (cachedData != null)
-        {
-            StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(cachedData.ToDictionary(c => c.CustomId, c => c));
-            return cachedData;
-        }
-        else
+        try
         {
             var result = await _dbContext.Configs?.Include(i => i.User).ThenInclude(c => c.UserSetting).Where(b => b.User.Status == (int)UserStatusEnums.Active && b.IsActive).ToListAsync() ?? new List<Config>();
-            resultDto = result.Select(r => new ConfigDto
+            var resultDto = result.Select(r => new ConfigDto
             {
                 Id = r.Id,
                 CustomId = r.CustomId,
@@ -197,13 +152,18 @@ public class ConfigService : IConfigService
                 CreatedBy = r.CreatedBy,
                 CreatedDate = r.CreatedDate,
                 EditedDate = r.EditedDate,
-                Expire = r.Expire                
+                Expire = r.Expire
             }).ToList();
             Console.WriteLine("GetAllConfigActive - db: " + resultDto.Count);
             StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(resultDto.ToDictionary(c => c.CustomId, c => c));
-            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, resultDto, TimeSpan.FromDays(10));
+            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, resultDto, TimeSpan.FromDays(100));
+            return resultDto;
         }
-        return resultDto;
+        catch (Exception ex)
+        {
+            Console.WriteLine("Get all configs Error: " + ex.Message);
+            return new List<ConfigDto>();
+        }        
     }
 
     public ConfigDto GetById(long id)
@@ -217,27 +177,31 @@ public class ConfigService : IConfigService
         return null;
     }
 
-    public void UpsertWinLose(ConfigDto configDto, bool isWin)
+    public ConfigWinLose UpsertWinLose(ConfigDto configDto, bool isWin)
     {
         var winDict = _redisCacheService.GetCachedData<Dictionary<string, ConfigWinLose>>(AppConstants.RedisConfigWinLose);
         var key = $"{configDto.UserId}_{configDto.Symbol}_{configDto.PositionSide}_{configDto.OrderChange}";
+        var winLose = new ConfigWinLose();
         if (winDict != null && winDict.ContainsKey(key))
         {
             var win = winDict[key];
             win.Total = win.Total + 1;
             if(isWin) win.Win = win.Win + 1;
             winDict[key] = win;
+            winLose = win;
         }
         else
         {
             winDict ??= new Dictionary<string, ConfigWinLose>();
-            winDict.Add(key, new ConfigWinLose
+            winLose = new ConfigWinLose
             {
                 Total = 1,
                 Win = isWin? 1 : 0
-            });
+            };
+            winDict.Add(key, winLose);
         }
         _redisCacheService.SetCachedData(AppConstants.RedisConfigWinLose, winDict, TimeSpan.FromDays(100));
+        return winLose;
     }
 
     public ConfigWinLose GetWinLose(ConfigDto configDto)
@@ -283,5 +247,18 @@ public class ConfigService : IConfigService
         {
             Console.WriteLine($"On/Off Config Error: {ex.Message}");
         }        
+    }
+
+    public void UpdateCache()
+    {
+        try
+        {
+            _redisCacheService.RemoveCachedData(AppConstants.RedisAllConfigs);
+            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, StaticObject.AllConfigs.Values.ToList(), TimeSpan.FromDays(100));
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"UpdateCache Error: {ex.Message}");
+        }   
     }
 }

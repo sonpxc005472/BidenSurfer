@@ -131,6 +131,7 @@ public class ConfigService : IConfigService
                     cacheData.OrderStatus = null;
                     cacheData.isClosingFilledOrder = false;
                     cacheData.isNewScan = false;
+                    StaticObject.AllConfigs[config.CustomId] = cacheData;
                 }
             }
         }
