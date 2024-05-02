@@ -84,7 +84,7 @@ public class BotService : IBotService
                                         //Place order
                                         await TakePlaceOrder(symbolConfig, currentPrice);
                                     }
-                                    else if (!string.IsNullOrEmpty(symbolConfig.ClientOrderId) && symbolConfig.OrderStatus != 2)
+                                    else if (!string.IsNullOrEmpty(symbolConfig.ClientOrderId) && !existingFilledOrders.Any())
                                     {
                                         // every 2s change order
                                         if ((currentTime - preTime).TotalMilliseconds >= 2000)
@@ -673,7 +673,7 @@ public class BotService : IBotService
             configToUpdate.OrderStatus = 2;
             configToUpdate.EditedDate = DateTime.Now;
             StaticObject.FilledOrders.TryAdd(configToUpdate.CustomId, configToUpdate);
-            _configService.AddOrEditConfig(configToUpdate);
+            //_configService.AddOrEditConfig(configToUpdate);
             var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
             (
                 Category.Spot,
