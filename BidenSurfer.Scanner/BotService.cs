@@ -137,7 +137,7 @@ public class BotService : IBotService
                                             foreach (var config in newConfigs)
                                             {
                                                 var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == config.UserId)?.Setting;
-                                                await _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
+                                                _ = _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
                                             }
                                         }
                                     }
@@ -183,7 +183,7 @@ public class BotService : IBotService
                                             foreach (var config in newConfigs)
                                             {
                                                 var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == config.UserId)?.Setting;
-                                                await _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
+                                                _ = _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
                                             }
                                         }
                                     }
@@ -242,7 +242,7 @@ public class BotService : IBotService
 
             if (currentOpen + i > maxOpen)
             {
-                await _teleMessage.ErrorMessage(symbol, oc.ToString(), scanner.PositionSide, userSetting.TeleChannel, $"Exceeded open limt {maxOpen}");
+                _ = _teleMessage.ErrorMessage(symbol, oc.ToString(), scanner.PositionSide, userSetting.TeleChannel, $"Exceeded open limt {maxOpen}");
                 continue;
             }
             currentOpen++;
