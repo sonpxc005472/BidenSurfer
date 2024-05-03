@@ -18,10 +18,10 @@ namespace BidenSurfer.BotRunner.Consumers
         public async Task Consume(ConsumeContext<NewConfigCreatedMessage> context)
         {
             var allconfigs = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
-            var newScan = allconfigs?.Where(c => c.isNewScan).ToList();
-            if (newScan != null && newScan.Any())
+            var newScans = allconfigs?.Where(c => c.isNewScan).ToList();
+            if (newScans != null && newScans.Any())
             {
-                foreach (var config in newScan)
+                foreach (var config in newScans)
                 {
                     StaticObject.AllConfigs.TryAdd(config.CustomId, config);
                 }
