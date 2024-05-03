@@ -15,6 +15,7 @@ import { BaseRow } from '@app/components/common/BaseRow/BaseRow';
 import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
 import { SymbolItem } from './symbolItem';
 import { AddConfigurationButton } from './Scanner.styles';
+import { BaseTag } from '@app/components/common/BaseTag/BaseTag';
 interface AddEditFormValues {
   id?: number;
   title?: string;
@@ -176,8 +177,9 @@ export const ScannerTable: React.FC = () => {
       render: (onlyPairs: string[]) => onlyPairs ? (
         <BaseRow gutter={[5, 5]}>
           {onlyPairs.map((tag: string) => (
-            <BaseCol key={tag}>
-            </BaseCol>
+            <BaseTag color="green" key={tag}>
+              {tag.toUpperCase()}
+            </BaseTag>
           ))}
         </BaseRow>
       ) : <></>,
