@@ -10,7 +10,6 @@ import VerifyEmailImage from '@app/assets/images/verify-email.webp';
 import * as Auth from '@app/components/layouts/AuthLayout/AuthLayout.styles';
 import * as S from './SecurityCodeForm.styles';
 import { BaseImage } from '@app/components/common/BaseImage/BaseImage';
-import { BaseSpin } from '@app/components/common/BaseSpin/BaseSpin';
 
 interface SecurityCodeFormProps {
   onBack?: () => void;
@@ -54,7 +53,7 @@ export const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({ onBack, onFi
           </S.ImageWrapper>
           <Auth.FormTitle>{t('securityCodeForm.title')}</Auth.FormTitle>
           <S.VerifyEmailDescription>{t('common.verifCodeSent')}</S.VerifyEmailDescription>
-          {isLoading ? <BaseSpin /> : <VerificationCodeInput autoFocus onChange={setSecurityCode} />}
+          
           <Link to="/" target="_blank">
             <S.NoCodeText>{t('securityCodeForm.noCode')}</S.NoCodeText>
           </Link>

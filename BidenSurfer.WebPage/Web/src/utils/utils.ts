@@ -1,4 +1,3 @@
-import { NotificationType } from '@app/components/common/BaseNotification/BaseNotification';
 import { Priority } from '@app//constants/enums/priorities';
 import visa from '@app/assets/images/card-issuers/visa.png';
 import mastercard from '@app/assets/images/card-issuers/mastercard.png';
@@ -65,7 +64,7 @@ export const defineColorByPriority = (priority: Priority): string => {
   }
 };
 
-export const defineColorBySeverity = (severity: NotificationType | undefined, rgb = false): string => {
+export const defineColorBySeverity = (severity: string | undefined, rgb = false): string => {
   const postfix = rgb ? 'rgb-color' : 'color';
   switch (severity) {
     case 'error':

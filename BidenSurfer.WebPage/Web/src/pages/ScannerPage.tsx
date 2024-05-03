@@ -1,25 +1,24 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import { PageTitle } from '@app/components/common/PageTitle/PageTitle';
 import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
 import { BaseSpace } from '@app/components/common/BaseSpace/BaseSpace';
 import * as S from '@app/pages/uiComponentsPages//UIComponentsPage.styles';
-import { BaseTabs } from '@app/components/common/BaseTabs/BaseTabs';
+import { ScannerTable } from '@app/components/tables/Scanners/ScannerTable';
 
-const SettingPage: React.FC = () => {
-  const { t } = useTranslation();
+const ScannerPage: React.FC = () => {
+   
   return (
     <>
-      <PageTitle>Settings</PageTitle>
+      <PageTitle>Scanners</PageTitle>
       <BaseCol>        
-        <S.Card title='Settings'>
-          <BaseSpace direction="vertical" size={20}>            
-            
+        <S.Card title='Scanners'>
+          <BaseSpace direction="vertical" style={{width: "100%"}} size={24}>      
+            <ScannerTable />
           </BaseSpace>
         </S.Card>
-      </BaseCol>
+      </BaseCol>      
     </>
   );
 };
 
-export default SettingPage;
+export default ScannerPage;

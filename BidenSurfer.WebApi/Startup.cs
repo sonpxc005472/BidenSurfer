@@ -30,6 +30,7 @@ namespace BidenSurfer.WebApi
             services.AddScoped<AppDbContext>();           
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IConfigService, ConfigService>();
+            services.AddScoped<IScannerService, ScannerService>();
             services.AddControllers();
             services.AddHttpContextAccessor();
             services.AddScoped<ISecurityContextAccessor, SecurityContextAccessor>(); 

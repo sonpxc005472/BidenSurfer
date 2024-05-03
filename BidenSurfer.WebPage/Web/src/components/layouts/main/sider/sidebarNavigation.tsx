@@ -9,7 +9,9 @@ import {
   TableOutlined,
   UserOutlined,
   BlockOutlined,
-  SettingOutlined
+  SettingOutlined,
+  ScanOutlined,
+  ApiOutlined
 } from '@ant-design/icons';
 import { ReactComponent as NftIcon } from '@app/assets/icons/nft-icon.svg';
 
@@ -35,9 +37,21 @@ export const sidebarNavigation: SidebarNavigationItem[] = [
     url: '/configurations'
   },
   {
-    title: 'Settings',
-    key: 'settings',
-    icon: <SettingOutlined />,
+    title: 'Scanners',
+    key: 'scanners',
+    icon: <ScanOutlined />,
+    url: '/scanners'
+  },
+  {
+    title: 'Api Settings',
+    key: 'api-settings',
+    icon: <ApiOutlined />,
     url: '/api-settings'
+  },
+  {
+    title: 'Account Settings',
+    key: 'account-settings',
+    icon: <SettingOutlined />,
+    url: '/account-settings'
   }
 ]

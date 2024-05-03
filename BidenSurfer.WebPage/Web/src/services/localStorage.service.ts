@@ -15,7 +15,7 @@ export const persistUser = (user: UserModel): void => {
 export const readUser = (): UserModel | null => {
   const userStr = localStorage.getItem('user');
 
-  return userStr ? JSON.parse(userStr) : null;
+  return userStr != null && userStr != undefined && userStr != "undefined" ? JSON.parse(userStr) : null;
 };
 
 export const deleteToken = (): void => localStorage.removeItem('accessToken');

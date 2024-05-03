@@ -1,22 +1,12 @@
-import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import React from 'react';
 import { PageTitle } from '@app/components/common/PageTitle/PageTitle';
 import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
 import { BaseSpace } from '@app/components/common/BaseSpace/BaseSpace';
 import * as S from '@app/pages/uiComponentsPages//UIComponentsPage.styles';
 import { ConfigurationTable } from '@app/components/tables/ConfigurationTable/ConfigurationTable';
-import { AddConfigurationButton } from '@app/components/tables/ConfigurationTable/Configuration.styles';
-import { BaseTooltip } from '@app/components/common/BaseTooltip/BaseTooltip';
-import { PlusOutlined } from '@ant-design/icons';
-import { BaseModal } from '@app/components/common/BaseModal/BaseModal';
-import { BaseRow } from '@app/components/common/BaseRow/BaseRow';
-import { BaseForm } from '@app/components/common/forms/BaseForm/BaseForm';
-import { SymbolItem } from '@app/components/tables/ConfigurationTable/symbolItem';
 
 const ConfigurationPage: React.FC = () => {
-  const { t } = useTranslation();
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [form] = BaseForm.useForm();  
+   
   return (
     <>
       <PageTitle>Configurations</PageTitle>

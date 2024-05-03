@@ -31,6 +31,25 @@ export interface ConfigurationTableRow {
   isActive: boolean;
 }
 
+export interface ScannerTableRow {
+  id: number;
+  userId: number;
+  title: string;
+  positionSide: string;
+  orderType: number;
+  amount: number;
+  orderChange: number;
+  ocNumber: number;
+  elastic: number;
+  turnover: number;
+  configExpire: number;
+  amountExpire: number;
+  autoAmount: number;
+  amountLimit: number;
+  onlyPairs: string[];
+  isActive: boolean;
+}
+
 export interface Pagination {
   current?: number;
   pageSize?: number;
@@ -60,6 +79,10 @@ export interface ConfigurationTableData {
 
 export const getConfigurationData = (): Promise<ConfigurationTableRow[]> =>
   httpApi.get<ConfigurationTableRow[]>('configuration/getall').then(({ data }) => data);
+
+
+export const getScannerData = (): Promise<ScannerTableRow[]> =>
+  httpApi.get<ScannerTableRow[]>('scanner/getall').then(({ data }) => data);
 
 export const getBasicTableData = (pagination: Pagination): Promise<BasicTableData> => {
   return new Promise((res) => {
