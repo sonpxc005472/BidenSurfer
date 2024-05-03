@@ -21,6 +21,7 @@ public interface IBotService
     Task<BybitSocketClient> SubscribeSticker();
     Task SubscribeKline1m();
     Task InitUserApis();
+    Task GetSpotSymbols();
     Task SubscribeOrderChannel();
     Task<bool> TakePlaceOrder(ConfigDto config, decimal currentPrice);
     Task<bool> AmendOrder(ConfigDto config, decimal currentPrice);
@@ -46,6 +47,7 @@ public class BotService : IBotService
     {
         try
         {
+            Console.WriteLine("Subscribe ticker...");
             var configList = StaticObject.AllConfigs.Values.ToList();
 
             var symbols = configList.Where(c => c.IsActive).Select(c => c.Symbol).Distinct().ToList();
@@ -419,6 +421,7 @@ public class BotService : IBotService
     {
         try
         {
+            Console.WriteLine("Subscribe order channel...");
             foreach (var user in StaticObject.AllUsers)
             {
                 BybitSocketClient socket;
@@ -541,6 +544,17 @@ public class BotService : IBotService
                                                 config.CustomId
                                             }
                                         });
+                                        await _bus.Send(new OnOffConfigMessageScanner()
+                                        {
+                                            Configs = new List<ConfigDto>
+                                            {
+                                                new ConfigDto
+                                                {
+                                                    CustomId = config.CustomId,
+                                                    IsActive = false,
+                                                }
+                                            }
+                                        });
                                     }
                                     else
                                     {
@@ -550,8 +564,7 @@ public class BotService : IBotService
                                 }
                             }
                             else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled && !StaticObject.IsInternalCancel)
-                            {
-                                _configService.UpdateCache();
+                            {                                
                                 var customId = config.CustomId;
                                 config.IsActive = false;
                                 _configService.UpsertConfigs(new List<ConfigDto> { config });
@@ -596,15 +609,11 @@ public class BotService : IBotService
 
     public async Task InitUserApis()
     {
-        if (!StaticObject.Symbols.Any())
-        {
-            var publicApi = new BybitRestClient();
-            var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
-            StaticObject.Symbols = spotSymbols.ToList();
-        }
+        await GetSpotSymbols();
+        
         foreach (var user in StaticObject.AllUsers)
         {
-            if (user.Status == 1 && !string.IsNullOrEmpty(user.Setting?.ApiKey) && !string.IsNullOrEmpty(user.Setting.SecretKey))
+            if (user.Status == (int) UserStatusEnums.Active && !string.IsNullOrEmpty(user.Setting?.ApiKey) && !string.IsNullOrEmpty(user.Setting.SecretKey))
             {
                 BybitRestClient api;
                 if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
@@ -618,11 +627,20 @@ public class BotService : IBotService
                     StaticObject.RestApis.TryAdd(user.Id, api);
                 }
                 var marginSymbols = StaticObject.Symbols.Where(c => c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly).Select(c => new { c.Name, c.BaseAsset }).Distinct().ToList();
-
+                var symbolCollateral = _userService.GetSymbolCollateral(user.Id);
+                var newCollaterals = new List<string>();
                 foreach (var symbol in marginSymbols)
                 {
-                    var rs = await api.V5Api.Account.SetCollateralAssetAsync(symbol.BaseAsset, true);
-                    await api.V5Api.Account.SetLeverageAsync(Category.Spot, symbol.Name, 5, 5);
+                    if (!symbolCollateral.Any(c => c == symbol.BaseAsset))
+                    {
+                        var rs = await api.V5Api.Account.SetCollateralAssetAsync(symbol.BaseAsset, true);
+                        await api.V5Api.Account.SetLeverageAsync(Category.Spot, symbol.Name, 10, 10);
+                        newCollaterals.Add(symbol.BaseAsset);
+                    }                    
+                }
+                if (newCollaterals.Any())
+                {
+                    _userService.SaveSymbolCollateral(user.Id, newCollaterals);
                 }
             }
         }
@@ -766,5 +784,19 @@ public class BotService : IBotService
 
 
         return tpPriceWithTicksize;
+    }
+
+    public async Task GetSpotSymbols()
+    {
+        try
+        {
+            var publicApi = new BybitRestClient();
+            var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
+            StaticObject.Symbols = spotSymbols.ToList();
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine("Get spot symbols error: " + ex.Message);
+        }
     }
 }

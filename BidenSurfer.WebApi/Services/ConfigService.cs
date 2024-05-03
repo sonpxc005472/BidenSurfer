@@ -24,19 +24,16 @@ public class ConfigService : IConfigService
 {
     private readonly AppDbContext _context;
     private readonly IBus _bus;
-    private readonly IRedisCacheService _redisCacheService;
 
-    public ConfigService(AppDbContext context, IBus bus, IRedisCacheService redisCacheService)
+    public ConfigService(AppDbContext context, IBus bus)
     {
         _context = context;
         _bus = bus;
-        _redisCacheService = redisCacheService;
     }
 
     public async Task<bool> AddOrEdit(ConfigDto config)
     {
         var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == config.Id);
-        var allConfigs = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
         if (configEntity == null)
         {
             //Add new
@@ -62,8 +59,6 @@ public class ConfigService : IConfigService
             };
             _context.Configs.Add(configAdd);
             await _context.SaveChangesAsync();
-
-            allConfigs = (await GetByActiveUser()).ToList();
         }
         else
         {
@@ -84,27 +79,8 @@ public class ConfigService : IConfigService
             configEntity.OriginAmount = config.Amount;
             _context.Configs.Update(configEntity);
             await _context.SaveChangesAsync();
-
-            var configDto = allConfigs.FirstOrDefault(x=>x.Id == config.Id);
-            if(configDto != null)
-            {
-                configDto.Amount = config.Amount;
-                configDto.AmountLimit = config.AmountLimit;
-                configDto.IncreaseAmountExpire = config.IncreaseAmountExpire;
-                configDto.IncreaseAmountPercent= config.IncreaseAmountPercent;
-                configDto.IncreaseOcPercent= config.IncreaseOcPercent;
-                configDto.IsActive = config.IsActive;
-                configDto.OrderChange = config.OrderChange;
-                configDto.OrderType = config.OrderType;
-                configDto.PositionSide = config.PositionSide;
-                configDto.Symbol = config.Symbol;
-                configDto.Expire = config.Expire;
-                configDto.EditedDate = DateTime.Now;
-                configDto.OriginAmount = config.Amount;
-            }
         }
-        _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allConfigs, TimeSpan.FromDays(100));
-        await _bus.Send(new RestartBotMessage { CorrelationId = Guid.NewGuid() });
+        
         return true;
     }
 
@@ -117,15 +93,7 @@ public class ConfigService : IConfigService
         }
         _context.Configs.Remove(configEntity);
         await _context.SaveChangesAsync();
-        var allConfigs = await GetByActiveUser();
-        var allCachedConfigs = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
-        var cachedConfig = allCachedConfigs?.FirstOrDefault(c => c.Id == id);
-        if(cachedConfig != null)
-        {
-            allCachedConfigs?.Remove(cachedConfig);
-            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, allCachedConfigs, TimeSpan.FromDays(10));
-        }
-        await _bus.Send(new RestartBotMessage { CorrelationId = Guid.NewGuid() });
+        
         return true;
     }
 

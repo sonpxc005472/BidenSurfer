@@ -11,6 +11,8 @@ public interface IUserService
 { 
     Task<List<UserDto>> GetAllActive();
     void DeleteAllCached();
+    void SaveSymbolCollateral(long userId, List<string> symbolUser);
+    List<string> GetSymbolCollateral(long userId);
 }
 
 public class UserService : IUserService
@@ -69,5 +71,38 @@ public class UserService : IUserService
         _redisCacheService.SetCachedData(AppConstants.RedisAllUsers, users, TimeSpan.FromDays(100));
         return users;
     }
-        
+
+    public List<string> GetSymbolCollateral(long userId)
+    {
+        var cachedData = _redisCacheService.GetCachedData<Dictionary<long,List<string>>>(AppConstants.RedisSymbolCollateral);
+        if (cachedData != null && cachedData.ContainsKey(userId))
+        {
+            return cachedData[userId];
+        }
+        return new List<string>();
+    }
+
+    public void SaveSymbolCollateral(long userId, List<string> symbolUser)
+    {
+        var cachedData = _redisCacheService.GetCachedData<Dictionary<long, List<string>>>(AppConstants.RedisSymbolCollateral);
+        if (cachedData != null)
+        {
+            if (cachedData.ContainsKey(userId))
+            {
+                var userCollateral = cachedData[userId];
+                userCollateral.AddRange(symbolUser);
+                cachedData[userId] = userCollateral;
+            }
+            else
+            {
+                cachedData.Add(userId, symbolUser);
+            }
+            
+        }
+        else
+        {
+            cachedData = new Dictionary<long, List<string>> { { userId, symbolUser}};
+        }
+        _redisCacheService.SetCachedData(AppConstants.RedisSymbolCollateral, cachedData, TimeSpan.FromDays(1000));
+    }
 }

@@ -24,19 +24,16 @@ public class ScannerService : IScannerService
 {
     private readonly AppDbContext _context;
     private readonly IBus _bus;
-    private readonly IRedisCacheService _redisCacheService;
 
-    public ScannerService(AppDbContext context, IBus bus, IRedisCacheService redisCacheService)
+    public ScannerService(AppDbContext context, IBus bus)
     {
         _context = context;
         _bus = bus;
-        _redisCacheService = redisCacheService;
     }
 
     public async Task<bool> AddOrEdit(ScannerDto scanner)
     {
         var scannerEntity = await _context.Scanners?.FirstOrDefaultAsync(c => c.Id == scanner.Id);
-        var allScanners = _redisCacheService.GetCachedData<List<ScannerDto>>(AppConstants.RedisAllScanners);
         if (scannerEntity == null)
         {
             //Add new
@@ -61,7 +58,6 @@ public class ScannerService : IScannerService
             };
             _context.Scanners.Add(scannerAdd);
             await _context.SaveChangesAsync();
-            allScanners = (await GetAll()).ToList();
         }
         else
         {
@@ -84,29 +80,7 @@ public class ScannerService : IScannerService
             scannerEntity.Turnover = scanner.Turnover;
             _context.Scanners.Update(scannerEntity);
             await _context.SaveChangesAsync();
-
-            var scannerDto = allScanners.FirstOrDefault(x=>x.Id == scanner.Id);
-            if(scannerDto != null)
-            {
-                scannerDto.BlackList = scanner.BlackList;
-                scannerDto.Amount = scanner.Amount;
-                scannerDto.AmountExpire = scanner.AmountExpire;
-                scannerDto.AmountLimit = scanner.AmountLimit;
-                scannerDto.AutoAmount = scanner.AutoAmount;
-                scannerDto.ConfigExpire = scanner.ConfigExpire;
-                scannerDto.Elastic = scanner.Elastic;
-                scannerDto.IsActive = scanner.IsActive;
-                scannerDto.OcNumber = scanner.OcNumber;
-                scannerDto.OrderChange = scanner.OrderChange;
-                scannerDto.OrderType = scanner.OrderType;
-                scannerDto.OnlyPairs = scanner.OnlyPairs;
-                scannerDto.PositionSide = scanner.PositionSide;
-                scannerDto.Title = scanner.Title;
-                scannerDto.Turnover = scanner.Turnover;
-            }
         }
-        _redisCacheService.SetCachedData(AppConstants.RedisAllScanners, allScanners, TimeSpan.FromDays(100));
-        await _bus.Send(new ScannerUpdateMessage());
         return true;
     }
 
@@ -119,14 +93,7 @@ public class ScannerService : IScannerService
         }
         _context.Scanners.Remove(scannerEntity);
         await _context.SaveChangesAsync();
-        var allCachedScanners = _redisCacheService.GetCachedData<List<ScannerDto>>(AppConstants.RedisAllScanners);
-        var cachedConfig = allCachedScanners?.FirstOrDefault(c => c.Id == id);
-        if(cachedConfig != null)
-        {
-            allCachedScanners?.Remove(cachedConfig);
-            _redisCacheService.SetCachedData(AppConstants.RedisAllScanners, allCachedScanners, TimeSpan.FromDays(100));
-        }
-        await _bus.Send(new ScannerUpdateMessage());
+        
         return true;
     }
 
@@ -238,7 +205,6 @@ public class ScannerService : IScannerService
     public async Task<bool> AddOrEditScannerSetting(ScannerSettingDto scannerSetting)
     {
         var scannerStEntity = await _context.ScannerSetting?.FirstOrDefaultAsync(c => c.Id == scannerSetting.Id);
-        var allScannerSt = _redisCacheService.GetCachedData<List<ScannerSettingDto>>(AppConstants.RedisAllScannerSetting);
         if (scannerStEntity == null)
         {
             //Add new
@@ -251,7 +217,6 @@ public class ScannerService : IScannerService
             
             _context.ScannerSetting.Add(scannerAdd);
             await _context.SaveChangesAsync();
-            allScannerSt = (await GetAllScannerSetting()).ToList();
         }
         else
         {
@@ -260,16 +225,8 @@ public class ScannerService : IScannerService
             scannerStEntity.MaxOpen = scannerSetting.MaxOpen;
             _context.ScannerSetting.Update(scannerStEntity);
             await _context.SaveChangesAsync();
-
-            var scannerDto = allScannerSt.FirstOrDefault(x => x.Id == scannerSetting.Id);
-            if (scannerDto != null)
-            {
-                scannerDto.BlackList = scannerSetting.BlackList;
-                scannerDto.MaxOpen = scannerSetting.MaxOpen;
-            }
         }
-        _redisCacheService.SetCachedData(AppConstants.RedisAllScannerSetting, allScannerSt, TimeSpan.FromDays(100));
-        await _bus.Send(new ScannerUpdateMessage());
+       
         return true;
     }
 }

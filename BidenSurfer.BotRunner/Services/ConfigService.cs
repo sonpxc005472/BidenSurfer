@@ -11,10 +11,8 @@ namespace BidenSurfer.BotRunner.Services;
 public interface IConfigService
 {
     Task<List<ConfigDto>> GetAllActive();
-    ConfigDto GetById(long id);
     void AddOrEditConfig(ConfigDto config);
     void UpsertConfigs(List<ConfigDto> configs);
-    void UpdateCache();
     void DeleteAllConfig();
     ConfigWinLose UpsertWinLose(ConfigDto configDto, bool isWin);
     ConfigWinLose GetWinLose(ConfigDto configDto);
@@ -83,7 +81,6 @@ public class ConfigService : IConfigService
 
     public void DeleteAllConfig()
     {
-        _redisCacheService.RemoveCachedData(AppConstants.RedisAllConfigs);
         StaticObject.AllConfigs.Clear();
     }
 
@@ -132,7 +129,7 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var result = await _dbContext.Configs?.Include(i => i.User).ThenInclude(c => c.UserSetting).Where(b => b.User.Status == (int)UserStatusEnums.Active && b.IsActive).ToListAsync() ?? new List<Config>();
+            var result = await _dbContext.Configs?.Where(b => b.IsActive).ToListAsync() ?? new List<Config>();
             var resultDto = result.Select(r => new ConfigDto
             {
                 Id = r.Id,
@@ -156,7 +153,6 @@ public class ConfigService : IConfigService
             }).ToList();
             Console.WriteLine("GetAllConfigActive - db: " + resultDto.Count);
             StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(resultDto.ToDictionary(c => c.CustomId, c => c));
-            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, resultDto, TimeSpan.FromDays(100));
             return resultDto;
         }
         catch (Exception ex)
@@ -164,17 +160,6 @@ public class ConfigService : IConfigService
             Console.WriteLine("Get all configs Error: " + ex.Message);
             return new List<ConfigDto>();
         }        
-    }
-
-    public ConfigDto GetById(long id)
-    {
-        var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
-        if (cachedData != null)
-        {
-            return cachedData.FirstOrDefault(c => c.Id == id);
-        }
-        
-        return null;
     }
 
     public ConfigWinLose UpsertWinLose(ConfigDto configDto, bool isWin)
@@ -247,18 +232,5 @@ public class ConfigService : IConfigService
         {
             Console.WriteLine($"On/Off Config Error: {ex.Message}");
         }        
-    }
-
-    public void UpdateCache()
-    {
-        try
-        {
-            _redisCacheService.RemoveCachedData(AppConstants.RedisAllConfigs);
-            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, StaticObject.AllConfigs.Values.ToList(), TimeSpan.FromDays(100));
-        }
-        catch(Exception ex)
-        {
-            Console.WriteLine($"UpdateCache Error: {ex.Message}");
-        }   
     }
 }

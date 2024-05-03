@@ -33,13 +33,7 @@ namespace BidenSurfer.WebApi
             services.AddControllers();
             services.AddHttpContextAccessor();
             services.AddScoped<ISecurityContextAccessor, SecurityContextAccessor>(); 
-            services.AddCustomMassTransit(Configuration);
-            services.AddStackExchangeRedisCache(options =>
-            {
-                options.Configuration = Configuration.GetConnectionString("RedisConn");
-                options.InstanceName = "BidenSurfer_ByBit_";
-            });
-            services.AddScoped<IRedisCacheService,RedisCacheService>();
+            services.AddCustomMassTransit(Configuration);            
             services.AddCors(options =>
             {
                 options.AddPolicy("api", policy =>
@@ -81,6 +75,10 @@ namespace BidenSurfer.WebApi
                 cfg.ReceiveEndpoint(QueueName.AmountExpireMessage, x =>
                 {
                     x.Consumer<AmountExpireConsumer>(ctx);
+                });
+                cfg.ReceiveEndpoint(QueueName.UpdateConfigMessage, x =>
+                {
+                    x.Consumer<UpdateConfigConsumer>(ctx);
                 });
 
                 #endregion

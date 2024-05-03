@@ -1,36 +1,36 @@
 
 using BidenSurfer.Infras;
+using BidenSurfer.Infras.Domains;
+using BidenSurfer.Infras.Entities;
 using BidenSurfer.Infras.Models;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 
 namespace BidenSurfer.Scanner;
 public interface IConfigService
 {
-    List<ConfigDto> GetAllActive();
+    Task<List<ConfigDto>> GetAllActiveAsync();
     void AddOrEditConfig(List<ConfigDto> configs);
     void OnOffConfig(List<ConfigDto> configs);
 }
 
 public class ConfigService : IConfigService
 {
-    private readonly IRedisCacheService _redisCacheService;
-
-    public ConfigService(IRedisCacheService redisCacheService)
+    private readonly AppDbContext _dbContext;
+    public ConfigService(AppDbContext dbContext)
     {
-        _redisCacheService = redisCacheService;
+        _dbContext = dbContext;
     }
 
     public void AddOrEditConfig(List<ConfigDto> configs)
     {
         try
         {
-            var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs) ?? new List<ConfigDto>();
             foreach (var config in configs)
             {
-                var existedConfig = cachedData.FirstOrDefault(c => c.CustomId == config.CustomId);
-                if (existedConfig == null)
-                {
-                    cachedData.Add(config);
+                var canGet = StaticObject.AllConfigs.TryGetValue(config.CustomId, out var existedConfig);
+                if (!canGet)
+                {                   
                     StaticObject.AllConfigs.TryAdd(config.CustomId, config);
                 }
                 else
@@ -51,34 +51,10 @@ public class ConfigService : IConfigService
                     existedConfig.CreatedBy = config.CreatedBy;
                     existedConfig.CreatedDate = config.CreatedDate;
                     existedConfig.EditedDate = config.EditedDate;
-                    if (StaticObject.AllConfigs.ContainsKey(config.CustomId))
-                    {
-                        var caconfig = StaticObject.AllConfigs[config.CustomId];
-                        caconfig.Amount = config.Amount;
-                        caconfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
-                        caconfig.IsActive = config.IsActive;
-                        caconfig.OrderChange = config.OrderChange;
-                        caconfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
-                        caconfig.IncreaseOcPercent = config.IncreaseOcPercent;
-                        caconfig.AmountLimit = config.AmountLimit;
-                        caconfig.FilledPrice = config.FilledPrice;
-                        caconfig.OrderId = config.OrderId;
-                        caconfig.ClientOrderId = config.ClientOrderId;
-                        caconfig.TPPrice = config.TPPrice;
-                        caconfig.OrderStatus = config.OrderStatus;
-                        caconfig.CreatedDate = config.CreatedDate;
-                        caconfig.EditedDate = config.EditedDate;
-                        caconfig.Expire = config.Expire;
-                        caconfig.FilledQuantity = config.FilledQuantity;
-                        caconfig.TotalQuantity = config.TotalQuantity;
-                        caconfig.isNewScan = config.isNewScan;
-                        caconfig.isClosingFilledOrder = config.isClosingFilledOrder;
-                        StaticObject.AllConfigs[config.CustomId] = caconfig;
-                    }
+                    StaticObject.AllConfigs[config.CustomId] = existedConfig;
                 }
             }
 
-            _redisCacheService.SetCachedData(AppConstants.RedisAllConfigs, cachedData, TimeSpan.FromDays(100));
         }
         catch (Exception ex)
         {
@@ -86,25 +62,41 @@ public class ConfigService : IConfigService
         }
     }    
 
-    public List<ConfigDto> GetAllActive()
+    public async Task<List<ConfigDto>> GetAllActiveAsync()
     {
         try
         {
-            List<ConfigDto> resultDto = new List<ConfigDto>();
-            var cachedData = _redisCacheService.GetCachedData<List<ConfigDto>>(AppConstants.RedisAllConfigs);
-            if (cachedData != null)
+            var result = await _dbContext.Configs?.Where(b => b.IsActive).ToListAsync() ?? new List<Config>();
+            var resultDto = result.ConvertAll(r => new ConfigDto
             {
-                var activeData = cachedData.Where(c => c.IsActive).ToList();
-                StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(activeData.ToDictionary(c => c.CustomId, c => c));
-                return activeData;
-            }
+                Id = r.Id,
+                CustomId = r.CustomId,
+                UserId = r.Userid,
+                PositionSide = r.PositionSide,
+                Symbol = r.Symbol,
+                OrderChange = r.OrderChange,
+                IsActive = r.IsActive,
+                Amount = r.Amount,
+                OriginAmount = r.OriginAmount,
+                OrderType = r.OrderType,
+                AmountLimit = r.AmountLimit,
+                IncreaseAmountPercent = r.IncreaseAmountPercent,
+                IncreaseOcPercent = r.IncreaseOcPercent,
+                IncreaseAmountExpire = r.IncreaseAmountExpire,
+                CreatedBy = r.CreatedBy,
+                CreatedDate = r.CreatedDate,
+                EditedDate = r.EditedDate,
+                Expire = r.Expire
+            }).ToList();
+            
+            StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(resultDto.ToDictionary(c => c.CustomId, c => c));
             return resultDto;
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
-            return null;
-        }        
+            Console.WriteLine("Get all configs Error: " + ex.Message);
+            return new List<ConfigDto>();
+        }
     }
 
     public void OnOffConfig(List<ConfigDto> configs)

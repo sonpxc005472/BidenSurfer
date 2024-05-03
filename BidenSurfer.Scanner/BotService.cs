@@ -110,7 +110,7 @@ public class BotService : IBotService
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
                                                 var maxOpen = scannerSetting?.MaxOpen ?? 4; // We can only open 4 orders by default
-                                                var numScannerOpen = configs.Count(c=> c.Value.UserId == scanner.UserId && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.OrderId));
+                                                var numScannerOpen = configs.Count(c => c.Value.UserId == scanner.UserId && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.OrderId));
                                                 var symbolDetail = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 //If scan indicator matched user's scanner configurations 
                                                 if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent

@@ -9,11 +9,9 @@ namespace BidenSurfer.BotRunner.Consumers
     public class ScannerIndicatorConsumer : IConsumer<NewConfigCreatedMessage>
     {
         private readonly IBotService _botService;
-        private readonly IRedisCacheService _redisCacheService;
-        public ScannerIndicatorConsumer(IBotService botService, IRedisCacheService redisCacheService)
+        public ScannerIndicatorConsumer(IBotService botService)
         {
             _botService = botService;
-            _redisCacheService = redisCacheService;
         }
         public async Task Consume(ConsumeContext<NewConfigCreatedMessage> context)
         {

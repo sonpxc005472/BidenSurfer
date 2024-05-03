@@ -38,15 +38,8 @@ namespace BidenSurfer.Scanner
                     options.EnableDetailedErrors(true);
                     options.EnableSensitiveDataLogging(false);
                 });
-                services.AddScoped<AppDbContext>();
-                services.AddStackExchangeRedisCache(options =>
-                {
-                    var redisConn = configuration.GetConnectionString("RedisConn");
-                    options.Configuration = redisConn;
-                    options.InstanceName = "BidenSurfer_ByBit_";
-                });
+                services.AddScoped<AppDbContext>();                
                 services.AddCustomMassTransit(configuration);
-                services.AddScoped<IRedisCacheService, RedisCacheService>();
                 services.AddSingleton<ITeleMessage, TeleMessage>();
                 services.AddScoped<IUserService, UserService>();
                 services.AddScoped<IConfigService, ConfigService>();
