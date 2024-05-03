@@ -113,24 +113,25 @@ public class ConfigService : IConfigService
         {
             foreach (var config in configs)
             {
-                if (!config.IsActive)
+                if (!config.IsActive && config.CreatedBy == AppConstants.CreatedByScanner)
                 {
-                    if(config.CreatedBy == AppConstants.CreatedByScanner)
-                    {
-                        StaticObject.AllConfigs.TryRemove(config.CustomId, out _);
-                    }
+                    StaticObject.AllConfigs.TryRemove(config.CustomId, out _);
                 }
-
-                if(StaticObject.AllConfigs.ContainsKey(config.CustomId))
+                else if(StaticObject.AllConfigs.ContainsKey(config.CustomId))
                 {
                     var cacheData = StaticObject.AllConfigs[config.CustomId];
-
                     cacheData.IsActive = config.IsActive;
-                    cacheData.OrderId = string.Empty;
-                    cacheData.ClientOrderId = string.Empty;
-                    cacheData.OrderStatus = null;
-                    cacheData.isClosingFilledOrder = false;
-                    cacheData.isNewScan = false;
+                    if(!config.IsActive)
+                    {
+                        cacheData.OrderId = string.Empty;
+                        cacheData.ClientOrderId = string.Empty;
+                        cacheData.OrderStatus = null;
+                        cacheData.isClosingFilledOrder = false;
+                        cacheData.isNewScan = false;
+                        cacheData.Amount = cacheData.OriginAmount ?? cacheData.Amount;
+                        cacheData.EditedDate = DateTime.Now;
+                    }
+                    
                     StaticObject.AllConfigs[config.CustomId] = cacheData;
                 }
             }

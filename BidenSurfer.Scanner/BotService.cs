@@ -132,8 +132,8 @@ public class BotService : IBotService
                                         if (isMatched && newConfigs.Any())
                                         {
                                             _configService.AddOrEditConfig(newConfigs);
-                                            await _bus.Send(new NewConfigCreatedMessage());
-                                            await _bus.Send(new SaveNewConfigMessage());
+                                            await _bus.Send(new NewConfigCreatedMessage {  ConfigDtos = newConfigs });
+                                            await _bus.Send(new SaveNewConfigMessage{ NewScanConfigs = newConfigs });
                                             foreach (var config in newConfigs)
                                             {
                                                 var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == config.UserId)?.Setting;
@@ -178,8 +178,8 @@ public class BotService : IBotService
                                         if (isMatched && newConfigs.Any())
                                         {
                                             _configService.AddOrEditConfig(newConfigs);
-                                            await _bus.Send(new NewConfigCreatedMessage());
-                                            await _bus.Send(new SaveNewConfigMessage());
+                                            await _bus.Send(new NewConfigCreatedMessage { ConfigDtos = newConfigs });
+                                            await _bus.Send(new SaveNewConfigMessage { NewScanConfigs = newConfigs });
                                             foreach (var config in newConfigs)
                                             {
                                                 var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == config.UserId)?.Setting;
