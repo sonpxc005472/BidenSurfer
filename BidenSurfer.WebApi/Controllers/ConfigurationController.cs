@@ -53,5 +53,13 @@ namespace BidenSurfer.WebApi.Controllers
             var rs = await _configService.Delete(configId);
             return Ok(rs);
         }
+        
+        [Authorize]
+        [HttpGet("symbols")]
+        public async Task<IActionResult> GetSymbols()
+        {
+            var rs = await _configService.GetAllMarginSymbol();
+            return Ok(rs);
+        }
     }
 }

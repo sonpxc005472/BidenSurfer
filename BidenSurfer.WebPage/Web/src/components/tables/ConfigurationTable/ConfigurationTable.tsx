@@ -8,7 +8,7 @@ import { BaseTooltip } from '@app/components/common/BaseTooltip/BaseTooltip';
 import { DeleteOutlined, EditFilled, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { BaseRadio } from '@app/components/common/BaseRadio/BaseRadio';
 import { BaseSwitch } from '@app/components/common/BaseSwitch/BaseSwitch';
-import { ConfigurationTableRow, getConfigurationData } from 'api/table.api';
+import { ConfigurationTableRow, SymbolData, getConfigurationData, getSymbolData } from 'api/table.api';
 import { useMounted } from '@app/hooks/useMounted';
 import { BaseModal } from '@app/components/common/BaseModal/BaseModal';
 import { BaseForm } from '@app/components/common/forms/BaseForm/BaseForm';
@@ -16,6 +16,9 @@ import { BaseRow } from '@app/components/common/BaseRow/BaseRow';
 import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
 import { SymbolItem } from './symbolItem';
 import { AddConfigurationButton } from './Configuration.styles';
+import { BaseSelect } from '@app/components/common/selects/BaseSelect/BaseSelect';
+import { BaseInput } from '@app/components/common/inputs/BaseInput/BaseInput';
+import { InputNumber } from 'antd';
 interface AddEditFormValues {
   id?: number;
   symbol?: string;
@@ -32,7 +35,7 @@ interface AddEditFormValues {
 
 const initialFormValues: AddEditFormValues = {
   id: undefined,
-  symbol: '',
+  symbol: undefined,
   positionSide: 'short',
   oc: undefined,
   autoAmount: undefined,
@@ -40,7 +43,7 @@ const initialFormValues: AddEditFormValues = {
   amountExpire: undefined,
   amountLimit: undefined,
   expire: undefined,
-  autoOc: undefined,
+  autoOc: 10,
   isActive: true
 };
 
@@ -48,6 +51,7 @@ export const ConfigurationTable: React.FC = () => {
   const [tableData, setTableData] = useState<{ data: ConfigurationTableRow[] }>({
     data: [],
   });
+  const [selectOptions, setSelectOptions] = useState<SymbolData[]>([]);
   const { t } = useTranslation();
   const { isMounted } = useMounted();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -60,6 +64,12 @@ export const ConfigurationTable: React.FC = () => {
       getConfigurationData().then((res) => {
         if (isMounted.current) {          
           setTableData({data: res});
+        }
+      });
+
+      getSymbolData().then((res) => {
+        if (isMounted.current) {          
+          setSelectOptions(res);
         }
       });
     },
@@ -187,6 +197,10 @@ export const ConfigurationTable: React.FC = () => {
     }
   ];
 
+  const onSwitchChange = (checked: boolean) => {
+    form.setFieldsValue({ isActive: checked });
+  };
+
   return (
     <>
       <BaseTable
@@ -194,7 +208,7 @@ export const ConfigurationTable: React.FC = () => {
       dataSource={tableData.data}
       rowKey="id"
       pagination={false}
-      scroll={{ x: 800 }}
+      scroll={{ x: 1000 }}
       />
       <BaseModal
             title={ isEditConfig ? 'Edit configuration': 'Add configuration'}
@@ -209,12 +223,68 @@ export const ConfigurationTable: React.FC = () => {
               form={form}      
               initialValues={initialFormValues}        
             >
-              <BaseRow>
-                  <BaseCol xs={24} md={24}>
-                    <SymbolItem />
+              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+                  <BaseCol xs={16} md={12}>
+                    <BaseForm.Item name='symbol' label='Symbol'>
+                      <BaseSelect disabled={isEditConfig} showSearch placeholder='Select symbol' options={selectOptions} />
+                    </BaseForm.Item>
                   </BaseCol>
-              </BaseRow>              
+                  <BaseCol xs={8} md={12}>
+                    <BaseForm.Item name='positionSide' label='Position'>
+                      <BaseSelect disabled={isEditConfig} placeholder='Select position' options={[{value: 'short'}, {value: 'long'}]} />
+                    </BaseForm.Item>
+                  </BaseCol>
+              </BaseRow>
+              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+                  <BaseCol xs={12} md={12}>
+                    <BaseForm.Item name='orderChange' label='OC'>
+                      <InputNumber min={0.1} addonAfter='%' style={{ width: '100%' }} />
+                    </BaseForm.Item>
+                  </BaseCol>
+                  <BaseCol xs={12} md={12}>
+                    <BaseForm.Item name='amount' label='Amount'>
+                      <InputNumber min={1} addonAfter='$' style={{ width: '100%' }} />
+                    </BaseForm.Item>
+                  </BaseCol>
+              </BaseRow>
+              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+                  <BaseCol xs={12} md={12}>
+                    <BaseForm.Item name='autoAmount' label='Amount Increase'>
+                      <InputNumber min={0} addonAfter='%' style={{ width: '100%' }} />
+                    </BaseForm.Item>
+                  </BaseCol>
+                  <BaseCol xs={12} md={12}>
+                    <BaseForm.Item name='amountLimit' label='Limit'>
+                      <InputNumber min={1} addonAfter='$' style={{ width: '100%' }} />
+                    </BaseForm.Item>
+                  </BaseCol>
+              </BaseRow>
+              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+                  <BaseCol xs={12} md={12}>
+                    <BaseForm.Item name='amountExpire' label='Amount Expire'>
+                      <InputNumber min={0} addonAfter='min' style={{ width: '100%' }} />
+                    </BaseForm.Item>
+                  </BaseCol>
+                  <BaseCol xs={12} md={12}>
+                    <BaseForm.Item name='expire' label='Expire'>
+                      <InputNumber min={0} addonAfter='min' style={{ width: '100%' }} />
+                    </BaseForm.Item>
+                  </BaseCol>
+              </BaseRow> 
+              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+                  <BaseCol xs={12} md={12}>
+                    <BaseForm.Item name='autoOc' label='Auto OC'>
+                      <InputNumber min={0} addonAfter='%' style={{ width: '100%' }} />
+                    </BaseForm.Item>
+                  </BaseCol>
+                  <BaseCol xs={12} md={12}>
+                    <BaseForm.Item name='isActive' label='Active' valuePropName="checked">
+                      <BaseSwitch onChange={onSwitchChange} size='small' />
+                    </BaseForm.Item>
+                  </BaseCol>
+              </BaseRow>                             
             </BaseForm>
+            
       </BaseModal>
       <BaseTooltip title='Add configurations'>
         <AddConfigurationButton type="primary" shape="circle" icon={<PlusOutlined />} size="large" onClick={()=> handleOpenAddEdit()}></AddConfigurationButton>

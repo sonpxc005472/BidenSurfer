@@ -626,7 +626,7 @@ public class BotService : IBotService
 
                     StaticObject.RestApis.TryAdd(user.Id, api);
                 }
-                var marginSymbols = StaticObject.Symbols.Where(c => c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly).Select(c => new { c.Name, c.BaseAsset }).Distinct().ToList();
+                var marginSymbols = StaticObject.Symbols.Where(c => (c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly) && c.Name.EndsWith("USDT")).Select(c => new { c.Name, c.BaseAsset }).Distinct().ToList();
                 var symbolCollateral = _userService.GetSymbolCollateral(user.Id);
                 var newCollaterals = new List<string>();
                 foreach (var symbol in marginSymbols)

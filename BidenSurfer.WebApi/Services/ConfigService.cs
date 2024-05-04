@@ -7,6 +7,8 @@ using BidenSurfer.Infras.Domains;
 using BidenSurfer.Infras.Entities;
 using BidenSurfer.Infras.Models;
 using Microsoft.EntityFrameworkCore;
+using Bybit.Net.Clients;
+using Bybit.Net.Enums;
 
 public interface IConfigService
 {
@@ -17,6 +19,7 @@ public interface IConfigService
     Task<bool> SaveNewScanToDb(List<ConfigDto> configs);
     Task<bool> Delete(long id);
     Task<bool> OffConfigs(List<string> customIds);
+    Task<List<SymbolDto>> GetAllMarginSymbol();
     Task AmountExpireUpdate(List<string> customIds);
 }
 
@@ -279,6 +282,22 @@ public class ConfigService : IConfigService
         catch (Exception ex)
         {
             Console.WriteLine("AmountExpireUpdate Error: " + ex.Message);
+        }
+    }
+
+    public async Task<List<SymbolDto>> GetAllMarginSymbol()
+    {
+        try
+        {
+            var publicApi = new BybitRestClient();
+            var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
+            var marginSymbols = spotSymbols.Where(c => (c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly) && c.Name.EndsWith("USDT")).Select(c => c.Name).Distinct().ToList();
+            return marginSymbols.ConvertAll(s => new SymbolDto { Value = s });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return new List<SymbolDto>();
         }
     }
 }

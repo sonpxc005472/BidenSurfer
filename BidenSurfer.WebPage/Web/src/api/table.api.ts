@@ -77,9 +77,15 @@ export interface ConfigurationTableData {
   data: ConfigurationTableRow[];
 }
 
+export interface SymbolData {
+  value: string;
+}
+
 export const getConfigurationData = (): Promise<ConfigurationTableRow[]> =>
   httpApi.get<ConfigurationTableRow[]>('configuration/getall').then(({ data }) => data);
 
+export const getSymbolData = (): Promise<SymbolData[]> =>
+  httpApi.get<SymbolData[]>('configuration/symbols').then(({ data }) => data);
 
 export const getScannerData = (): Promise<ScannerTableRow[]> =>
   httpApi.get<ScannerTableRow[]>('scanner/getall').then(({ data }) => data);

@@ -61,7 +61,6 @@ export const ScannerTable: React.FC = () => {
     () => {
       getScannerData().then((res) => {
         if (isMounted.current) {     
-          debugger     
           setTableData({data: res});
         }
       });
@@ -207,7 +206,7 @@ export const ScannerTable: React.FC = () => {
       dataSource={tableData.data}
       rowKey="id"
       pagination={false}
-      scroll={{ x: 800 }}
+      scroll={{ x: 1000 }}
       />
       <BaseModal
             title={ isEditConfig ? 'Edit Scanner': 'Add Scanner'}
