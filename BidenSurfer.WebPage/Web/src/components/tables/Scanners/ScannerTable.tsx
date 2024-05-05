@@ -322,7 +322,7 @@ export const ScannerTable: React.FC = () => {
     const formValues: ScannerSettingForm = {
       id: id,
       userId: 0,
-      maxOpen: maxOpen,
+      maxOpen: maxOpen ?? 15,
       blackList: blackList      
     };
     dispatch(doSaveScannerSetting(formValues))

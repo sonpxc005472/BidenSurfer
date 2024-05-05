@@ -97,7 +97,7 @@ export const ApiInfo: React.FC = () => {
     dispatch(doSaveApi({
       apiKey: aKey,
       secretKey : aSecret,
-      passPhrase : aPass,
+      passPhrase : "",
       teleChannel : aTele,
       userId : aUserId,
       id : aid
@@ -142,9 +142,7 @@ export const ApiInfo: React.FC = () => {
           <BaseCol xs={24} md={24}>
             <SecretKeyItem />
           </BaseCol>
-          <BaseCol xs={24} md={24}>
-            <PassPhraseItem />
-          </BaseCol>
+          
           <BaseCol span={24}>
             <BaseForm.Item>
               <BaseForm.Title>Telegram</BaseForm.Title>
