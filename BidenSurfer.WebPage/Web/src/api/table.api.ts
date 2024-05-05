@@ -33,6 +33,33 @@ export interface ConfigurationForm {
 }
 
 
+export interface ScannerForm {
+  id?: number;
+  userId?: number;
+  orderType?: number;
+  title?: string;
+  positionSide?: string;
+  orderChange?: number;
+  elastic?: number;
+  turnover?: number;
+  ocNumber?: number;
+  amount?: number;
+  amountLimit?: number;
+  amountExpire?: number;
+  autoAmount?: number;
+  configExpire?: number;
+  onlyPairs?: string[];
+  isActive?: boolean;  
+}
+
+
+export interface ScannerSettingForm {
+  id?: number;
+  userId?: number;
+  maxOpen?: number;
+  blackList?: string[];
+}
+
 export interface ConfigurationTableRow {
   id: number;
   userId: number;
@@ -97,6 +124,7 @@ export interface ConfigurationTableData {
 
 export interface SymbolData {
   value: string;
+  label: string;
 }
 
 export const getConfigurationData = (): Promise<ConfigurationTableRow[]> =>
@@ -115,11 +143,27 @@ export const getScannerData = (): Promise<ScannerTableRow[]> =>
 export const saveConfiguration = (config: ConfigurationForm): Promise<boolean> =>
   httpApi.post<boolean>('configuration/addoredit', { ...config }).then(({ data }) => data);
 
+export const saveScanner = (scanner: ScannerForm): Promise<boolean> =>
+  httpApi.post<boolean>('scanner/upsert', { ...scanner }).then(({ data }) => data);
+
+export const saveScannerSetting = (scannerSetting: ScannerSettingForm): Promise<boolean> =>
+  httpApi.post<boolean>('scanner/upsert-setting', { ...scannerSetting }).then(({ data }) => data);
+
+export const getScannerSetting = (): Promise<ScannerSettingForm> =>
+  httpApi.get<ScannerSettingForm>('scanner/setting').then(({ data }) => data);
+
+
 export const setConfigActive = (id: number, isActive: boolean): Promise<boolean> =>
   httpApi.put<boolean>('configuration/set-active', { id: id, isActive: isActive }).then(({ data }) => data);
 
 export const deleteConfig = (id: number): Promise<boolean> =>
   httpApi.delete<boolean>('configuration/delete?configId=' + id).then(({ data }) => data);
+
+export const deleteScanner = (id: number): Promise<boolean> =>
+  httpApi.delete<boolean>('scanner/delete?configId=' + id).then(({ data }) => data);
+
+export const setScannerActive = (id: number, isActive: boolean): Promise<boolean> =>
+  httpApi.put<boolean>('scanner/set-active', { id: id, isActive: isActive }).then(({ data }) => data);
 
 
 export const getBasicTableData = (pagination: Pagination): Promise<BasicTableData> => {

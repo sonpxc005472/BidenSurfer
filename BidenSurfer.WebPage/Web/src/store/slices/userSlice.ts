@@ -4,7 +4,7 @@ import {
   ApiData, saveApi
 } from '@app/api/user.api';
 import { persistUser, readUser } from '@app/services/localStorage.service';
-import { ConfigurationForm, saveConfiguration, setConfigActive } from '@app/api/table.api';
+import { ConfigurationForm, saveConfiguration, saveScanner, saveScannerSetting, ScannerForm, ScannerSettingForm, setConfigActive } from '@app/api/table.api';
 
 export interface UserState {
   user: UserModel | null;
@@ -30,6 +30,16 @@ export const doSaveApi = createAsyncThunk(
 export const doSaveConfiguration = createAsyncThunk(
   'user/doSaveConfiguration',
   async (savePayload: ConfigurationForm) => saveConfiguration(savePayload),
+);
+
+export const doSaveScanner = createAsyncThunk(
+  'user/doSaveScanner',
+  async (savePayload: ScannerForm) => saveScanner(savePayload),
+);
+
+export const doSaveScannerSetting = createAsyncThunk(
+  'user/doSaveScannerSetting',
+  async (savePayload: ScannerSettingForm) => saveScannerSetting(savePayload),
 );
 
 

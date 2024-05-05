@@ -5,19 +5,16 @@ import { BaseButton } from '@app/components/common/BaseButton/BaseButton';
 import { useTranslation } from 'react-i18next';
 import { BaseSpace } from '@app/components/common/BaseSpace/BaseSpace';
 import { BaseTooltip } from '@app/components/common/BaseTooltip/BaseTooltip';
-import { DeleteOutlined, EditFilled, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { BaseRadio } from '@app/components/common/BaseRadio/BaseRadio';
+import { DeleteOutlined, EditFilled, PlusOutlined } from '@ant-design/icons';
 import { BaseSwitch } from '@app/components/common/BaseSwitch/BaseSwitch';
-import { ConfigurationForm, ConfigurationTableRow, SymbolData, deleteConfig, getConfigurationData, getMaxBorrow, getSymbolData, saveConfiguration, setConfigActive } from 'api/table.api';
+import { ConfigurationForm, ConfigurationTableRow, SymbolData, deleteConfig, getConfigurationData, getMaxBorrow, getSymbolData, setConfigActive } from 'api/table.api';
 import { useMounted } from '@app/hooks/useMounted';
 import { BaseModal } from '@app/components/common/BaseModal/BaseModal';
 import { BaseForm } from '@app/components/common/forms/BaseForm/BaseForm';
 import { BaseRow } from '@app/components/common/BaseRow/BaseRow';
 import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
-import { SymbolItem } from './symbolItem';
 import { AddConfigurationButton } from './Configuration.styles';
 import { BaseSelect } from '@app/components/common/selects/BaseSelect/BaseSelect';
-import { BaseInput } from '@app/components/common/inputs/BaseInput/BaseInput';
 import { InputNumber, Typography } from 'antd';
 import { doSaveConfiguration } from '@app/store/slices/userSlice';
 import { useAppDispatch } from '@app/hooks/reduxHooks';
@@ -392,7 +389,7 @@ export const ConfigurationTable: React.FC = () => {
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
                     <BaseButtonsForm.Item name='isActive' label='Active' valuePropName="checked">
-                      <BaseSwitch onChange={onSwitchChange} size='small' />
+                      <BaseSwitch onChange={onSwitchChange} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>

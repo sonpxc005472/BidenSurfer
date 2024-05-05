@@ -19,9 +19,7 @@ public class ScannerDto
     public int ConfigExpire { get; set; }
     public List<string>? OnlyPairs { get; set; }
     public List<string>? BlackList { get; set; }
-    public bool IsActive { get; set; }
-    
-    public UserDto UserDto { get; set; }
+    public bool IsActive { get; set; }    
 }
 
 public static class ScannerHelper

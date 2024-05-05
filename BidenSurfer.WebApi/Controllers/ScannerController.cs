@@ -47,6 +47,7 @@ namespace BidenSurfer.WebApi.Controllers
         [HttpPost("upsert")]
         public async Task<IActionResult> AddOrEdit(ScannerDto config)
         {
+            config.UserId = _securityContextAccessor.UserId;
             var rs = await _scannerService.AddOrEdit(config);
             return Ok(rs);
         }
@@ -62,10 +63,18 @@ namespace BidenSurfer.WebApi.Controllers
         }
 
         [Authorize]
-        [HttpPost("delete")]
-        public async Task<IActionResult> Delete(long configId)
+        [HttpDelete("delete")]
+        public async Task<IActionResult> Delete([FromQuery]long configId)
         {
             var rs = await _scannerService.Delete(configId);
+            return Ok(rs);
+        }
+
+        [Authorize]
+        [HttpPut("set-active")]
+        public async Task<IActionResult> SetActive(SetActiveDto setActive)
+        {
+            var rs = await _scannerService.SetScannerActiveStatus(setActive.Id, setActive.IsActive);
             return Ok(rs);
         }
     }

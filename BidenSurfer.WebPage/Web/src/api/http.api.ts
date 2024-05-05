@@ -4,7 +4,6 @@ import { ApiError } from '@app/api/ApiError';
 import { readToken } from '@app/services/localStorage.service';
 import { useAppDispatch } from '@app/hooks/reduxHooks';
 import { doLogout } from '@app/store/slices/authSlice';
-const dispatch = useAppDispatch();
 export const httpApi = axios.create({
   baseURL: process.env.REACT_APP_BASE_URL,
 });
@@ -16,7 +15,7 @@ httpApi.interceptors.request.use((config) => {
 });
 
 httpApi.interceptors.response.use(undefined, (error: AxiosError) => {
-  debugger
+  
   throw new ApiError<ApiErrorData>(error.response?.data.message || error.message, error.response?.data);
 });
 

@@ -293,8 +293,8 @@ public class ConfigService : IConfigService
         {
             var publicApi = new BybitRestClient();
             var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
-            var marginSymbols = spotSymbols.Where(c => (c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly) && c.Name.EndsWith("USDT")).Select(c => c.Name).Distinct().ToList();
-            return marginSymbols.ConvertAll(s => new SymbolDto { Value = s });
+            var marginSymbols = spotSymbols.Where(c => (c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly) && c.Name.EndsWith("USDT")).Select(c => new { c.Name, c.BaseAsset }).Distinct().OrderBy(c => c.BaseAsset).ToList();
+            return marginSymbols.ConvertAll(s => new SymbolDto { Value = s.Name, Label = s.BaseAsset });
         }
         catch (Exception ex)
         {

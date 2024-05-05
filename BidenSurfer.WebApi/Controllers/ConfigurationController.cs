@@ -62,7 +62,7 @@ namespace BidenSurfer.WebApi.Controllers
 
         [Authorize]
         [HttpPut("set-active")]
-        public async Task<IActionResult> SetActive(SetConfigActiveDto data)
+        public async Task<IActionResult> SetActive(SetActiveDto data)
         {
             var rs = await _configService.SetConfigActiveStatus(data.Id, data.IsActive);
             return Ok(rs);

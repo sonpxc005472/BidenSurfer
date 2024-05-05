@@ -15,6 +15,7 @@ public interface IScannerService
     Task<ScannerDto> GetById(long id);
     Task<bool> AddOrEdit(ScannerDto scanner);
     Task<bool> Delete(long id);
+    Task<bool> SetScannerActiveStatus(long id, bool isActive);
     Task<ScannerSettingDto?> GetScannerSettingByUser(long userId);
     Task<IEnumerable<ScannerSettingDto>> GetAllScannerSetting();
     Task<bool> AddOrEditScannerSetting(ScannerSettingDto scannerSetting);
@@ -62,7 +63,6 @@ public class ScannerService : IScannerService
         else
         {
             //Edit
-            scannerEntity.Userid = scanner.UserId;
             scannerEntity.PositionSide = scanner.PositionSide;
             scannerEntity.Title = scanner.Title;
             scannerEntity.OrderChange = scanner.OrderChange;
@@ -99,7 +99,7 @@ public class ScannerService : IScannerService
 
     public async Task<IEnumerable<ScannerDto>> GetScannerConfigsByUser(long userId)
     {
-        var result = await _context.Scanners?.Where(b => b.Userid == userId).ToListAsync() ?? new List<Scanner>();
+        var result = await _context.Scanners?.Where(b => b.Userid == userId).OrderBy(x => x.Title).ThenBy(x=>x.PositionSide).ThenBy(x=>x.OrderChange).ToListAsync() ?? new List<Scanner>();
         return result.Select(r => new ScannerDto
         {
             Id = r.Id,
@@ -228,5 +228,23 @@ public class ScannerService : IScannerService
         }
        
         return true;
+    }
+
+    public async Task<bool> SetScannerActiveStatus(long id, bool isActive)
+    {
+        try
+        {
+            var scanner = await _context.Scanners?.FirstOrDefaultAsync(x => x.Id == id);
+            if (null == scanner) return false;
+            scanner.IsActive = isActive;
+            _context.Scanners.Update(scanner);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return false;
+        }
     }
 }
