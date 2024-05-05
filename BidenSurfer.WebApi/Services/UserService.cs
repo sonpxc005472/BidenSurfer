@@ -6,6 +6,7 @@ using BidenSurfer.Infras.Entities;
 using BidenSurfer.Infras.Models;
 using BidenSurfer.WebApi.Helpers;
 using Bybit.Net.Clients;
+using Bybit.Net.Enums;
 using CryptoExchange.Net.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -22,6 +23,7 @@ public interface IUserService
     Task<bool> Delete(long id);
     Task<UserSettingDto?> GetApiSetting();
     Task<bool> SaveApiSetting(UserSettingDto userSettingDto);
+    Task<decimal> GetMaximumBorrow(string symbol, string orderSide);
     string GenHash(string text);
 }
 
@@ -236,5 +238,29 @@ public class UserService : IUserService
         };
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
-    }    
+    }
+
+    public async Task<decimal> GetMaximumBorrow(string symbol, string orderSide)
+    {
+        try
+        {
+            var userSetting = await GetApiSetting();
+            if (userSetting == null || string.IsNullOrEmpty(userSetting?.ApiKey) || string.IsNullOrEmpty(userSetting?.SecretKey))
+                return 0;
+            BybitRestClient api = new BybitRestClient();
+            api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
+            var orderSideConvert = orderSide.ToLower() == AppConstants.LongSide ? OrderSide.Buy : OrderSide.Sell;
+            var info = await api.V5Api.Trading.GetBorrowQuotaAsync(Bybit.Net.Enums.Category.Spot, symbol, orderSideConvert);
+            if(info.Success)
+            {
+                return Math.Round(info.Data.MaxTradeAmount,0);
+            }
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return 0;
+        }
+    }
 }

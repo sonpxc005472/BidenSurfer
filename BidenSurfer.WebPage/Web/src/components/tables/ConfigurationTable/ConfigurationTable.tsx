@@ -8,7 +8,7 @@ import { BaseTooltip } from '@app/components/common/BaseTooltip/BaseTooltip';
 import { DeleteOutlined, EditFilled, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { BaseRadio } from '@app/components/common/BaseRadio/BaseRadio';
 import { BaseSwitch } from '@app/components/common/BaseSwitch/BaseSwitch';
-import { ConfigurationTableRow, SymbolData, getConfigurationData, getSymbolData } from 'api/table.api';
+import { ConfigurationForm, ConfigurationTableRow, SymbolData, deleteConfig, getConfigurationData, getMaxBorrow, getSymbolData, saveConfiguration, setConfigActive } from 'api/table.api';
 import { useMounted } from '@app/hooks/useMounted';
 import { BaseModal } from '@app/components/common/BaseModal/BaseModal';
 import { BaseForm } from '@app/components/common/forms/BaseForm/BaseForm';
@@ -18,44 +18,41 @@ import { SymbolItem } from './symbolItem';
 import { AddConfigurationButton } from './Configuration.styles';
 import { BaseSelect } from '@app/components/common/selects/BaseSelect/BaseSelect';
 import { BaseInput } from '@app/components/common/inputs/BaseInput/BaseInput';
-import { InputNumber } from 'antd';
-interface AddEditFormValues {
-  id?: number;
-  symbol?: string;
-  positionSide?: string;
-  oc?: number;
-  autoAmount?: number;
-  amount?: number;
-  amountLimit?: number;
-  amountExpire?: number;
-  expire?: number;
-  autoOc?: number;
-  isActive?: boolean;  
-}
+import { InputNumber, Typography } from 'antd';
+import { doSaveConfiguration } from '@app/store/slices/userSlice';
+import { useAppDispatch } from '@app/hooks/reduxHooks';
+import { notificationController } from '@app/controllers/notificationController';
+import { BaseButtonsForm } from '@app/components/common/forms/BaseButtonsForm/BaseButtonsForm';
 
-const initialFormValues: AddEditFormValues = {
+const initialFormValues: ConfigurationForm = {
   id: undefined,
+  userId: undefined,
   symbol: undefined,
   positionSide: 'short',
-  oc: undefined,
-  autoAmount: undefined,
+  orderChange: undefined,
+  increaseAmountPercent: undefined,
   amount: undefined,
-  amountExpire: undefined,
+  increaseAmountExpire: undefined,
   amountLimit: undefined,
   expire: undefined,
-  autoOc: 10,
+  increaseOcPercent: 10,
   isActive: true
 };
 
 export const ConfigurationTable: React.FC = () => {
+  const dispatch = useAppDispatch();
+
   const [tableData, setTableData] = useState<{ data: ConfigurationTableRow[] }>({
     data: [],
   });
   const [selectOptions, setSelectOptions] = useState<SymbolData[]>([]);
+  const [maxBorrow, setMaxBorrow] = useState<number>();
+
   const { t } = useTranslation();
   const { isMounted } = useMounted();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isEditConfig, setIsEditConfig] = useState<boolean>(false);
+  const { Text } = Typography;
 
   const [form] = BaseForm.useForm();  
 
@@ -65,13 +62,7 @@ export const ConfigurationTable: React.FC = () => {
         if (isMounted.current) {          
           setTableData({data: res});
         }
-      });
-
-      getSymbolData().then((res) => {
-        if (isMounted.current) {          
-          setSelectOptions(res);
-        }
-      });
+      });      
     },
     [isMounted],
   );
@@ -80,23 +71,44 @@ export const ConfigurationTable: React.FC = () => {
     fetch();
   }, [fetch]);
  
-  const handleOpenAddEdit = (rowId?: number) => {
+  const handleOpenAddEdit = (rowId?: number) => {   
+    
     if(rowId)
-      {
+      {        
         setIsEditConfig(true);
-        var cloneData = {...tableData };
+        let cloneData = {...tableData };
         cloneData.data.forEach(function(part, index, theArray) {
           if(theArray[index].id === rowId)
           {
+            getMaxBorrow(theArray[index].symbol, theArray[index].positionSide).then((res) => {
+              if (isMounted.current) {          
+                setMaxBorrow(res);
+              }
+            });
             form.setFieldsValue({
               ...initialFormValues,
-              symbol: theArray[index].symbol
+              symbol: theArray[index].symbol,
+              positionSide: theArray[index].positionSide,
+              amount: theArray[index].amount,
+              amountLimit: theArray[index].amountLimit,
+              expire: theArray[index].expire,
+              increaseAmountExpire: theArray[index].increaseAmountExpire,
+              increaseAmountPercent: theArray[index].increaseAmountPercent,
+              increaseOcPercent: theArray[index].increaseOcPercent,
+              isActive: theArray[index].isActive,
+              id: theArray[index].id,
+              orderChange: theArray[index].orderChange,
             })
           }
         });        
       }
     else
       {
+        getSymbolData().then((res) => {
+          if (isMounted.current) {          
+            setSelectOptions(res);
+          }
+        });
         setIsEditConfig(false);
         form.setFieldsValue({
           ...initialFormValues
@@ -106,21 +118,33 @@ export const ConfigurationTable: React.FC = () => {
   };
     
   const handleDeleteRow = (rowId: number) => {
-    setTableData({
-      ...tableData,
-      data: tableData.data.filter((item) => item.id !== rowId)
+    deleteConfig(rowId).then((res) => {
+      if (res) {          
+        setTableData({
+          ...tableData,
+          data: tableData.data.filter((item) => item.id !== rowId)
+        });
+      }
+      else{
+        notificationController.error({ message: "something went wrong!" });        
+      }
+    }).catch((err) => {
+      notificationController.error({ message: err.message });        
     });
+    
   };
 
   const handleActiveRow = (rowId: number, isActive: boolean) => {
-    var cloneData = {...tableData };
-    cloneData.data.forEach(function(part, index, theArray) {
-      if(theArray[index].id === rowId)
-      {
-        theArray[index].isActive = isActive
+    setConfigActive(rowId, isActive).then((res) => {
+      if (res) {          
+        fetch()
       }
+      else{
+        notificationController.error({ message: "something went wrong!" });        
+      }
+    }).catch((err) => {
+      notificationController.error({ message: err.message });        
     });
-    setTableData(cloneData);
   };
 
   const columns: ColumnsType<ConfigurationTableRow> = [
@@ -200,7 +224,73 @@ export const ConfigurationTable: React.FC = () => {
   const onSwitchChange = (checked: boolean) => {
     form.setFieldsValue({ isActive: checked });
   };
+  const handleSymbolChange = (value: unknown) => {
+    const positionSide = form.getFieldValue('positionSide');
+    if(value && positionSide)
+      {
+        getMaxBorrow(value as string, positionSide).then((res) => {
+          if (isMounted.current) {          
+            setMaxBorrow(res);
+          }
+        });
+      }
+  };
 
+  const handlePositionChange = (value: unknown) => {
+    const symbol = form.getFieldValue('symbol');
+    if(value && symbol)
+      {
+        getMaxBorrow(symbol, value as string).then((res) => {
+          if (isMounted.current) {          
+            setMaxBorrow(res);
+          }
+        });
+      }
+  };
+
+  const handleSaveConfig = () => {
+    const symbol = form.getFieldValue('symbol');
+    const positionSide = form.getFieldValue('positionSide');
+    const id = form.getFieldValue('id');
+    const orderChange = form.getFieldValue('orderChange');
+    const increaseAmountPercent = form.getFieldValue('increaseAmountPercent');
+    const amount = form.getFieldValue('amount');
+    const amountLimit = form.getFieldValue('amountLimit');
+    const increaseAmountExpire = form.getFieldValue('increaseAmountExpire');
+    const expire = form.getFieldValue('expire');
+    const increaseOcPercent = form.getFieldValue('increaseOcPercent');
+    const isActive = form.getFieldValue('isActive');
+    const formValues: ConfigurationForm = {
+      id: id,
+      symbol: symbol,
+      customId: '',
+      orderType: 1,
+      userId: 0,
+      positionSide: positionSide,
+      orderChange: orderChange,
+      increaseAmountPercent: increaseAmountPercent ?? 0,
+      amount: amount,
+      increaseAmountExpire: increaseAmountExpire ?? 0,
+      amountLimit: amountLimit ?? 0,
+      expire: expire ?? 0,
+      increaseOcPercent: increaseOcPercent ?? 0,
+      isActive: isActive
+    };
+    dispatch(doSaveConfiguration(formValues))
+      .unwrap()
+      .then(() => {
+        fetch();
+        setIsModalOpen(false);
+      })
+      .catch((err) => {
+        notificationController.error({ message: err.message });        
+      });
+  };
+  const [isFieldsChanged, setFieldsChanged] = useState(true);
+  const onFinish = async (values = {}) => {
+    handleSaveConfig();
+  };
+  
   return (
     <>
       <BaseTable
@@ -213,78 +303,106 @@ export const ConfigurationTable: React.FC = () => {
       <BaseModal
             title={ isEditConfig ? 'Edit configuration': 'Add configuration'}
             centered
-            open={isModalOpen}
-            onOk={() => setIsModalOpen(false)}
-            onCancel={() => setIsModalOpen(false)}
+            open={isModalOpen}            
             size="large"
+            footer={<></>}
           >
-            <BaseForm
+            <BaseButtonsForm
               name="editForm"
               form={form}      
-              initialValues={initialFormValues}        
+              isFieldsChanged={isFieldsChanged}
+              initialValues={initialFormValues}    
+              footer={
+                <>
+                  <BaseButtonsForm.Item style={{marginTop: '30px'}}>
+                    <BaseButton type="primary" htmlType="submit" style={{float: 'right', width: '100px'}}>
+                      Save
+                    </BaseButton>
+                    <BaseButton type="primary" htmlType="button" style={{float: 'right', width: '100px', marginRight: '20px'}}
+                      onClick={() => {              
+                        setMaxBorrow(undefined);
+                        setIsModalOpen(false);
+                      }}>
+                      Cancel
+                    </BaseButton>
+                  </BaseButtonsForm.Item>                
+                </>
+                
+              }    
+              onFinish={onFinish}
             >
               <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
                   <BaseCol xs={16} md={12}>
-                    <BaseForm.Item name='symbol' label='Symbol'>
-                      <BaseSelect disabled={isEditConfig} showSearch placeholder='Select symbol' options={selectOptions} />
-                    </BaseForm.Item>
+                    <BaseButtonsForm.Item name='symbol' label='Symbol'
+                      rules={[{ required: true, message: 'Symbol is required' }]}
+                    >
+                      <BaseSelect disabled={isEditConfig} onChange={handleSymbolChange} showSearch placeholder='Select symbol' options={selectOptions} />
+                    </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={8} md={12}>
-                    <BaseForm.Item name='positionSide' label='Position'>
-                      <BaseSelect disabled={isEditConfig} placeholder='Select position' options={[{value: 'short'}, {value: 'long'}]} />
-                    </BaseForm.Item>
+                    <BaseButtonsForm.Item name='positionSide' label='Position'
+                      rules={[{ required: true, message: 'Position is required' }]}>
+                      <BaseSelect disabled={isEditConfig} onChange={handlePositionChange} placeholder='Select position' options={[{value: 'short'}, {value: 'long'}]} />
+                    </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
               <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseForm.Item name='orderChange' label='OC'>
+                    <BaseButtonsForm.Item name='orderChange' label='OC'
+                      rules={[{ required: true, message: 'OC is required' }]}>
                       <InputNumber min={0.1} addonAfter='%' style={{ width: '100%' }} />
-                    </BaseForm.Item>
+                    </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseForm.Item name='amount' label='Amount'>
+                    <BaseButtonsForm.Item name='amount' label='Amount'
+                        rules={[{ required: true, message: 'Amount is required' }]}>
                       <InputNumber min={1} addonAfter='$' style={{ width: '100%' }} />
-                    </BaseForm.Item>
+                    </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
               <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseForm.Item name='autoAmount' label='Amount Increase'>
+                    <BaseButtonsForm.Item name='increaseAmountPercent' label='Amount Increase'>
                       <InputNumber min={0} addonAfter='%' style={{ width: '100%' }} />
-                    </BaseForm.Item>
+                    </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseForm.Item name='amountLimit' label='Limit'>
+                    <BaseButtonsForm.Item name='amountLimit' label='Limit'>
                       <InputNumber min={1} addonAfter='$' style={{ width: '100%' }} />
-                    </BaseForm.Item>
+                    </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
               <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseForm.Item name='amountExpire' label='Amount Expire'>
+                    <BaseButtonsForm.Item name='increaseAmountExpire' label='Amount Expire'>
                       <InputNumber min={0} addonAfter='min' style={{ width: '100%' }} />
-                    </BaseForm.Item>
+                    </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseForm.Item name='expire' label='Expire'>
+                    <BaseButtonsForm.Item name='expire' label='Expire'>
                       <InputNumber min={0} addonAfter='min' style={{ width: '100%' }} />
-                    </BaseForm.Item>
+                    </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow> 
               <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseForm.Item name='autoOc' label='Auto OC'>
+                    <BaseButtonsForm.Item name='increaseOcPercent' label='Auto OC'>
                       <InputNumber min={0} addonAfter='%' style={{ width: '100%' }} />
-                    </BaseForm.Item>
+                    </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseForm.Item name='isActive' label='Active' valuePropName="checked">
+                    <BaseButtonsForm.Item name='isActive' label='Active' valuePropName="checked">
                       <BaseSwitch onChange={onSwitchChange} size='small' />
-                    </BaseForm.Item>
+                    </BaseButtonsForm.Item>
                   </BaseCol>
-              </BaseRow>                             
-            </BaseForm>
-            
+              </BaseRow>
+              {maxBorrow ? (<BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+                  <BaseCol xs={12} md={12}>
+                    <Text strong>Max: {maxBorrow} USDT</Text>
+                  </BaseCol>                  
+              </BaseRow> ) : <></>}
+                                          
+            </BaseButtonsForm>            
       </BaseModal>
       <BaseTooltip title='Add configurations'>
         <AddConfigurationButton type="primary" shape="circle" icon={<PlusOutlined />} size="large" onClick={()=> handleOpenAddEdit()}></AddConfigurationButton>

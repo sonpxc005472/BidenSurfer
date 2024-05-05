@@ -80,5 +80,13 @@ namespace BidenSurfer.WebApi.Controllers
             await _userService.SaveApiSetting(setting);
             return Ok();
         }
+        
+        [HttpGet("max-borrow")]
+        [Authorize]
+        public async Task<IActionResult> GetMaxBorrow([FromQuery] string symbol, [FromQuery] string orderSide)
+        {
+            var maxAmount = await _userService.GetMaximumBorrow(symbol, orderSide);
+            return Ok(maxAmount);
+        }
     }
 }

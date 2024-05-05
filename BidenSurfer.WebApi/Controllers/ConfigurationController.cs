@@ -17,7 +17,7 @@ namespace BidenSurfer.WebApi.Controllers
             _configService = configService;
             _securityContextAccessor = securityContextAccessor;
         }
-                
+
         [Authorize]
         [HttpGet("getall")]
         public async Task<IActionResult> GetAll()
@@ -26,7 +26,7 @@ namespace BidenSurfer.WebApi.Controllers
             var configs = await _configService.GetConfigsByUser(userId);
             return Ok(configs);
         }
-               
+
 
         [Authorize]
         [HttpGet("getbyid")]
@@ -35,30 +35,36 @@ namespace BidenSurfer.WebApi.Controllers
             var config = await _configService.GetById(id);
             return Ok(config);
         }
-        
+
         [Authorize]
         [HttpPost("addoredit")]
-        public async Task<IActionResult> AddOrEdit(ConfigDto config)
+        public async Task<IActionResult> AddOrEdit(AddEditConfigDto config)
         {
-            var userId = _securityContextAccessor.UserId;
-            config.UserId = userId;
             var issuccess = await _configService.AddOrEdit(config);
             return Ok(issuccess);
         }
 
         [Authorize]
-        [HttpPost("delete")]
-        public async Task<IActionResult> Delete(long configId)
+        [HttpDelete("delete")]
+        public async Task<IActionResult> Delete([FromQuery]long configId)
         {
             var rs = await _configService.Delete(configId);
             return Ok(rs);
         }
-        
+
         [Authorize]
         [HttpGet("symbols")]
         public async Task<IActionResult> GetSymbols()
         {
             var rs = await _configService.GetAllMarginSymbol();
+            return Ok(rs);
+        }
+
+        [Authorize]
+        [HttpPut("set-active")]
+        public async Task<IActionResult> SetActive(SetConfigActiveDto data)
+        {
+            var rs = await _configService.SetConfigActiveStatus(data.Id, data.IsActive);
             return Ok(rs);
         }
     }

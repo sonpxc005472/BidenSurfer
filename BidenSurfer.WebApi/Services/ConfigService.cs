@@ -15,9 +15,10 @@ public interface IConfigService
     Task<IEnumerable<ConfigDto>> GetConfigsByUser(long userId);
     Task<IEnumerable<ConfigDto>> GetByActiveUser();
     Task<ConfigDto?> GetById(long id);
-    Task<bool> AddOrEdit(ConfigDto config);
+    Task<bool> AddOrEdit(AddEditConfigDto config);
     Task<bool> SaveNewScanToDb(List<ConfigDto> configs);
     Task<bool> Delete(long id);
+    Task<bool> SetConfigActiveStatus(long id, bool isActive);
     Task<bool> OffConfigs(List<string> customIds);
     Task<List<SymbolDto>> GetAllMarginSymbol();
     Task AmountExpireUpdate(List<string> customIds);
@@ -27,23 +28,26 @@ public class ConfigService : IConfigService
 {
     private readonly AppDbContext _context;
     private readonly IBus _bus;
+    private ISecurityContextAccessor _securityContextAccessor;
 
-    public ConfigService(AppDbContext context, IBus bus)
+    public ConfigService(AppDbContext context, IBus bus, ISecurityContextAccessor securityContextAccessor)
     {
         _context = context;
         _bus = bus;
+        _securityContextAccessor = securityContextAccessor;
     }
 
-    public async Task<bool> AddOrEdit(ConfigDto config)
+    public async Task<bool> AddOrEdit(AddEditConfigDto config)
     {
         var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == config.Id);
         if (configEntity == null)
         {
             //Add new
+            var userId = _securityContextAccessor.UserId;
             var configAdd = new Config
             {
-                Userid = config.UserId,
-                CustomId = config.CustomId,
+                Userid = userId,
+                CustomId = Guid.NewGuid().ToString(),
                 Symbol = config.Symbol,
                 PositionSide = config.PositionSide,
                 OrderChange = config.OrderChange,
@@ -53,8 +57,8 @@ public class ConfigService : IConfigService
                 IncreaseAmountExpire = config.IncreaseAmountExpire,
                 IncreaseAmountPercent = config.IncreaseAmountPercent,
                 IncreaseOcPercent = config.IncreaseOcPercent,
-                OrderType = config.OrderType,
-                CreatedBy = config.CreatedBy,
+                OrderType = (int) OrderTypeEnums.Margin,
+                CreatedBy = AppConstants.CreatedByUser,
                 Expire = config.Expire,
                 OriginAmount = config.Amount,
                 CreatedDate = DateTime.Now,
@@ -65,8 +69,7 @@ public class ConfigService : IConfigService
         }
         else
         {
-            //Edit
-            configEntity.Userid = config.UserId;
+            //Edit            
             configEntity.Symbol = config.Symbol;
             configEntity.PositionSide = config.PositionSide;
             configEntity.OrderChange = config.OrderChange;
@@ -75,7 +78,6 @@ public class ConfigService : IConfigService
             configEntity.AmountLimit = config.AmountLimit;
             configEntity.IncreaseAmountExpire = config.IncreaseAmountExpire;
             configEntity.IncreaseAmountPercent = config.IncreaseAmountPercent;
-            configEntity.OrderType = config.OrderType;
             configEntity.IncreaseOcPercent = config.IncreaseOcPercent;
             configEntity.Expire = config.Expire;
             configEntity.EditedDate = DateTime.Now;
@@ -102,7 +104,7 @@ public class ConfigService : IConfigService
 
     public async Task<IEnumerable<ConfigDto>> GetConfigsByUser(long userId)
     {
-        var result = await _context.Configs.Where(b => b.Userid == userId).ToListAsync() ?? new List<Config>();
+        var result = await _context.Configs.Where(b => b.Userid == userId).OrderBy(x => x.Symbol).ThenBy(x=>x.PositionSide).ThenBy(x=>x.OrderChange).ToListAsync() ?? new List<Config>();
         return result.Select(r => new ConfigDto
         {
             Id = r.Id,
@@ -298,6 +300,24 @@ public class ConfigService : IConfigService
         {
             Console.WriteLine(ex.Message);
             return new List<SymbolDto>();
+        }
+    }
+
+    public async Task<bool> SetConfigActiveStatus(long id, bool isActive)
+    {
+        try
+        {
+            var config = await _context.Configs?.FirstOrDefaultAsync(x => x.Id == id);
+            if (null == config) return false;
+            config.IsActive = isActive;
+            _context.Configs.Update(config);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return false;
         }
     }
 }

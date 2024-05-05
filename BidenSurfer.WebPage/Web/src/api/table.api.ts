@@ -15,6 +15,24 @@ export interface BasicTableRow {
   tags?: Tag[];
 }
 
+export interface ConfigurationForm {
+  id?: number;
+  customId?: string;
+  orderType?: number;
+  userId?: number;
+  symbol?: string;
+  positionSide?: string;
+  orderChange?: number;
+  increaseAmountPercent?: number;
+  amount?: number;
+  amountLimit?: number;
+  increaseAmountExpire?: number;
+  expire?: number;
+  increaseOcPercent?: number;
+  isActive?: boolean;  
+}
+
+
 export interface ConfigurationTableRow {
   id: number;
   userId: number;
@@ -87,8 +105,22 @@ export const getConfigurationData = (): Promise<ConfigurationTableRow[]> =>
 export const getSymbolData = (): Promise<SymbolData[]> =>
   httpApi.get<SymbolData[]>('configuration/symbols').then(({ data }) => data);
 
+export const getMaxBorrow = (symbol: string, orderSide: string): Promise<number> =>
+  httpApi.get<number>('user/max-borrow?symbol=' + symbol+'&orderSide=' + orderSide).then(({ data }) => data);
+
+
 export const getScannerData = (): Promise<ScannerTableRow[]> =>
   httpApi.get<ScannerTableRow[]>('scanner/getall').then(({ data }) => data);
+
+export const saveConfiguration = (config: ConfigurationForm): Promise<boolean> =>
+  httpApi.post<boolean>('configuration/addoredit', { ...config }).then(({ data }) => data);
+
+export const setConfigActive = (id: number, isActive: boolean): Promise<boolean> =>
+  httpApi.put<boolean>('configuration/set-active', { id: id, isActive: isActive }).then(({ data }) => data);
+
+export const deleteConfig = (id: number): Promise<boolean> =>
+  httpApi.delete<boolean>('configuration/delete?configId=' + id).then(({ data }) => data);
+
 
 export const getBasicTableData = (pagination: Pagination): Promise<BasicTableData> => {
   return new Promise((res) => {
