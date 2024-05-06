@@ -81,13 +81,14 @@ public class ScannerService : IScannerService
             _context.Scanners.Update(scannerEntity);
             await _context.SaveChangesAsync();
         }
+        await _bus.Send(new ScannerUpdateFromApiMessage { ScannerDtos = new List<ScannerDto> { scanner } });
         return true;
     }
 
     public async Task<bool> Delete(long id)
     {
         var scannerEntity = await _context.Scanners?.FirstOrDefaultAsync(c => c.Id == id);
-        if (scannerEntity == null)
+        if (scannerEntity == null || (scannerEntity != null && scannerEntity.IsActive))
         {
             return false;
         }
@@ -226,7 +227,7 @@ public class ScannerService : IScannerService
             _context.ScannerSetting.Update(scannerStEntity);
             await _context.SaveChangesAsync();
         }
-       
+        await _bus.Send(new ScannerSettingUpdateFromApiMessage { ScannerSettingDto = scannerSetting });
         return true;
     }
 
@@ -239,6 +240,7 @@ public class ScannerService : IScannerService
             scanner.IsActive = isActive;
             _context.Scanners.Update(scanner);
             await _context.SaveChangesAsync();
+            await _bus.Send(new ScannerUpdateFromApiMessage { ScannerDtos = new List<ScannerDto> { scanner.ToDto() } });
             return true;
         }
         catch (Exception ex)

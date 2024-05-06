@@ -2,7 +2,11 @@
 using BidenSurfer.Infras;
 using BidenSurfer.Infras.Domains;
 using BidenSurfer.Infras.Entities;
+using BidenSurfer.Infras.Helpers;
 using BidenSurfer.Infras.Models;
+using Bybit.Net.Clients;
+using Bybit.Net.Enums;
+using CryptoExchange.Net.Authentication;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 using System.Linq;
@@ -12,22 +16,26 @@ public interface IConfigService
 {
     Task<List<ConfigDto>> GetAllActive();
     void AddOrEditConfig(ConfigDto config);
+    void AddOrEditConfigFromApi(List<ConfigDto> configs);
     void UpsertConfigs(List<ConfigDto> configs);
     void DeleteAllConfig();
     ConfigWinLose UpsertWinLose(ConfigDto configDto, bool isWin);
     ConfigWinLose GetWinLose(ConfigDto configDto);
     void OnOffConfig(List<ConfigDto> configs);
+    void DeleteConfigs(List<string> customIds);
 }
 
 public class ConfigService : IConfigService
 {
     private readonly IRedisCacheService _redisCacheService;
     private readonly AppDbContext _dbContext;
+    private readonly ITeleMessage _teleMessage;
 
-    public ConfigService(IRedisCacheService redisCacheService, AppDbContext dbContext)
+    public ConfigService(IRedisCacheService redisCacheService, AppDbContext dbContext, ITeleMessage teleMessage)
     {
         _redisCacheService = redisCacheService;
         _dbContext = dbContext;
+        _teleMessage = teleMessage;
     }
 
     public void AddOrEditConfig(ConfigDto config)
@@ -232,5 +240,116 @@ public class ConfigService : IConfigService
         {
             Console.WriteLine($"On/Off Config Error: {ex.Message}");
         }        
+    }
+
+    public async void AddOrEditConfigFromApi(List<ConfigDto> configs)
+    {
+        try
+        {
+            foreach (var config in configs)
+            {
+                var existedConfig = StaticObject.AllConfigs.ContainsKey(config.CustomId);
+                if (!existedConfig)
+                {
+                    StaticObject.AllConfigs.TryAdd(config.CustomId, config);
+                }
+                else
+                {
+                    var caconfig = StaticObject.AllConfigs[config.CustomId];
+                    if (caconfig != null)
+                    {
+                        var isOffConfig = !config.IsActive && caconfig.IsActive;
+                        caconfig.Amount = config.Amount;
+                        caconfig.IncreaseAmountPercent = config.IncreaseAmountPercent;
+                        caconfig.IsActive = config.IsActive;
+                        caconfig.OrderChange = config.OrderChange;
+                        caconfig.IncreaseAmountExpire = config.IncreaseAmountExpire;
+                        caconfig.IncreaseOcPercent = config.IncreaseOcPercent;
+                        caconfig.AmountLimit = config.AmountLimit;
+                        caconfig.EditedDate = config.EditedDate;
+                        caconfig.Expire = config.Expire;                        
+                        caconfig.OriginAmount = config.OriginAmount;
+                        StaticObject.AllConfigs[config.CustomId] = caconfig;
+                        if(isOffConfig)
+                        {
+                            await CancelOrder(caconfig);
+                        }
+                    }
+                }
+            }            
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AddOrEditConfig Error: {ex.Message}");
+        }
+    }
+
+    public void DeleteConfigs(List<string> customIds)
+    {
+        foreach (var customId in customIds)
+        {
+            StaticObject.AllConfigs.TryRemove(customId, out _);
+        }
+    }
+
+    private async Task<bool> CancelOrder(ConfigDto config)
+    {
+        try
+        {
+            var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
+            BybitRestClient api;
+            if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
+            {
+                api = new BybitRestClient();
+
+                if (userSetting != null)
+                {
+                    api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey, ApiCredentialsType.Hmac));
+                    StaticObject.RestApis.TryAdd(config.UserId, api);
+                }
+            }
+
+            if (api != null)
+            {
+                StaticObject.IsInternalCancel = true;
+                var cancelOrder = await api.V5Api.Trading.CancelOrderAsync
+                    (
+                        Category.Spot,
+                        config.Symbol,
+                        clientOrderId: config.ClientOrderId
+                    );
+                config.OrderStatus = null;
+                config.ClientOrderId = string.Empty;
+                config.OrderId = string.Empty;
+                config.isClosingFilledOrder = false;
+                config.IsActive = false;
+                config.EditedDate = DateTime.Now;
+                config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
+                StaticObject.AllConfigs[config.CustomId] = config;
+
+                if (cancelOrder.Success)
+                {
+                    var message = $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} Cancelled";
+                    Console.WriteLine(message);
+                    _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, "Cancelled");
+
+                    return true;
+                }
+                else
+                {
+                    Console.WriteLine($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
+                }
+                await Task.Delay(200);
+                StaticObject.IsInternalCancel = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            // log error to the telegram channels
+            Console.WriteLine($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} Ex: {ex.Message}");
+            StaticObject.IsInternalCancel = false;
+            return false;
+        }
+        return false;
     }
 }

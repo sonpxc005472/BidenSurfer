@@ -6,7 +6,7 @@ using Bybit.Net.Enums;
 using MassTransit;
 using System.Collections.Concurrent;
 using BidenSurfer.Infras.BusEvents;
-using BidenSurfer.BotRunner.Services;
+using BidenSurfer.Scanner.Services;
 using BidenSurfer.Infras.Models;
 using System.Collections.Generic;
 using BidenSurfer.Infras.Helpers;
@@ -101,8 +101,8 @@ public class BotService : IBotService
                                     var shortElastic = shortPercent == 0 ? 0 : (shortPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / shortPercent * 100;
                                     if (longPercent < (decimal)-0.8 && longElastic >= 70)
                                     {
-                                        var scanners = StaticObject.AllScanners;
-                                        var configs = StaticObject.AllConfigs;
+                                        var scanners = StaticObject.AllScanners.Where(c => c.IsActive).ToList();
+                                        var configs = StaticObject.AllConfigs.Where(c => c.Value.IsActive).ToList();
                                         bool isMatched = false;
                                         var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)

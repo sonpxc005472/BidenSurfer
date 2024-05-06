@@ -52,7 +52,13 @@ public static class ConfigHelper
             OrderType = config.OrderType,
             PositionSide = config.PositionSide,
             Symbol = config.Symbol,
-            UserId = config.Userid
+            UserId = config.Userid,
+            CustomId = config.CustomId,
+            OriginAmount = config.OriginAmount,
+            CreatedBy = config.CreatedBy,
+            CreatedDate = config.CreatedDate,
+            EditedDate = config.EditedDate,
+            Expire = config.Expire
         };
     }
 }

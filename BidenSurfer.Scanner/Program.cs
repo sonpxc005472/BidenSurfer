@@ -6,7 +6,6 @@ using BidenSurfer.Scanner.Services;
 using BidenSurfer.Infras.BusEvents;
 using MassTransit;
 using BidenSurfer.Infras.Domains;
-using BidenSurfer.BotRunner.Services;
 using BidenSurfer.Scanner.Consumers;
 using BidenSurfer.Infras.Helpers;
 
@@ -59,6 +58,18 @@ namespace BidenSurfer.Scanner
                 cfg.ReceiveEndpoint(QueueName.OnOffConfigMessageScanner, x =>
                 {
                     x.Consumer<OnOffConfigConsumer>(ctx);
+                });
+                cfg.ReceiveEndpoint(QueueName.ScannerUpdateFromApiMessage, x =>
+                {
+                    x.Consumer<ScannerUpdateFromApiConsumer>(ctx);
+                });
+                cfg.ReceiveEndpoint(QueueName.ConfigUpdateFromApiForScannerMessage, x =>
+                {
+                    x.Consumer<ConfigUpdateFromApiConsumer>(ctx);
+                });
+                cfg.ReceiveEndpoint(QueueName.ScannerSettingUpdateFromApiMessage, x =>
+                {
+                    x.Consumer<ScannerSettingUpdateFromApiConsumer>(ctx);
                 });
                 #endregion
 

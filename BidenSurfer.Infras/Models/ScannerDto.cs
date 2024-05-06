@@ -44,6 +44,7 @@ public static class ScannerHelper
             Elastic = scanner.Elastic,
             OcNumber = scanner.OcNumber,
             Turnover = scanner.Turnover,
+            IsActive = scanner.IsActive
         };
     }
 }

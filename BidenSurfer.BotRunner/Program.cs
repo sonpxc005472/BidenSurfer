@@ -39,6 +39,8 @@ namespace BidenSurfer.BotRunner
                     options.EnableSensitiveDataLogging(false);
                 });
                 services.AddSingleton<AppDbContext>();
+                services.AddSingleton<ITeleMessage, TeleMessage>();
+                services.AddScoped<IUserService, UserService>();
                 services.AddScoped<IConfigService, ConfigService>();
                 services.AddStackExchangeRedisCache(options =>
                 {                    
@@ -47,8 +49,6 @@ namespace BidenSurfer.BotRunner
                 });
                 services.AddCustomMassTransit(configuration);
                 services.AddScoped<IRedisCacheService, RedisCacheService>();
-                services.AddSingleton<ITeleMessage, TeleMessage>();
-                services.AddScoped<IUserService, UserService>();
                 services.AddScoped<IBotService, BotService>();
                 services.AddHostedService<AutoRunBotService>();
             });
@@ -70,6 +70,11 @@ namespace BidenSurfer.BotRunner
                 {
                     x.Consumer<OnOffConfigConsumer>(ctx);
                 });
+                cfg.ReceiveEndpoint(QueueName.ConfigUpdateFromApiForBotRunnerMessage, x =>
+                {
+                    x.Consumer<ConfigUpdateFromApiConsumer>(ctx);
+                });
+                
 
                 #endregion
 

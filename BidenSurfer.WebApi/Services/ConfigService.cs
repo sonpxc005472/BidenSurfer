@@ -57,7 +57,7 @@ public class ConfigService : IConfigService
                 IncreaseAmountExpire = config.IncreaseAmountExpire,
                 IncreaseAmountPercent = config.IncreaseAmountPercent,
                 IncreaseOcPercent = config.IncreaseOcPercent,
-                OrderType = (int) OrderTypeEnums.Margin,
+                OrderType = (int)OrderTypeEnums.Margin,
                 CreatedBy = AppConstants.CreatedByUser,
                 Expire = config.Expire,
                 OriginAmount = config.Amount,
@@ -85,26 +85,41 @@ public class ConfigService : IConfigService
             _context.Configs.Update(configEntity);
             await _context.SaveChangesAsync();
         }
-        
+
+        var configDto = configEntity.ToDto();
+        _ = _bus.Send(new ConfigUpdateFromApiForBotRunnerMessage
+        {
+            ConfigDtos = new List<ConfigDto>
+            {
+                configDto
+            }
+        });
+        _ = _bus.Send(new ConfigUpdateFromApiForScannerMessage
+        {
+            ConfigDtos = new List<ConfigDto>
+            {
+                configDto
+            }
+        });
         return true;
     }
 
     public async Task<bool> Delete(long id)
     {
         var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == id);
-        if (configEntity == null)
+        if (configEntity == null || (configEntity != null && configEntity.IsActive))
         {
             return false;
         }
         _context.Configs.Remove(configEntity);
         await _context.SaveChangesAsync();
-        
+
         return true;
     }
 
     public async Task<IEnumerable<ConfigDto>> GetConfigsByUser(long userId)
     {
-        var result = await _context.Configs.Where(b => b.Userid == userId).OrderBy(x => x.Symbol).ThenBy(x=>x.PositionSide).ThenBy(x=>x.OrderChange).ToListAsync() ?? new List<Config>();
+        var result = await _context.Configs.Where(b => b.Userid == userId).OrderBy(x => x.Symbol).ThenBy(x => x.PositionSide).ThenBy(x => x.OrderChange).ToListAsync() ?? new List<Config>();
         return result.Select(r => new ConfigDto
         {
             Id = r.Id,
@@ -143,17 +158,17 @@ public class ConfigService : IConfigService
             IncreaseAmountPercent = config.IncreaseAmountPercent,
             OrderType = config.OrderType,
             IncreaseAmountExpire = config.IncreaseAmountExpire,
-            IncreaseOcPercent= config.IncreaseOcPercent,
+            IncreaseOcPercent = config.IncreaseOcPercent,
             Expire = config.Expire,
             CreatedBy = config.CreatedBy,
             CreatedDate = config.CreatedDate,
-            EditedDate= config.EditedDate
+            EditedDate = config.EditedDate
         };
     }
 
     public async Task<IEnumerable<ConfigDto>> GetByActiveUser()
     {
-        List<ConfigDto> resultDto;        
+        List<ConfigDto> resultDto;
         var result = await _context.Configs?.Include(i => i.User).ThenInclude(c => c.UserSetting).Where(b => b.User.Status == (int)UserStatusEnums.Active).ToListAsync() ?? new List<Config>();
         resultDto = result.Select(r => new ConfigDto
         {
@@ -169,7 +184,7 @@ public class ConfigService : IConfigService
             AmountLimit = r.AmountLimit,
             IncreaseAmountPercent = r.IncreaseAmountPercent,
             IncreaseOcPercent = r.IncreaseOcPercent,
-            IncreaseAmountExpire=r.IncreaseAmountExpire,        
+            IncreaseAmountExpire = r.IncreaseAmountExpire,
             CreatedBy = r.CreatedBy,
             CreatedDate = r.CreatedDate,
             EditedDate = r.EditedDate,
@@ -225,10 +240,11 @@ public class ConfigService : IConfigService
                 await _context.SaveChangesAsync();
             }
         }
-        catch(Exception ex) {
+        catch (Exception ex)
+        {
             return false;
-        }        
-        
+        }
+
         return true;
     }
 
@@ -240,13 +256,13 @@ public class ConfigService : IConfigService
             var configEntities = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
             var toRemove = configEntities?.Where(c => c.CreatedBy == AppConstants.CreatedByScanner).ToList();
             var toUpdate = configEntities?.Where(c => c.CreatedBy != AppConstants.CreatedByScanner).ToList();
-            if(toRemove.Any())
+            if (toRemove.Any())
             {
                 _context.Configs.RemoveRange(toRemove);
             }
-            if(toUpdate.Any())
+            if (toUpdate.Any())
             {
-                foreach(var entity in toUpdate)
+                foreach (var entity in toUpdate)
                 {
                     entity.IsActive = false;
                     entity.EditedDate = DateTime.Now;
@@ -312,6 +328,8 @@ public class ConfigService : IConfigService
             config.IsActive = isActive;
             _context.Configs.Update(config);
             await _context.SaveChangesAsync();
+            _ = _bus.Send(new ConfigUpdateFromApiForBotRunnerMessage { ConfigDtos = new List<ConfigDto> { config.ToDto() } });
+            _ = _bus.Send(new ConfigUpdateFromApiForScannerMessage { ConfigDtos = new List<ConfigDto> { config.ToDto() } });
             return true;
         }
         catch (Exception ex)
