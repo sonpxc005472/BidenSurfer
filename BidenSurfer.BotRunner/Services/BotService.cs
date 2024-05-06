@@ -104,12 +104,22 @@ public class BotService : IBotService
                                     }
                                     else if (existingFilledOrders != null && existingFilledOrders.Any())
                                     {
-                                        //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được
+                                        //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
                                         foreach (var order in existingFilledOrders)
                                         {
-                                            if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 3000)
+                                            if(!order.isClosingFilledOrder)
                                             {
-                                                await TryTakeProfit(order, currentPrice);
+                                                if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 3000)
+                                                {
+                                                    await TryTakeProfit(order, currentPrice);
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 300)
+                                                {
+                                                    await TryTakeProfit(order, currentPrice);
+                                                }
                                             }
                                         }
                                     }
@@ -744,6 +754,7 @@ public class BotService : IBotService
             }
             else
             {
+                config.isClosingFilledOrder = true;
                 StaticObject.FilledOrders[config.CustomId] = config;
             }
             _configService.AddOrEditConfig(config);            

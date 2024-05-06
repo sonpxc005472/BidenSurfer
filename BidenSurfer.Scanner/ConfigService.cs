@@ -11,6 +11,7 @@ public interface IConfigService
 {
     Task<List<ConfigDto>> GetAllActiveAsync();
     void AddOrEditConfig(List<ConfigDto> configs);
+    void Delete(string customId);
     void OnOffConfig(List<ConfigDto> configs);
 }
 
@@ -60,7 +61,12 @@ public class ConfigService : IConfigService
         {
             Console.WriteLine("Scanner Add/Edit config Error: " + ex.Message);
         }
-    }    
+    }
+
+    public void Delete(string customId)
+    {
+        StaticObject.AllConfigs.TryRemove(customId, out _);
+    }
 
     public async Task<List<ConfigDto>> GetAllActiveAsync()
     {

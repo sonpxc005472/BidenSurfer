@@ -11,6 +11,9 @@ using BidenSurfer.Infras.Models;
 using System.Collections.Generic;
 using BidenSurfer.Infras.Helpers;
 using BidenSurfer.Infras.Entities;
+using System.Diagnostics.Metrics;
+using Telegram.Bot.Types;
+using CryptoExchange.Net.Authentication;
 
 public interface IBotService
 {
@@ -96,7 +99,7 @@ public class BotService : IBotService
                                     var shortPercent = (candle.High - candle.Open) / candle.Open * 100;
                                     var longElastic = longPercent == 0 ? 0 : (longPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / longPercent * 100;
                                     var shortElastic = shortPercent == 0 ? 0 : (shortPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / shortPercent * 100;
-                                    if (longPercent < (decimal)-1 && longElastic >= 70)
+                                    if (longPercent < (decimal)-0.8 && longElastic >= 70)
                                     {
                                         var scanners = StaticObject.AllScanners;
                                         var configs = StaticObject.AllConfigs;
@@ -109,12 +112,13 @@ public class BotService : IBotService
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
-                                                var maxOpen = scannerSetting?.MaxOpen ?? 4; // We can only open 4 orders by default
+                                                var onlyPairs = scanner?.OnlyPairs ?? new List<string>();
+                                                var maxOpen = scannerSetting?.MaxOpen ?? 15; // We can only open 15 orders by default
                                                 var numScannerOpen = configs.Count(c => c.Value.UserId == scanner.UserId && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.OrderId));
                                                 var symbolDetail = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 //If scan indicator matched user's scanner configurations 
                                                 if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
-                                                    && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume && !blackList.Any(b => b == symbolDetail?.BaseAsset)
+                                                    && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume && !blackList.Any(b => b == symbolDetail?.BaseAsset && (!onlyPairs.Any() || onlyPairs.Any(b => b == symbolDetail?.BaseAsset)))
                                                     )
                                                 {
                                                     isMatched = true;
@@ -125,23 +129,17 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for long side
-                                                    newConfigs = await CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen);
+                                                    newConfigs = await CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close);
                                                 }
                                             }
                                         }
                                         if (isMatched && newConfigs.Any())
                                         {
-                                            _configService.AddOrEditConfig(newConfigs);
                                             await _bus.Send(new NewConfigCreatedMessage {  ConfigDtos = newConfigs });
-                                            await _bus.Send(new SaveNewConfigMessage{ NewScanConfigs = newConfigs });
-                                            foreach (var config in newConfigs)
-                                            {
-                                                var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == config.UserId)?.Setting;
-                                                _ = _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
-                                            }
+                                            await _bus.Send(new SaveNewConfigMessage{ NewScanConfigs = newConfigs });                                            
                                         }
                                     }
-                                    if (shortPercent > (decimal)1 && shortElastic >= 70)
+                                    if (shortPercent > (decimal)0.8 && shortElastic >= 70)
                                     {
                                         var scanners = StaticObject.AllScanners;
                                         var configs = StaticObject.AllConfigs;
@@ -154,13 +152,14 @@ public class BotService : IBotService
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
-                                                var maxOpen = scannerSetting?.MaxOpen ?? 4; // We can only open 4 orders by default
+                                                var onlyPairs = scanner?.OnlyPairs ?? new List<string>();
+                                                var maxOpen = scannerSetting?.MaxOpen ?? 15; // We can only open 15 orders by default
                                                 var numScannerOpen = configs.Count(c => c.Value.UserId == scanner.UserId && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.OrderId));
                                                 var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 var isMarginTrading = (instrument?.MarginTrading == MarginTrading.Both || instrument?.MarginTrading == MarginTrading.UtaOnly);
                                                 //If scan indicator matched user's scanner configurations 
                                                 if (scanner.PositionSide == AppConstants.ShortSide && scanner.OrderChange <= shortPercent
-                                                    && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading && !blackList.Any(b => b == instrument?.BaseAsset)
+                                                    && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading && !blackList.Any(b => b == instrument?.BaseAsset && (!onlyPairs.Any() || onlyPairs.Any(b => b == instrument?.BaseAsset)))
                                                     )
                                                 {
                                                     isMatched = true;
@@ -171,20 +170,14 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for short side
-                                                    newConfigs = await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen);
+                                                    newConfigs = await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close);
                                                 }
                                             }                                            
                                         }
                                         if (isMatched && newConfigs.Any())
                                         {
-                                            _configService.AddOrEditConfig(newConfigs);
                                             await _bus.Send(new NewConfigCreatedMessage { ConfigDtos = newConfigs });
-                                            await _bus.Send(new SaveNewConfigMessage { NewScanConfigs = newConfigs });
-                                            foreach (var config in newConfigs)
-                                            {
-                                                var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == config.UserId)?.Setting;
-                                                _ = _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
-                                            }
+                                            await _bus.Send(new SaveNewConfigMessage { NewScanConfigs = newConfigs });                                            
                                         }
                                     }
                                 }
@@ -229,7 +222,7 @@ public class BotService : IBotService
         
     }
 
-    private async Task<List<ConfigDto>> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner, int maxOpen, int currentOpen)
+    private async Task<List<ConfigDto>> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner, int maxOpen, int currentOpen, decimal currentPrice)
     {
         var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == scanner.UserId)?.Setting;
         var maxOcAbs = Math.Abs(maxOC);
@@ -268,9 +261,68 @@ public class BotService : IBotService
                 isNewScan = true,
                 ScannerTitle = scanner.Title
             };
-            configs.Add(config);            
+            _configService.AddOrEditConfig(new List<ConfigDto> { config });
+            var restApi = InitRestApi(scanner.UserId);
+            var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;
+            if (config.OrderType == (int)OrderTypeEnums.Spot)
+            {
+                orderSide = OrderSide.Buy;
+            }
+            
+            var orderPriceAndQuantity = CalculateOrderPriceQuantityTP(currentPrice, config);
+            string clientOrderId = Guid.NewGuid().ToString();
+            var order = await restApi.V5Api.Trading.PlaceOrderAsync(Category.Spot, symbol, orderSide, NewOrderType.Limit, orderPriceAndQuantity.Item2, orderPriceAndQuantity.Item1, config.OrderType == (int)OrderTypeEnums.Margin, clientOrderId: clientOrderId);
+            _ = _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
+            if (order.Success)
+            {
+                config.OrderId = order.Data.OrderId;
+                config.ClientOrderId = clientOrderId;                
+                config.TotalQuantity = orderPriceAndQuantity.Item2;
+                config.TPPrice = orderPriceAndQuantity.Item3;
+                config.OrderStatus = 1;
+                configs.Add(config);               
+            }
+            else
+            {
+                var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {order?.Error?.Message}";
+                Console.WriteLine(message);                
+                _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, order?.Error?.Message ?? "Place order error!");
+                _configService.Delete(config.CustomId);
+            }        
         }
         return configs;
+    }
+
+    private readonly decimal _tp = 70;
+    private (decimal, decimal, decimal) CalculateOrderPriceQuantityTP(decimal currentPrice, ConfigDto config)
+    {
+        var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;
+        var orderPrice = config.PositionSide == AppConstants.ShortSide ? currentPrice + (currentPrice * config.OrderChange / 100) : currentPrice - (currentPrice * config.OrderChange / 100);
+        var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
+        var orderPriceWithTicksize = ((int)(orderPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
+        var quantity = config.Amount / orderPriceWithTicksize;
+        var quantityWithTicksize = ((int)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
+        var tpPrice = config.PositionSide == AppConstants.ShortSide ? orderPrice - ((currentPrice * config.OrderChange / 100) * _tp / 100) : orderPrice + ((currentPrice * config.OrderChange / 100) * _tp / 100);
+        var tpPriceWithTicksize = ((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
+
+
+        return (orderPriceWithTicksize ?? 0, quantityWithTicksize ?? 0, tpPriceWithTicksize ?? 0);
+    }
+
+    private BybitRestClient InitRestApi(long userId)
+    {
+        BybitRestClient api;
+        if (!StaticObject.RestApis.TryGetValue(userId, out api))
+        {
+            var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == userId)?.Setting;
+            api = new BybitRestClient(options =>
+            {
+                options.ApiCredentials = new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey);
+            });
+
+            StaticObject.RestApis.TryAdd(userId, api);
+        }
+        return api;
     }
 }
 
