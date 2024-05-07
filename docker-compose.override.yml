@@ -47,3 +47,9 @@ services:
      - MessageBus__username=guest
      - MessageBus__password=guest
      - MessageBus__url=amqp://bidensurferrabbitmq
+     
+  bot-web:
+   ports:
+     - 5502:80
+   environment:
+     - REACT_APP_BASE_URL=http://bot-webapi:5501

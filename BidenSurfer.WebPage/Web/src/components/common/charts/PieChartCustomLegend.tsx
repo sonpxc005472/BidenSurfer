@@ -1,7 +1,6 @@
 import { PieChart } from './PieChart';
 import { Legend, LegendItem } from './Legend/Legend';
 import React, { useCallback, useState } from 'react';
-import { EChartsOption } from 'echarts-for-react';
 
 interface PieChartCustomLegend {
   name: string;
@@ -11,7 +10,6 @@ interface PieChartCustomLegend {
   legendData: LegendItem[];
   height?: string;
   width?: string;
-  option?: EChartsOption;
 }
 
 export const PieChartCustomLegend: React.FC<PieChartCustomLegend> = ({

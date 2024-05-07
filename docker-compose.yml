@@ -61,7 +61,18 @@ services:
     depends_on:
       - bidensurferrabbitmq
       - bidensurferredis
-
+      
+  bot-web:
+    image: ${REGISTRY:-bidenscanner}/bot-web:${TAG:-latest}
+    container_name: bot-web
+    build:
+      context: .
+      dockerfile: BidenSurfer.WebPage/Web/Dockerfile
+    networks:
+      - bidensurfer
+    depends_on:
+      - bot-webapi
+      
 networks:
   bidensurfer:
     name: bidensurfer-network

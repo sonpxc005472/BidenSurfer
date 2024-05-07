@@ -1,4 +1,3 @@
-import { LinearGradientObject } from 'echarts';
 
 export interface ITheme {
   primary: string;
@@ -50,11 +49,8 @@ export interface ITheme {
   chartColor4Tint: string;
   chartColor5: string;
   chartColor5Tint: string;
-  chartPrimaryGradient: LinearGradientObject;
-  chartSecondaryGradient: LinearGradientObject;
   additionalBackground: string;
   timelineBackground: string;
-  chartSecondaryGradientSpecular: LinearGradientObject;
   heading: string;
   borderBase: string;
   disable: string;

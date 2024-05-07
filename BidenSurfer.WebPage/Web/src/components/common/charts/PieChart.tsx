@@ -1,19 +1,17 @@
 import React from 'react';
-import { EChartsOption } from 'echarts-for-react';
 import { BaseChart, BaseChartProps } from '@app/components/common/charts/BaseChart';
 import { useAppSelector } from '@app/hooks/reduxHooks';
 import { themeObject } from '@app/styles/themes/themeVariables';
 import { BASE_COLORS } from '@app/styles/themes/constants';
 
 interface PieChartProps extends BaseChartProps {
-  option?: EChartsOption;
   // eslint-disable-next-line
   data?: any;
   name?: string;
   showLegend?: boolean;
 }
 
-export const PieChart: React.FC<PieChartProps> = ({ option, data, name, showLegend, ...props }) => {
+export const PieChart: React.FC<PieChartProps> = ({ data, name, showLegend, ...props }) => {
   const theme = useAppSelector((state) => state.theme.theme);
 
   const defaultPieOption = {
@@ -60,5 +58,5 @@ export const PieChart: React.FC<PieChartProps> = ({ option, data, name, showLege
       },
     ],
   };
-  return <BaseChart {...props} option={{ ...defaultPieOption, ...option }} />;
+  return <BaseChart {...props} />;
 };

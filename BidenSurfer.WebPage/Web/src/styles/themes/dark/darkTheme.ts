@@ -1,5 +1,4 @@
 import { shadeColor } from '@app/utils/utils';
-import { graphic } from 'echarts';
 import { BASE_COLORS } from '../constants';
 import { ITheme } from '../types';
 
@@ -15,36 +14,7 @@ const chartColors = {
   chartColor4Tint: '#306955', // update
   chartColor5: '#ff3d71',
   chartColor5Tint: '#ff3d71', // update
-  chartPrimaryGradient: new graphic.LinearGradient(0, 0, 0, 1, [
-    {
-      offset: 0,
-      color: 'rgba(51, 156, 253, 0.35)',
-    },
-    {
-      offset: 1,
-      color: 'rgba(51, 156, 253, 0)',
-    },
-  ]),
-  chartSecondaryGradient: new graphic.LinearGradient(0, 0, 0, 1, [
-    {
-      offset: 0,
-      color: 'rgba(255, 82, 82, 0.35)',
-    },
-    {
-      offset: 1,
-      color: 'rgba(255, 82, 82, 0)',
-    },
-  ]),
-  chartSecondaryGradientSpecular: new graphic.LinearGradient(0, 0, 0, 1, [
-    {
-      offset: 0,
-      color: 'rgba(255, 255, 255, 0)',
-    },
-    {
-      offset: 1,
-      color: 'rgba(255, 82, 82, 0.5)',
-    },
-  ]),
+  
 };
 
 export const darkColorsTheme: ITheme = {
