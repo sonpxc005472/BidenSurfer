@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkbiden_web=self.webpackChunkbiden_web||[]).push([[838],{5838:(e,s,n)=>{n.r(s),n.d(s,{default:()=>h});n(5043);var d=n(3216),c=n(8848),b=n(579);const h=()=>(0,b.jsx)(c.mO,{children:(0,b.jsx)(c.Wg,{children:(0,b.jsx)(c.nd,{children:(0,b.jsx)(d.sv,{})})})})}}]);
+//# sourceMappingURL=838.e990e6f2.chunk.js.map
