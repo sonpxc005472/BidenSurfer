@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY BidenSurfer.WebPage/Web/package.json .
 COPY BidenSurfer.WebPage/Web/craco.config.js .
-RUN yarn install && yarn build
+RUN yarn install && yarn build && ls -la /app
 
 COPY BidenSurfer.WebPage/Web/ .
 
