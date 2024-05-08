@@ -321,10 +321,14 @@ public class BotService : IBotService
             }
             else
             {
-                var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
-                Console.WriteLine(message);
-                _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
-                await CancelOrder(config);
+                if(!amendOrder.Error.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
+                    Console.WriteLine(message);
+                    _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
+                    await CancelOrder(config);
+                }
+                
             }
             return false;
         }
