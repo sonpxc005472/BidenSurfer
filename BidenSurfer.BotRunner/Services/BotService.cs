@@ -8,13 +8,10 @@ using CryptoExchange.Net.Authentication;
 using CryptoExchange.Net.Objects.Sockets;
 using Bybit.Net.Enums;
 using Bybit.Net.Objects.Models.V5;
-using CryptoExchange.Net.Objects;
 using MassTransit;
 using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
-using BidenSurfer.Infras.Entities;
 using System;
-using System.Collections.Concurrent;
 
 public interface IBotService
 {
@@ -26,6 +23,7 @@ public interface IBotService
     Task<bool> TakePlaceOrder(ConfigDto config, decimal currentPrice);
     Task<bool> AmendOrder(ConfigDto config, decimal currentPrice);
     Task<bool> CancelOrder(ConfigDto config, bool isExpired);
+    Task<bool> CancelAllOrder();
 }
 
 public class BotService : IBotService
@@ -78,7 +76,7 @@ public class BotService : IBotService
                                 {
                                     bool isExistedScanner = openScanners.Any(x => x.UserId == symbolConfig.UserId);
                                     bool isLongSide = symbolConfig.PositionSide == AppConstants.LongSide;
-                                    var existingFilledOrders = StaticObject.FilledOrders.Where(x => x.Value.UserId == symbolConfig.UserId && x.Value.OrderStatus == 2 && x.Value.Symbol == symbol).Select(r=>r.Value).ToList();
+                                    var existingFilledOrders = StaticObject.FilledOrders.Where(x => x.Value.UserId == symbolConfig.UserId && x.Value.OrderStatus == 2 && x.Value.Symbol == symbol).Select(r => r.Value).ToList();
                                     var sideOrderExisted = symbolConfigs.Any(x => x.UserId == symbolConfig.UserId && x.PositionSide != symbolConfig.PositionSide);
                                     if ((symbolConfig.CreatedBy != AppConstants.CreatedByScanner || (symbolConfig.CreatedBy == AppConstants.CreatedByScanner && !isExistedScanner)) && !existingFilledOrders.Any() && !sideOrderExisted && string.IsNullOrEmpty(symbolConfig.ClientOrderId))
                                     {
@@ -92,6 +90,10 @@ public class BotService : IBotService
                                         if ((currentTime - preTime).TotalMilliseconds >= 2000)
                                         {
                                             preTime = currentTime;
+                                            if(prePrice == 0)
+                                            {
+                                                prePrice = currentPrice;
+                                            }
                                             var priceDiff = Math.Abs(currentPrice - prePrice) / prePrice * 100;
                                             //Nếu giá dịch chuyển lớn hơn 0.05% so với giá lúc trước thì amend order
                                             if (priceDiff > (decimal)0.05)
@@ -107,7 +109,7 @@ public class BotService : IBotService
                                         //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
                                         foreach (var order in existingFilledOrders)
                                         {
-                                            if(!order.isClosingFilledOrder)
+                                            if (!order.isClosingFilledOrder)
                                             {
                                                 if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 3000)
                                                 {
@@ -138,9 +140,9 @@ public class BotService : IBotService
                                         {
                                             config.IsActive = false;
                                             await CancelOrder(config, true);
-                                        }                                        
+                                        }
                                     }
-                                    if(configExpired.Any())
+                                    if (configExpired.Any())
                                     {
                                         await _bus.Send(new OnOffConfigMessageScanner()
                                         {
@@ -368,7 +370,7 @@ public class BotService : IBotService
                 config.isClosingFilledOrder = false;
                 config.IsActive = false;
                 config.EditedDate = DateTime.Now;
-                config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;                
+                config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
                 _configService.AddOrEditConfig(config);
 
                 if (cancelOrder.Success)
@@ -462,7 +464,7 @@ public class BotService : IBotService
                             {
                                 config = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
                             }
-                           
+
                             if (config == null)
                             {
                                 Console.WriteLine("Null order: " + clientOrderId);
@@ -491,7 +493,7 @@ public class BotService : IBotService
                                         clientOrderId: clientOrderId
                                     );
                                     if (cancelOrder.Success)
-                                    {                                        
+                                    {
                                         await TakeProfit(updatedData, user);
                                     }
                                 }
@@ -501,7 +503,7 @@ public class BotService : IBotService
                             {
                                 var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
                                 if (closingOrder == null)
-                                {                                    
+                                {
                                     await TakeProfit(updatedData, user);
                                     Console.WriteLine($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}| {clientOrderId} - Filled");
                                     _ = _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
@@ -518,7 +520,7 @@ public class BotService : IBotService
                                     var pnlPercent = Math.Round((pnlCash / (openPrice * filledQuantity)) * 100, 2);
                                     var pnlText = pnlCash > 0 ? "WIN" : "LOSE";
                                     Console.WriteLine($"{updatedData?.Symbol}|{closingOrder.OrderChange}|{pnlText}|PNL: ${pnlCash.ToString("0.00")} {pnlPercent.ToString("0.00")}%");
-                                    var configWin = _configService.UpsertWinLose(config, pnlCash > 0);                                    
+                                    var configWin = _configService.UpsertWinLose(config, pnlCash > 0);
                                     _ = _teleMessage.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent, configWin.Win, configWin.Total);
                                     config.OrderId = string.Empty;
                                     config.ClientOrderId = string.Empty;
@@ -570,11 +572,11 @@ public class BotService : IBotService
                                     {
                                         _configService.AddOrEditConfig(config);
                                     }
-                                    
+
                                 }
                             }
                             else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled && !StaticObject.IsInternalCancel)
-                            {                                
+                            {
                                 var customId = config.CustomId;
                                 config.IsActive = false;
                                 _configService.UpsertConfigs(new List<ConfigDto> { config });
@@ -620,10 +622,10 @@ public class BotService : IBotService
     public async Task InitUserApis()
     {
         await GetSpotSymbols();
-        
+
         foreach (var user in StaticObject.AllUsers)
         {
-            if (user.Status == (int) UserStatusEnums.Active && !string.IsNullOrEmpty(user.Setting?.ApiKey) && !string.IsNullOrEmpty(user.Setting.SecretKey))
+            if (user.Status == (int)UserStatusEnums.Active && !string.IsNullOrEmpty(user.Setting?.ApiKey) && !string.IsNullOrEmpty(user.Setting.SecretKey))
             {
                 BybitRestClient api;
                 if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
@@ -646,7 +648,7 @@ public class BotService : IBotService
                         var rs = await api.V5Api.Account.SetCollateralAssetAsync(symbol.BaseAsset, true);
                         await api.V5Api.Account.SetLeverageAsync(Category.Spot, symbol.Name, 10, 10);
                         newCollaterals.Add(symbol.BaseAsset);
-                    }                    
+                    }
                 }
                 if (newCollaterals.Any())
                 {
@@ -757,7 +759,7 @@ public class BotService : IBotService
                 config.isClosingFilledOrder = true;
                 StaticObject.FilledOrders[config.CustomId] = config;
             }
-            _configService.AddOrEditConfig(config);            
+            _configService.AddOrEditConfig(config);
             return amendOrder.Success;
         }
         catch (Exception ex)
@@ -789,7 +791,7 @@ public class BotService : IBotService
     {
         if (filledPrice == null) return 0;
         var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
-        var startPrice = config.PositionSide == AppConstants.ShortSide ? (100*filledPrice/(100 + config.OrderChange)) : (100*filledPrice/(100 - config.OrderChange));
+        var startPrice = config.PositionSide == AppConstants.ShortSide ? (100 * filledPrice / (100 + config.OrderChange)) : (100 * filledPrice / (100 - config.OrderChange));
         var tpPrice = config.PositionSide == AppConstants.ShortSide ? filledPrice - ((startPrice * config.OrderChange / 100) * _tp / 100) : filledPrice + ((startPrice * config.OrderChange / 100) * _tp / 100);
         var tpPriceWithTicksize = ((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
 
@@ -805,9 +807,48 @@ public class BotService : IBotService
             var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
             StaticObject.Symbols = spotSymbols.ToList();
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             Console.WriteLine("Get spot symbols error: " + ex.Message);
+        }
+    }
+
+    public async Task<bool> CancelAllOrder()
+    {
+        try
+        {
+            StaticObject.IsInternalCancel = true;
+            foreach (var user in StaticObject.AllUsers)
+            {
+                var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == user.Id)?.Setting;
+                BybitRestClient api;
+                if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
+                {
+                    api = new BybitRestClient();
+
+                    if (userSetting != null)
+                    {
+                        api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey, ApiCredentialsType.Hmac));
+                        StaticObject.RestApis.TryAdd(user.Id, api);
+                    }
+                }
+
+                if (api != null)
+                {
+                    await api.V5Api.Trading.CancelAllOrderAsync
+                        (
+                            Category.Spot
+                        );
+                }
+            }
+            await Task.Delay(200);
+            StaticObject.IsInternalCancel = false;
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return false;
         }
     }
 }

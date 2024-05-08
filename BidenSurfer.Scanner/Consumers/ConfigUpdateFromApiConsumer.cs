@@ -1,8 +1,4 @@
-﻿using BidenSurfer.Infras;
-using BidenSurfer.Infras.BusEvents;
-using BidenSurfer.Infras.Entities;
-using BidenSurfer.Infras.Models;
-using BidenSurfer.Scanner;
+﻿using BidenSurfer.Infras.BusEvents;
 using MassTransit;
 
 namespace BidenSurfer.Scanner.Consumers

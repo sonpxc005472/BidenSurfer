@@ -271,7 +271,15 @@ public class BotService : IBotService
             
             var orderPriceAndQuantity = CalculateOrderPriceQuantityTP(currentPrice, config);
             string clientOrderId = Guid.NewGuid().ToString();
-            var order = await restApi.V5Api.Trading.PlaceOrderAsync(Category.Spot, symbol, orderSide, NewOrderType.Limit, orderPriceAndQuantity.Item2, orderPriceAndQuantity.Item1, config.OrderType == (int)OrderTypeEnums.Margin, clientOrderId: clientOrderId);
+            var order = await restApi.V5Api.Trading.PlaceOrderAsync(
+                Category.Spot, symbol,
+                orderSide,
+                NewOrderType.Limit,
+                orderPriceAndQuantity.Item2,
+                orderPriceAndQuantity.Item1,
+                config.OrderType == (int)OrderTypeEnums.Margin,
+                clientOrderId: clientOrderId);
+
             _ = _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
             if (order.Success)
             {

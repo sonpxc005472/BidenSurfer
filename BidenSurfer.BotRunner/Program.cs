@@ -6,7 +6,6 @@ using Microsoft.Extensions.Hosting;
 using BidenSurfer.BotRunner.Services;
 using BidenSurfer.Infras.BusEvents;
 using MassTransit;
-using System.Configuration;
 using BidenSurfer.BotRunner.Consumers;
 using BidenSurfer.Infras.Helpers;
 

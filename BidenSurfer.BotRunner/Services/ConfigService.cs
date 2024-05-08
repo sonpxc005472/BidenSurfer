@@ -9,7 +9,6 @@ using Bybit.Net.Enums;
 using CryptoExchange.Net.Authentication;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
-using System.Linq;
 
 namespace BidenSurfer.BotRunner.Services;
 public interface IConfigService

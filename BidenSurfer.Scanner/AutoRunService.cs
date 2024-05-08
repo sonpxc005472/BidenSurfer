@@ -1,5 +1,4 @@
-﻿using BidenSurfer.Scanner.Services;
-using BidenSurfer.Infras;
+﻿using BidenSurfer.Infras;
 using Bybit.Net.Clients;
 using Microsoft.Extensions.Hosting;
 

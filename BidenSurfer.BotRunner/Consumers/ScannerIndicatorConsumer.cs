@@ -1,7 +1,6 @@
 ﻿using BidenSurfer.BotRunner.Services;
 using BidenSurfer.Infras;
 using BidenSurfer.Infras.BusEvents;
-using BidenSurfer.Infras.Models;
 using MassTransit;
 
 namespace BidenSurfer.BotRunner.Consumers

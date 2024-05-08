@@ -17,12 +17,13 @@ namespace BidenSurfer.BotRunner.Services
         {
             try
             {
-                Console.WriteLine("Running v1.0.5...");
+                Console.WriteLine("Starting...");
                 _configService.DeleteAllConfig();
                 _userService.DeleteAllCached();
                 await _userService.GetAllActive();
                 await _configService.GetAllActive();
                 await _botService.InitUserApis();
+                await _botService.CancelAllOrder();
                 await _botService.SubscribeKline1m();
                 await _botService.SubscribeSticker();
                 await _botService.SubscribeOrderChannel();
