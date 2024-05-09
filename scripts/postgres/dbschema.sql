@@ -64,3 +64,5 @@ CREATE TABLE IF NOT EXISTS scannersetting (
 	blacklist JSONB,
 	maxopen INTEGER
 );
+
+INSERT INTO users(fullname, username, password, email, role, status) VALUES('admin','admin','23D42F5F3F66498B2C8FF4C20B8C5AC826E47146','admin@bisurfer.xyz',1,1);
