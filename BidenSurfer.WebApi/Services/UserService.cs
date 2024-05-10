@@ -127,6 +127,7 @@ public class UserService : IUserService
     public async Task<UserDto?> GetById(long id)
     {
         var user = await _context.Users?.Include(u => u.UserSetting).FirstOrDefaultAsync(x => x.Id == id);
+        if(user == null) return null;
         return new UserDto
         {
             FullName = user.FullName,
@@ -137,11 +138,11 @@ public class UserService : IUserService
             Email = user.Email,
             Setting = new UserSettingDto
             {
-                ApiKey = user.UserSetting.ApiKey,
-                SecretKey = user.UserSetting.SecretKey,
-                PassPhrase = user.UserSetting.PassPhrase,
-                TeleChannel = user.UserSetting.TeleChannel,
-                Id = user.UserSetting.Id,
+                ApiKey = user.UserSetting?.ApiKey,
+                SecretKey = user.UserSetting?.SecretKey,
+                PassPhrase = user.UserSetting?.PassPhrase,
+                TeleChannel = user.UserSetting?.TeleChannel,
+                Id = user.UserSetting?.Id ?? 0,
                 UserId = user.Id
             }
         };
