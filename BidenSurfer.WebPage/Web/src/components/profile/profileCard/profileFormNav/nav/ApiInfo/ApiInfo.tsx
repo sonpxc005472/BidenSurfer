@@ -68,7 +68,7 @@ export const ApiInfo: React.FC = () => {
     let aPass = '';
     let aTele = '';
     let aUserId = '';
-    let aid = crypto.randomUUID();
+    let aid = 0;
     for (let api of fv) {
       if (api.name === 'apiKey') {
          aKey = api.value;
@@ -91,7 +91,7 @@ export const ApiInfo: React.FC = () => {
       }
       else if(api.name ==='id')
       {
-        aid = api.value ?? crypto.randomUUID();
+        aid = api.value;
       }
    }
     dispatch(doSaveApi({

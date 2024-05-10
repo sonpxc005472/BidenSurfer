@@ -1,7 +1,7 @@
 import { httpApi } from '@app/api/http.api';
 
 export interface ApiData {
-  id: string;
+  id: number;
   userId: string;
   apiKey: string;
   secretKey: string;
