@@ -23,7 +23,7 @@ public class UserService : IUserService
 
     public async Task<List<UserDto>> GetAllActive()
     {        
-        var result = (await _dbContext?.Users?.Include(u => u.UserSetting).Where(u => u.Status == (int) UserStatusEnums.Active).ToListAsync()) ?? new List<User>();
+        var result = (await _dbContext?.Users?.Include(u => u.UserSetting).Where(u => u.Status == (int) UserStatusEnums.Active && u.UserSetting != null).ToListAsync()) ?? new List<User>();
 
         var users = result.Select(r => new UserDto
         {

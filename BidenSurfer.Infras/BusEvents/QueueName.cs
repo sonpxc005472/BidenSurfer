@@ -16,6 +16,8 @@ namespace BidenSurfer.Infras.BusEvents
         public static readonly string ConfigUpdateFromApiForScannerMessage = "ConfigUpdateFromApiForScannerMessage";
         public static readonly string ConfigDeleteFromApiMessage = "ConfigDeleteFromApiMessage";
         public static readonly string ScannerUpdateFromApiMessage = "ScannerUpdateFromApiMessage";
+        public static readonly string UpdateUserForScannerMessage = "UpdateUserForScannerMessage";
+        public static readonly string UpdateUserForBotRunnerMessage = "UpdateUserForBotRunnerMessage";
         public static readonly string ScannerSettingUpdateFromApiMessage = "ScannerSettingUpdateFromApiMessage";
         public static readonly string ScannerDeleteFromApiMessage = "ScannerDeleteFromApiMessage";
 

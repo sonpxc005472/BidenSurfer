@@ -12,6 +12,7 @@ using MassTransit;
 using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
 using System;
+using BidenSurfer.Infras.Entities;
 
 public interface IBotService
 {
@@ -201,6 +202,7 @@ public class BotService : IBotService
             }
 
             var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
+            if (userSetting == null) return false;
             BybitRestClient api;
             if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
             {
@@ -278,6 +280,7 @@ public class BotService : IBotService
     public async Task<bool> AmendOrder(ConfigDto config, decimal currentPrice)
     {
         var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
+        if (userSetting == null) return false;
         try
         {
             BybitRestClient api;
@@ -347,6 +350,7 @@ public class BotService : IBotService
         try
         {
             var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
+            if (userSetting == null) return false;
             BybitRestClient api;
             if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
             {
@@ -727,11 +731,12 @@ public class BotService : IBotService
     {
         try
         {
+            var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
+            if (userSetting == null) return false;
             BybitRestClient api;
             if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
             {
-                api = new BybitRestClient();
-                var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
+                api = new BybitRestClient();                
                 api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
                 StaticObject.RestApis.TryAdd(config.UserId, api);
             }

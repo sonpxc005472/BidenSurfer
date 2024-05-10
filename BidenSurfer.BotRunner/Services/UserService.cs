@@ -33,20 +33,9 @@ public class UserService : IUserService
 
     public async Task<List<UserDto>> GetAllActive()
     {
-        Console.WriteLine("GetAllActive");
-        List<UserDto> resultDto = new List<UserDto>();
-        var cachedData = _redisCacheService.GetCachedData<List<UserDto>>(AppConstants.RedisAllUsers);
-        if (cachedData != null)
-        {
-            Console.WriteLine("GetAllActive - cache");
-            var activeUsers = cachedData.Where(c => c.Status == (int)UserStatusEnums.Active).ToList();
-            StaticObject.AllUsers = activeUsers;
-            return activeUsers;
-        }
-
         Console.WriteLine("GetAllActive - db");
 
-        var result = (await _dbContext?.Users?.Include(u => u.UserSetting).Where(u => u.Status == (int) UserStatusEnums.Active).ToListAsync()) ?? new List<User>();
+        var result = (await _dbContext?.Users?.Include(u => u.UserSetting).Where(u => u.Status == (int) UserStatusEnums.Active && u.UserSetting != null).ToListAsync()) ?? new List<User>();
 
         var users = result.Select(r => new UserDto
         {
@@ -68,7 +57,6 @@ public class UserService : IUserService
             }
         }).ToList();
         StaticObject.AllUsers = users;
-        _redisCacheService.SetCachedData(AppConstants.RedisAllUsers, users, TimeSpan.FromDays(100));
         return users;
     }
 

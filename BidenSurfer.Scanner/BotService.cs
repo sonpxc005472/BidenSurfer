@@ -107,8 +107,9 @@ public class BotService : IBotService
                                         var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
+                                            var sideOrderExisted = configs.Any(x => x.Value.Symbol == symbol && x.Value.UserId == scanner.UserId && x.Value.PositionSide != scanner.PositionSide);
                                             var scanOcExisted = configs.Any(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.UserId == scanner.UserId && c.Value.IsActive);
-                                            if (!scanOcExisted)
+                                            if (!scanOcExisted && !sideOrderExisted)
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
@@ -147,8 +148,9 @@ public class BotService : IBotService
                                         var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
+                                            var sideOrderExisted = configs.Any(x => x.Value.Symbol == symbol && x.Value.UserId == scanner.UserId && x.Value.PositionSide != scanner.PositionSide);
                                             var scanOcExisted = configs.Any(c => c.Value.IsActive && c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.UserId == scanner.UserId);
-                                            if (!scanOcExisted)
+                                            if (!scanOcExisted && !sideOrderExisted)
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
@@ -225,6 +227,7 @@ public class BotService : IBotService
     private async Task<List<ConfigDto>> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner, int maxOpen, int currentOpen, decimal currentPrice)
     {
         var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == scanner.UserId)?.Setting;
+        if (userSetting == null) return new ();
         var maxOcAbs = Math.Abs(maxOC);
         var minOc = (maxOcAbs - (decimal)0.2) / (maxOcAbs > 4 ? 3 : 2);
         var rangeOc = minOc / scanner.OcNumber;
@@ -263,6 +266,7 @@ public class BotService : IBotService
             };
             _configService.AddOrEditConfig(new List<ConfigDto> { config });
             var restApi = InitRestApi(scanner.UserId);
+            if (restApi == null) return new ();
             var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;
             if (config.OrderType == (int)OrderTypeEnums.Spot)
             {
@@ -319,10 +323,11 @@ public class BotService : IBotService
 
     private BybitRestClient InitRestApi(long userId)
     {
+        var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == userId)?.Setting;
+        if (userSetting == null) return null;
         BybitRestClient api;
         if (!StaticObject.RestApis.TryGetValue(userId, out api))
-        {
-            var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == userId)?.Setting;
+        {            
             api = new BybitRestClient(options =>
             {
                 options.ApiCredentials = new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey);

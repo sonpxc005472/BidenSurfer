@@ -50,6 +50,6 @@ services:
      
   bot-web:
    ports:
-     - 5502:80
+     - 80:80
    environment:
-     - REACT_APP_BASE_URL=http://bot-webapi:5501
+     - REACT_APP_BASE_URL=http://45.76.144.254:5501
