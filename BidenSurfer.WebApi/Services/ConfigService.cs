@@ -39,6 +39,7 @@ public class ConfigService : IConfigService
 
     public async Task<bool> AddOrEdit(AddEditConfigDto config)
     {
+        var configDto = new ConfigDto();
         var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == config.Id);
         if (configEntity == null)
         {
@@ -66,6 +67,7 @@ public class ConfigService : IConfigService
             };
             _context.Configs.Add(configAdd);
             await _context.SaveChangesAsync();
+            configDto = configAdd.ToDto();
         }
         else
         {
@@ -84,9 +86,9 @@ public class ConfigService : IConfigService
             configEntity.OriginAmount = config.Amount;
             _context.Configs.Update(configEntity);
             await _context.SaveChangesAsync();
+            configDto = configEntity.ToDto();
         }
 
-        var configDto = configEntity.ToDto();
         _ = _bus.Send(new ConfigUpdateFromApiForBotRunnerMessage
         {
             ConfigDtos = new List<ConfigDto>
@@ -113,7 +115,22 @@ public class ConfigService : IConfigService
         }
         _context.Configs.Remove(configEntity);
         await _context.SaveChangesAsync();
-
+        _ = _bus.Send(new ConfigUpdateFromApiForBotRunnerMessage
+        {
+            ConfigDtos = new List<ConfigDto>
+            {
+                configEntity.ToDto()
+            },
+            IsDelete = true
+        });
+        _ = _bus.Send(new ConfigUpdateFromApiForScannerMessage
+        {
+            ConfigDtos = new List<ConfigDto>
+            {
+                configEntity.ToDto()
+            },
+            IsDelete = true
+        });
         return true;
     }
 

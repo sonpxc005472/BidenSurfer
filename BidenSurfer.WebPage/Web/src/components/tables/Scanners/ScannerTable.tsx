@@ -52,6 +52,7 @@ const initialSettingFormValues: ScannerSettingForm = {
 
 export const ScannerTable: React.FC = () => {
   const dispatch = useAppDispatch();
+  const { Text } = Typography;
 
   const [tableData, setTableData] = useState<{ data: ScannerTableRow[] }>({
     data: [],
@@ -349,8 +350,8 @@ export const ScannerTable: React.FC = () => {
             centered
             open={isModalOpen}            
             size="large"
-            style={{fontSize: '12px'}}
             footer={<></>}
+            onCancel={()=>setIsModalOpen(false)}
           >
             <BaseButtonsForm
               name="editForm"
@@ -360,10 +361,10 @@ export const ScannerTable: React.FC = () => {
               footer={
                 <>
                   <BaseButtonsForm.Item style={{marginTop: '30px'}}>
-                    <BaseButton type="primary" htmlType="submit" style={{float: 'right', width: '100px'}}>
+                    <BaseButton type="primary" htmlType="submit" style={{float: 'right', width: '100px', height: '40px'}}>
                       Save
                     </BaseButton>
-                    <BaseButton type="primary" htmlType="button" style={{float: 'right', width: '100px', marginRight: '20px'}}
+                    <BaseButton type="primary" htmlType="button" style={{float: 'right', width: '100px', height: '40px', marginRight: '20px'}}
                       onClick={() => {              
                         setIsModalOpen(false);
                       }}>
@@ -377,14 +378,14 @@ export const ScannerTable: React.FC = () => {
             >
               <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={16} md={12}>
-                    <BaseButtonsForm.Item name='title' label='Name'
+                    <BaseButtonsForm.Item name='title' label='Name' style={{marginBottom: '5px'}}
                       rules={[{ required: true, message: 'Name is required' }]}
                     >
                       <BaseInput disabled={isEditConfig} placeholder='Name of scanner' />
                     </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={8} md={12}>
-                    <BaseButtonsForm.Item name='positionSide' label='Position'
+                    <BaseButtonsForm.Item name='positionSide' label='Position' style={{marginBottom: '5px'}}
                       rules={[{ required: true, message: 'Position is required' }]}>
                       <BaseSelect disabled={isEditConfig} placeholder='Select position' options={[{value: 'short'}, {value: 'long'}]} />
                     </BaseButtonsForm.Item>
@@ -392,58 +393,75 @@ export const ScannerTable: React.FC = () => {
               </BaseRow>
               <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='orderChange' label='OC'
+                    <BaseButtonsForm.Item name='orderChange' label='OC' style={{marginBottom: '5px'}}
                       rules={[{ required: true, message: 'OC is required' }]}>
                       <InputNumber min={0.1} addonAfter='%' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='elastic' label='Elastic'
+                    <BaseButtonsForm.Item name='elastic' label='Elastic' style={{marginBottom: '5px'}}
                         rules={[{ required: true, message: 'Elastic is required' }]}>
-                      <InputNumber min={1} addonAfter='$' style={{ width: '100%' }} />
-                    </BaseButtonsForm.Item>
-                  </BaseCol>
-              </BaseRow>
-              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
-                  <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='turnover' label='Turnover'
-                      rules={[{ required: true, message: 'Turnover is required' }]}>
                       <InputNumber min={1} addonAfter='%' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
+              </BaseRow>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='amount' label='Amount'>
+                    <BaseButtonsForm.Item name='turnover' label='Turnover' style={{marginBottom: '5px'}}
+                      rules={[{ required: true, message: 'Turnover is required' }]}>
+                      <InputNumber min={1} addonAfter='$' style={{ width: '100%' }} />
+                    </BaseButtonsForm.Item>
+                  </BaseCol>
+                  <BaseCol xs={12} md={12}>
+                    <BaseButtonsForm.Item name='amount' label='Amount' style={{marginBottom: '5px'}}>
                       <InputNumber min={1} addonAfter='$' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
               <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='ocNumber' label='Numbs'
+                    <BaseButtonsForm.Item name='ocNumber' label='Numbs' style={{marginBottom: '5px'}}
                       rules={[{ required: true, message: 'Number of OC is required' }]}>
                       <InputNumber min={1} style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='expire' label='Expire'>
+                    <BaseButtonsForm.Item name='configExpire' label='Expire' style={{marginBottom: '5px'}}>
                       <InputNumber min={0} addonAfter='min' style={{ width: '100%' }} />
+                    </BaseButtonsForm.Item>
+                  </BaseCol>
+              </BaseRow>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
+                  <BaseCol xs={12} md={12}>
+                    <BaseButtonsForm.Item name='autoAmount' label='Auto Amount' style={{marginBottom: '5px'}}>
+                      <InputNumber min={1} addonAfter='%' style={{ width: '100%' }} />
+                    </BaseButtonsForm.Item>
+                  </BaseCol>
+                  <BaseCol xs={12} md={12}>
+                    <BaseButtonsForm.Item name='amountLimit' label='Limit' style={{marginBottom: '5px'}}>
+                      <InputNumber min={0} addonAfter='$' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow> 
               <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={24} md={24}>
-                    <BaseButtonsForm.Item name='onlyPairs' label='Only Pairs'>
+                    <BaseButtonsForm.Item name='onlyPairs' label='Only Pairs' style={{marginBottom: '5px'}}>
                       <BaseSelect mode='multiple' showArrow showSearch placeholder='Select symbol' options={selectOptions} />
                     </BaseButtonsForm.Item>
                   </BaseCol>                  
               </BaseRow>
               <BaseRow>
-                  <BaseCol xs={18} md={18}>                    
+                  <BaseCol xs={18} md={19}>                    
                   </BaseCol>
-                  <BaseCol xs={6} md={6}>
-                    <BaseButtonsForm.Item name='isActive' label='Active' valuePropName="checked">
+                  <BaseCol xs={3} md={2}>
+                    <BaseButtonsForm.Item name='isActive' style={{marginBottom: '5px'}} valuePropName="checked">
                       <BaseSwitch onChange={onSwitchChange} />
                     </BaseButtonsForm.Item>
+                  </BaseCol>
+                  <BaseCol xs={3} md={3}>
+                    <BaseButtonsForm.Item style={{marginBottom: '5px'}}>
+                      <Text>Active</Text>
+                    </BaseButtonsForm.Item>                    
                   </BaseCol>
               </BaseRow>
                                           
@@ -456,6 +474,7 @@ export const ScannerTable: React.FC = () => {
             size="small"
             style={{fontSize: '12px'}}
             footer={<></>}
+            onCancel={()=>setIsSettingModalOpen(false)}
           >
             <BaseButtonsForm
               name="settingForm"

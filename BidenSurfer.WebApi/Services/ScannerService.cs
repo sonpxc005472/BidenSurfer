@@ -34,6 +34,7 @@ public class ScannerService : IScannerService
 
     public async Task<bool> AddOrEdit(ScannerDto scanner)
     {
+        var scannerDto = new ScannerDto();
         var scannerEntity = await _context.Scanners?.FirstOrDefaultAsync(c => c.Id == scanner.Id);
         if (scannerEntity == null)
         {
@@ -59,6 +60,7 @@ public class ScannerService : IScannerService
             };
             _context.Scanners.Add(scannerAdd);
             await _context.SaveChangesAsync();
+            scannerDto = scannerAdd.ToDto();
         }
         else
         {
@@ -80,8 +82,9 @@ public class ScannerService : IScannerService
             scannerEntity.Turnover = scanner.Turnover;
             _context.Scanners.Update(scannerEntity);
             await _context.SaveChangesAsync();
+            scannerDto = scannerEntity.ToDto();
         }
-        await _bus.Send(new ScannerUpdateFromApiMessage { ScannerDtos = new List<ScannerDto> { scanner } });
+        await _bus.Send(new ScannerUpdateFromApiMessage { ScannerDtos = new List<ScannerDto> { scannerDto } });
         return true;
     }
 
@@ -94,7 +97,7 @@ public class ScannerService : IScannerService
         }
         _context.Scanners.Remove(scannerEntity);
         await _context.SaveChangesAsync();
-        
+        await _bus.Send(new ScannerUpdateFromApiMessage { ScannerDtos = new List<ScannerDto> { scannerEntity.ToDto() }, IsDelete = true });
         return true;
     }
 
@@ -205,6 +208,7 @@ public class ScannerService : IScannerService
 
     public async Task<bool> AddOrEditScannerSetting(ScannerSettingDto scannerSetting)
     {
+        var scannerSettingDto = new ScannerSettingDto();
         var scannerStEntity = await _context.ScannerSetting?.FirstOrDefaultAsync(c => c.Id == scannerSetting.Id);
         if (scannerStEntity == null)
         {
@@ -218,6 +222,13 @@ public class ScannerService : IScannerService
             
             _context.ScannerSetting.Add(scannerAdd);
             await _context.SaveChangesAsync();
+            scannerSettingDto = new ScannerSettingDto
+            {
+                BlackList = scannerAdd.BlackList,
+                MaxOpen = scannerAdd.MaxOpen,
+                UserId = scannerAdd.Userid,
+                Id = scannerAdd.Id
+            };
         }
         else
         {
@@ -226,8 +237,15 @@ public class ScannerService : IScannerService
             scannerStEntity.MaxOpen = scannerSetting.MaxOpen;
             _context.ScannerSetting.Update(scannerStEntity);
             await _context.SaveChangesAsync();
+            scannerSettingDto = new ScannerSettingDto
+            {
+                BlackList = scannerStEntity.BlackList,
+                MaxOpen = scannerStEntity.MaxOpen,
+                UserId = scannerStEntity.Userid,
+                Id = scannerStEntity.Id
+            };
         }
-        await _bus.Send(new ScannerSettingUpdateFromApiMessage { ScannerSettingDto = scannerSetting });
+        await _bus.Send(new ScannerSettingUpdateFromApiMessage { ScannerSettingDto = scannerSettingDto });
         return true;
     }
 

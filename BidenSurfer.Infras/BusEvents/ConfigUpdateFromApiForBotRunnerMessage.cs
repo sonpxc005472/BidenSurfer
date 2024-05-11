@@ -7,5 +7,6 @@ namespace BidenSurfer.Infras.BusEvents
     {
         public Guid CorrelationId { get; set; } = Guid.NewGuid();
         public List<ConfigDto>? ConfigDtos { get; set; }
+        public bool IsDelete { get; set; } = false;
     }
 }

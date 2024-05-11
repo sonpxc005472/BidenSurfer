@@ -206,11 +206,11 @@ export const ConfigurationTable: React.FC = () => {
       title: '',
       dataIndex: 'delete',
       width: '5%',
-      render: (text: string, record: { id: number }) => {
+      render: (text: string, record: { id: number, isActive: boolean }) => {
         return (
           <BaseSpace>            
             <BaseTooltip title="Delete">
-              <BaseButton type="primary" shape="circle" icon={<DeleteOutlined />} size="small" onClick={() => handleDeleteRow(record.id)}/>
+              <BaseButton type="primary" disabled={record.isActive} shape="circle" icon={<DeleteOutlined />} size="small" onClick={() => handleDeleteRow(record.id)}/>
             </BaseTooltip>
           </BaseSpace>
         );
@@ -273,6 +273,7 @@ export const ConfigurationTable: React.FC = () => {
       increaseOcPercent: increaseOcPercent ?? 0,
       isActive: isActive
     };
+    debugger;
     dispatch(doSaveConfiguration(formValues))
       .unwrap()
       .then(() => {
@@ -304,6 +305,7 @@ export const ConfigurationTable: React.FC = () => {
             size="large"
             style={{ fontSize: "12px" }}
             footer={<></>}
+            onCancel={()=>setIsModalOpen(false)}
           >
             <BaseButtonsForm
               name="editForm"
@@ -313,10 +315,10 @@ export const ConfigurationTable: React.FC = () => {
               footer={
                 <>
                   <BaseButtonsForm.Item style={{marginTop: '30px'}}>
-                    <BaseButton type="primary" htmlType="submit" style={{float: 'right', width: '100px'}}>
+                    <BaseButton type="primary" htmlType="submit" style={{float: 'right', width: '100px', height: '40px'}}>
                       Save
                     </BaseButton>
-                    <BaseButton type="primary" htmlType="button" style={{float: 'right', width: '100px', marginRight: '20px'}}
+                    <BaseButton type="primary" htmlType="button" style={{float: 'right', width: '100px', height: '40px', marginRight: '20px'}}
                       onClick={() => {              
                         setMaxBorrow(undefined);
                         setIsModalOpen(false);
@@ -331,14 +333,14 @@ export const ConfigurationTable: React.FC = () => {
             >
               <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
                   <BaseCol xs={16} md={12}>
-                    <BaseButtonsForm.Item name='symbol' label='Symbol'
+                    <BaseButtonsForm.Item name='symbol' label='Symbol' style={{marginBottom: '5px'}}
                       rules={[{ required: true, message: 'Symbol is required' }]}
                     >
                       <BaseSelect disabled={isEditConfig} onChange={handleSymbolChange} showSearch placeholder='Select symbol' options={selectOptions} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={8} md={12}>
-                    <BaseButtonsForm.Item name='positionSide' label='Position'
+                    <BaseButtonsForm.Item name='positionSide' label='Position' style={{marginBottom: '5px'}}
                       rules={[{ required: true, message: 'Position is required' }]}>
                       <BaseSelect disabled={isEditConfig} onChange={handlePositionChange} placeholder='Select position' options={[{value: 'short'}, {value: 'long'}]} />
                     </BaseButtonsForm.Item>
@@ -346,13 +348,13 @@ export const ConfigurationTable: React.FC = () => {
               </BaseRow>
               <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='orderChange' label='OC'
+                    <BaseButtonsForm.Item name='orderChange' label='OC' style={{marginBottom: '5px'}}
                       rules={[{ required: true, message: 'OC is required' }]}>
                       <InputNumber min={0.1} addonAfter='%' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='amount' label='Amount'
+                    <BaseButtonsForm.Item name='amount' label='Amount' style={{marginBottom: '5px'}}
                         rules={[{ required: true, message: 'Amount is required' }]}>
                       <InputNumber min={1} addonAfter='$' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
@@ -360,36 +362,36 @@ export const ConfigurationTable: React.FC = () => {
               </BaseRow>
               <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='increaseAmountPercent' label='Amount Increase'>
+                    <BaseButtonsForm.Item name='increaseAmountPercent' label='Amount Increase' style={{marginBottom: '5px'}}>
                       <InputNumber min={0} addonAfter='%' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='amountLimit' label='Limit'>
+                    <BaseButtonsForm.Item name='amountLimit' label='Limit' style={{marginBottom: '5px'}}>
                       <InputNumber min={1} addonAfter='$' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
               <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='increaseAmountExpire' label='Amount Expire'>
+                    <BaseButtonsForm.Item name='increaseAmountExpire' label='Amount Expire' style={{marginBottom: '5px'}}>
                       <InputNumber min={0} addonAfter='min' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='expire' label='Expire'>
+                    <BaseButtonsForm.Item name='expire' label='Expire' style={{marginBottom: '5px'}}>
                       <InputNumber min={0} addonAfter='min' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow> 
               <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='increaseOcPercent' label='Auto OC'>
+                    <BaseButtonsForm.Item name='increaseOcPercent' label='Auto OC' style={{marginBottom: '5px'}}>
                       <InputNumber min={0} addonAfter='%' style={{ width: '100%' }} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='isActive' label='Active' valuePropName="checked">
+                    <BaseButtonsForm.Item name='isActive' label='Active' valuePropName="checked" style={{marginBottom: '5px'}}>
                       <BaseSwitch onChange={onSwitchChange} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
