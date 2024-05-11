@@ -349,6 +349,7 @@ export const ScannerTable: React.FC = () => {
             centered
             open={isModalOpen}            
             size="large"
+            style={{fontSize: '12px'}}
             footer={<></>}
           >
             <BaseButtonsForm
@@ -374,7 +375,7 @@ export const ScannerTable: React.FC = () => {
               }    
               onFinish={onFinish}
             >
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={16} md={12}>
                     <BaseButtonsForm.Item name='title' label='Name'
                       rules={[{ required: true, message: 'Name is required' }]}
@@ -389,7 +390,7 @@ export const ScannerTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
                     <BaseButtonsForm.Item name='orderChange' label='OC'
                       rules={[{ required: true, message: 'OC is required' }]}>
@@ -403,7 +404,7 @@ export const ScannerTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
                     <BaseButtonsForm.Item name='turnover' label='Turnover'
                       rules={[{ required: true, message: 'Turnover is required' }]}>
@@ -416,7 +417,7 @@ export const ScannerTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
                     <BaseButtonsForm.Item name='ocNumber' label='Numbs'
                       rules={[{ required: true, message: 'Number of OC is required' }]}>
@@ -429,7 +430,7 @@ export const ScannerTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow> 
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={24} md={24}>
                     <BaseButtonsForm.Item name='onlyPairs' label='Only Pairs'>
                       <BaseSelect mode='multiple' showArrow showSearch placeholder='Select symbol' options={selectOptions} />
@@ -453,6 +454,7 @@ export const ScannerTable: React.FC = () => {
             centered
             open={isSettingModalOpen}            
             size="small"
+            style={{fontSize: '12px'}}
             footer={<></>}
           >
             <BaseButtonsForm
@@ -478,7 +480,7 @@ export const ScannerTable: React.FC = () => {
               }    
               onFinish={onSettingFinish}
             >
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={24} md={24}>
                     <BaseButtonsForm.Item name='maxOpen' label='Open limit'>
                       <NumberInput min={1} max={15} placeholder='OC open limit' />
@@ -486,7 +488,7 @@ export const ScannerTable: React.FC = () => {
                   </BaseCol>                  
               </BaseRow>
               
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={24} md={24}>
                     <BaseButtonsForm.Item name='blackList' label='Blacklist'>
                       <BaseSelect mode='multiple' showArrow showSearch placeholder='Select symbol' options={selectOptions} />

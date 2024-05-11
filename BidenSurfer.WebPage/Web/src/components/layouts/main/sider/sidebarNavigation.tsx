@@ -25,12 +25,6 @@ export interface SidebarNavigationItem {
 
 export const sidebarNavigation: SidebarNavigationItem[] = [  
   {
-    title: 'common.apps',
-    key: 'apps',
-    icon: <HomeOutlined />,
-    url: '/apps'
-  },
-  {
     title: 'Configurations',
     key: 'configurations',
     icon: <TableOutlined />,

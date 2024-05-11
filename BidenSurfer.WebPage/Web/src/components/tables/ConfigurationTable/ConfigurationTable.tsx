@@ -302,6 +302,7 @@ export const ConfigurationTable: React.FC = () => {
             centered
             open={isModalOpen}            
             size="large"
+            style={{ fontSize: "12px" }}
             footer={<></>}
           >
             <BaseButtonsForm
@@ -343,7 +344,7 @@ export const ConfigurationTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
                     <BaseButtonsForm.Item name='orderChange' label='OC'
                       rules={[{ required: true, message: 'OC is required' }]}>
@@ -357,7 +358,7 @@ export const ConfigurationTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
                     <BaseButtonsForm.Item name='increaseAmountPercent' label='Amount Increase'>
                       <InputNumber min={0} addonAfter='%' style={{ width: '100%' }} />
@@ -369,7 +370,7 @@ export const ConfigurationTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
                     <BaseButtonsForm.Item name='increaseAmountExpire' label='Amount Expire'>
                       <InputNumber min={0} addonAfter='min' style={{ width: '100%' }} />
@@ -381,7 +382,7 @@ export const ConfigurationTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow> 
-              <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              <BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
                     <BaseButtonsForm.Item name='increaseOcPercent' label='Auto OC'>
                       <InputNumber min={0} addonAfter='%' style={{ width: '100%' }} />
@@ -393,7 +394,7 @@ export const ConfigurationTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>
-              {maxBorrow ? (<BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
+              {maxBorrow ? (<BaseRow gutter={{ xs: 5, md: 5, xl: 10 }}>
                   <BaseCol xs={12} md={12}>
                     <Text strong>Max: {maxBorrow} USDT</Text>
                   </BaseCol>                  

@@ -14,8 +14,8 @@ interface LoginFormData {
 }
 
 export const initValues: LoginFormData = {
-  username: 'admin',
-  password: 'admin@123',
+  username: '',
+  password: '',
 };
 
 export const LoginForm: React.FC = () => {
@@ -29,7 +29,7 @@ export const LoginForm: React.FC = () => {
     setLoading(true);    
     dispatch(doLogin(values))
       .unwrap()
-      .then(() => navigate('/'))
+      .then(() => navigate('/configurations'))
       .catch((err: { message: any; }) => {
         notificationController.error({ message: err.message });
         setLoading(false);
@@ -62,10 +62,7 @@ export const LoginForm: React.FC = () => {
             <Auth.FormCheckbox>
               <S.RememberMeText>{t('login.rememberMe')}</S.RememberMeText>
             </Auth.FormCheckbox>
-          </BaseForm.Item>
-          <Link to="/auth/forgot-password">
-            <S.ForgotPasswordText>{t('common.forgotPass')}</S.ForgotPasswordText>
-          </Link>
+          </BaseForm.Item>          
         </Auth.ActionsWrapper>
         <BaseForm.Item noStyle>
           <Auth.SubmitButton type="primary" htmlType="submit" loading={isLoading}>

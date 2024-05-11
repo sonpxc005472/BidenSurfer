@@ -1,6 +1,7 @@
 namespace BidenSurfer.WebApi.Services;
 
 using BidenSurfer.Infras;
+using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Domains;
 using BidenSurfer.Infras.Entities;
 using BidenSurfer.Infras.Models;
@@ -8,6 +9,7 @@ using BidenSurfer.WebApi.Helpers;
 using Bybit.Net.Clients;
 using Bybit.Net.Enums;
 using CryptoExchange.Net.Authentication;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -31,10 +33,12 @@ public class UserService : IUserService
 {
     private readonly AppDbContext _context;
     private ISecurityContextAccessor _securityContextAccessor;
-    public UserService(AppDbContext context, ISecurityContextAccessor securityContextAccessor)
+    private IBus _bus;
+    public UserService(AppDbContext context, ISecurityContextAccessor securityContextAccessor, IBus bus)
     {
         _context = context;
         _securityContextAccessor = securityContextAccessor;
+        _bus = bus;
     }
 
     public async Task<bool> AddOrEdit(UserDto user)
@@ -66,6 +70,8 @@ public class UserService : IUserService
             _context.Users.Update(userEntity);
         }
         await _context.SaveChangesAsync();
+        _ = _bus.Send(new UpdateUserForBotRunnerMessage());
+        _ = _bus.Send(new UpdateUserForScannerMessage());
         return true;
     }
 
@@ -92,6 +98,8 @@ public class UserService : IUserService
         }
         _context.Users.Remove(userEntity);
         await _context.SaveChangesAsync();
+        _ = _bus.Send(new UpdateUserForBotRunnerMessage());
+        _ = _bus.Send(new UpdateUserForScannerMessage());
         return true;
     }
 
@@ -199,6 +207,8 @@ public class UserService : IUserService
             _context.UserSettings?.Update(userEntity);
         }
         await _context.SaveChangesAsync();
+        _ = _bus.Send(new UpdateUserForBotRunnerMessage());
+        _ = _bus.Send(new UpdateUserForScannerMessage());
         return true;
     }
     public async Task<BalanceDto> GetBalance()

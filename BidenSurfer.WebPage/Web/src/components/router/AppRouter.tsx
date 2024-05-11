@@ -48,7 +48,6 @@ export const AppRouter: React.FC = () => {
     <BrowserRouter>
       <Routes>
         <Route path={DASHBOARD_PATH} element={protectedLayout}>          
-          <Route path="apps" />        
           <Route path="configurations" element={<Configurations />} />  
           <Route path="scanners" element={<Scanners />} />    
           <Route path="api-settings" element={<ApiSettingPage />} />    
