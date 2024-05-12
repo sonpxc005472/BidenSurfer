@@ -12,9 +12,6 @@ using MassTransit;
 using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
 using System;
-using BidenSurfer.Infras.Entities;
-using CryptoExchange.Net.CommonObjects;
-using Telegram.Bot.Types;
 
 public interface IBotService
 {
@@ -24,7 +21,7 @@ public interface IBotService
     Task GetSpotSymbols();
     Task SubscribeOrderChannel();
     Task<bool> TakePlaceOrder(ConfigDto config, decimal currentPrice);
-    Task<bool> AmendOrder(ConfigDto config, decimal currentPrice);
+    Task<bool> AmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice);
     Task<bool> CancelOrder(ConfigDto config, bool isExpired);
     Task<bool> CancelAllOrder();
 }
@@ -61,17 +58,18 @@ public class BotService : IBotService
                 decimal prePrice = 0;
                 if (!StaticObject.TickerSubscriptions.TryGetValue(symbol, out candleSubs))
                 {
-                    var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToTickerUpdatesAsync(symbol, async data =>
+                    var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(symbol, KlineInterval.OneMinute, async data =>
                     {
                         if (data != null)
                         {
-                            var currentData = data.Data;
+                            var currentData = data.Data.FirstOrDefault();
                             var currentTime = DateTime.Now;
-                            var currentPrice = currentData.LastPrice;
-
-                            await _mutex.WaitAsync();
-                            try
+                            var currentPrice = currentData.ClosePrice;
+                            
+                            // every 2s change order
+                            if ((currentTime - preTime).TotalMilliseconds >= 2500)
                             {
+                                preTime = currentTime;
                                 var allActiveConfigs = StaticObject.AllConfigs;
                                 var symbolConfigs = allActiveConfigs.Where(c => c.Value.Symbol == symbol && c.Value.IsActive).Select(c => c.Value).ToList();
                                 var openScanners = symbolConfigs.Where(x => x.CreatedBy == AppConstants.CreatedByScanner && !string.IsNullOrEmpty(x.ClientOrderId)).ToList();
@@ -83,92 +81,79 @@ public class BotService : IBotService
                                     var sideOrderExisted = symbolConfigs.Any(x => x.UserId == symbolConfig.UserId && x.PositionSide != symbolConfig.PositionSide);
                                     if ((symbolConfig.CreatedBy != AppConstants.CreatedByScanner || (symbolConfig.CreatedBy == AppConstants.CreatedByScanner && !isExistedScanner)) && !existingFilledOrders.Any() && !sideOrderExisted && string.IsNullOrEmpty(symbolConfig.ClientOrderId))
                                     {
-                                        prePrice = currentPrice;
                                         //Place order
                                         await TakePlaceOrder(symbolConfig, currentPrice);
                                     }
                                     else if (!string.IsNullOrEmpty(symbolConfig.ClientOrderId) && !existingFilledOrders.Any())
                                     {
-                                        // every 2s change order
-                                        if ((currentTime - preTime).TotalMilliseconds >= 2000)
+                                        if (prePrice == 0)
                                         {
-                                            preTime = currentTime;
-                                            if(prePrice == 0)
-                                            {
-                                                prePrice = currentPrice;
-                                            }
-                                            var priceDiff = Math.Abs(currentPrice - prePrice) / prePrice * 100;
-                                            //Nếu giá dịch chuyển lớn hơn 0.05% so với giá lúc trước thì amend order
-                                            if (priceDiff > (decimal)0.05)
-                                            {
-                                                prePrice = currentPrice;
-                                                //Amend order
-                                                await AmendOrder(symbolConfig, currentPrice);
-                                            }
+                                            prePrice = currentPrice;
                                         }
-                                    }
-                                    else if (existingFilledOrders != null && existingFilledOrders.Any())
-                                    {
-                                        //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
-                                        foreach (var order in existingFilledOrders)
+                                        var priceDiff = Math.Abs(currentPrice - prePrice) / prePrice * 100;
+                                        //Nếu giá dịch chuyển lớn hơn 0.05% so với giá lúc trước thì amend order
+                                        if (priceDiff > (decimal)0.05)
                                         {
-                                            if (!order.isClosingFilledOrder)
-                                            {
-                                                if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 3000)
-                                                {
-                                                    await TryTakeProfit(order, currentPrice);
-                                                }
-                                            }
-                                            else
-                                            {
-                                                if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 300)
-                                                {
-                                                    await TryTakeProfit(order, currentPrice);
-                                                }
-                                            }
+                                            prePrice = currentPrice;
+                                            //Amend order
+                                            await AmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
                                         }
-                                    }
-                                }
-                                // Cancel order if expired
-                                // todo: decrease amount to origin amount if expired
-                                if ((currentTime - preTimeCancel).TotalMilliseconds >= 5000)
-                                {
-                                    preTimeCancel = currentTime;
-                                    var configExpired = allActiveConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.EditedDate != null && x.Value.Expire != null && x.Value.Expire.Value != 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.Expire.Value) < currentTime)).Select(c => c.Value).ToList();
-                                    var cancelledConfigs = new List<string>();
-                                    foreach (var config in configExpired)
-                                    {
-                                        var isFilledOrder = StaticObject.FilledOrders.Any(x => x.Key == config.CustomId);
-                                        if (!isFilledOrder)
-                                        {
-                                            config.IsActive = false;
-                                            await CancelOrder(config, true);
-                                        }
-                                    }
-                                    if (configExpired.Any())
-                                    {
-                                        await _bus.Send(new OnOffConfigMessageScanner()
-                                        {
-                                            Configs = configExpired
-                                        });
-                                        await _bus.Send(new OffConfigMessage { Configs = configExpired.Select(c => c.CustomId).ToList() });
-                                    }
-                                    var configAmountExpired = allActiveConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.OrderStatus != 2 && x.Value.EditedDate != null && x.Value.IncreaseAmountExpire != null && x.Value.IncreaseAmountExpire.Value > 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.IncreaseAmountExpire.Value) < currentTime)).Select(c => c.Value).ToList();
-                                    if (configAmountExpired.Any())
-                                    {
-                                        foreach (var config in configAmountExpired)
-                                        {
-                                            config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
-                                            _configService.AddOrEditConfig(config);
-                                        }
-                                        await _bus.Send(new AmountExpireMessage { Configs = configAmountExpired.Select(c => c.CustomId).ToList() });
-                                    }
-                                }
+                                    }                                    
+                                }                                
                             }
-                            finally
+
+                            //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
+                            var filledOrders = StaticObject.FilledOrders.Select(r => r.Value).ToList();
+                            foreach (var order in filledOrders)
                             {
-                                _mutex.Release();
+                                if (!order.isClosingFilledOrder)
+                                {
+                                    if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 3000)
+                                    {
+                                        await TryTakeProfit(order, currentPrice);
+                                    }
+                                }
+                                else
+                                {
+                                    await TryTakeProfit(order, currentPrice);
+                                }
                             }
+
+                            // Cancel order if expired
+                            // todo: decrease amount to origin amount if expired
+                            if ((currentTime - preTimeCancel).TotalMilliseconds >= 5000)
+                            {
+                                preTimeCancel = currentTime;
+                                var configExpired = StaticObject.AllConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.EditedDate != null && x.Value.Expire != null && x.Value.Expire.Value != 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.Expire.Value) < currentTime)).Select(c => c.Value).ToList();
+                                var cancelledConfigs = new List<string>();
+                                foreach (var config in configExpired)
+                                {
+                                    var isFilledOrder = StaticObject.FilledOrders.Any(x => x.Key == config.CustomId);
+                                    if (!isFilledOrder)
+                                    {
+                                        config.IsActive = false;
+                                        await CancelOrder(config, true);
+                                    }
+                                }
+                                if (configExpired.Any())
+                                {
+                                    _ = _bus.Send(new OnOffConfigMessageScanner()
+                                    {
+                                        Configs = configExpired
+                                    });
+                                    _ = _bus.Send(new OffConfigMessage { Configs = configExpired.Select(c => c.CustomId).ToList() });
+                                }
+                                var configAmountExpired = StaticObject.AllConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.OrderStatus != 2 && x.Value.EditedDate != null && x.Value.IncreaseAmountExpire != null && x.Value.IncreaseAmountExpire.Value > 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.IncreaseAmountExpire.Value) < currentTime)).Select(c => c.Value).ToList();
+                                if (configAmountExpired.Any())
+                                {
+                                    foreach (var config in configAmountExpired)
+                                    {
+                                        config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
+                                        _configService.AddOrEditConfig(config);
+                                    }
+                                    _ = _bus.Send(new AmountExpireMessage { Configs = configAmountExpired.Select(c => c.CustomId).ToList() });
+                                }
+                            }                            
                         }
 
                     });
@@ -279,7 +264,7 @@ public class BotService : IBotService
 
     }
 
-    public async Task<bool> AmendOrder(ConfigDto config, decimal currentPrice)
+    public async Task<bool> AmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice)
     {
         var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
         if (userSetting == null) return false;
@@ -297,16 +282,12 @@ public class BotService : IBotService
             var orderPriceAndQuantity = CalculateOrderPriceQuantityTP(currentPrice, config);
             var orderPrice = orderPriceAndQuantity.Item1;
             var tpPriceUpdate = orderPriceAndQuantity.Item3;
-            if (StaticObject.Kline1mSubscriptions.ContainsKey(symbol))
+            if ((config.PositionSide == AppConstants.ShortSide && orderPrice <= openPrice) || (config.PositionSide == AppConstants.LongSide && orderPrice >= openPrice))
             {
-                var klineData = StaticObject.Kline1mSubscriptions[symbol];
-                if ((config.PositionSide == AppConstants.ShortSide && orderPrice <= klineData.OpenPrice) || (config.PositionSide == AppConstants.LongSide && orderPrice >= klineData.OpenPrice))
-                {
-                    orderPrice = klineData.OpenPrice;
-                    var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
-                    var tpPrice = config.PositionSide == AppConstants.ShortSide ? orderPrice - ((currentPrice * config.OrderChange / 100) * _tp / 100) : orderPrice + ((currentPrice * config.OrderChange / 100) * _tp / 100);
-                    tpPriceUpdate = (decimal)(((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize);
-                }
+                orderPrice = openPrice;
+                var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
+                var tpPrice = config.PositionSide == AppConstants.ShortSide ? orderPrice - ((currentPrice * config.OrderChange / 100) * _tp / 100) : orderPrice + ((currentPrice * config.OrderChange / 100) * _tp / 100);
+                tpPriceUpdate = (decimal)(((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize);
             }
             var amendOrder = await api.V5Api.Trading.EditOrderAsync
                 (
@@ -326,14 +307,14 @@ public class BotService : IBotService
             }
             else
             {
-                if(!amendOrder.Error.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase))
+                if (!amendOrder.Error.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase))
                 {
                     var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
                     Console.WriteLine(message);
                     _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
                     await CancelOrder(config);
                 }
-                
+
             }
             return false;
         }
@@ -414,62 +395,47 @@ public class BotService : IBotService
     {
         try
         {
-            //var configDtos = await _configService.GetAllActive();
-            var symbols = StaticObject.Symbols.Where(c => c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly).Select(c => c.Name).Distinct().ToList();
-            //var unsubsSymbols = symbols.Where(s => !StaticObject.Kline1mSubscriptions.ContainsKey(s)).ToList();
             bool isNotified = false;
-            foreach (var symbol in symbols)
+            var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { "BTCUSDT" }, KlineInterval.OneMinute, async data =>
             {
-                var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { symbol }, KlineInterval.OneMinute, async data =>
+                DateTime currentTime = DateTime.Now;
+                TimeSpan timeSinceMidnight = currentTime.TimeOfDay;
+                double hoursSinceMidnight = Math.Floor(timeSinceMidnight.TotalHours);
+
+                if (hoursSinceMidnight % 3 == 0 && !isNotified)
                 {
-                    if (data != null)
+                    isNotified = true;
+                    var users = StaticObject.AllUsers.Where(u => u.Status == (int)UserStatusEnums.Active && u.Setting != null).ToList();
+                    foreach (var user in users)
                     {
-                        var klineData = data.Data;
-                        foreach (var kline in klineData)
+                        BybitRestClient api;
+                        if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
                         {
-                            StaticObject.Kline1mSubscriptions[symbol] = kline;
-                        }
-                    }
-                    // Notify wallet balance and asset tracking
-                    if(symbol == "BTCUSDT")
-                    {
-                        DateTime currentTime = DateTime.Now;
-                        TimeSpan timeSinceMidnight = currentTime.TimeOfDay;
-                        double hoursSinceMidnight = Math.Floor(timeSinceMidnight.TotalHours);
-
-                        if (hoursSinceMidnight % 3 == 0 && !isNotified)
-                        {
-                            isNotified = true;
-                            var users = StaticObject.AllUsers.Where(u => u.Status == (int)UserStatusEnums.Active && u.Setting != null).ToList();
-                            foreach (var user in users)
+                            var userSetting = user.Setting;
+                            api = new BybitRestClient(options =>
                             {
-                                BybitRestClient api;
-                                if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
-                                {
-                                    var userSetting = user.Setting;
-                                    api = new BybitRestClient(options =>
-                                    {
-                                        options.ApiCredentials = new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey);
-                                    });
+                                options.ApiCredentials = new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey);
+                            });
 
-                                    StaticObject.RestApis.TryAdd(user.Id, api);
-                                }
-
-                                var wallet = await api.V5Api.Account.GetBalancesAsync(AccountType.Unified);
-                                var balance = Math.Round(wallet.Data.List.FirstOrDefault()?.TotalWalletBalance ?? 0, 0);
-                                var budget = Math.Round((await _userService.GetGeneralSetting(user.Id))?.Budget ?? 0, 0);
-                                var pnlCash = Math.Round(balance - budget, 0);
-                                var pnlPercent = budget > 0 ? Math.Round((pnlCash / budget) * 100, 2) : 0;
-                                _ = _teleMessage.WalletNotifyMessage(balance, budget, pnlCash, pnlPercent, user.Setting.TeleChannel);
-                            }
-                        }      
-                        else if (hoursSinceMidnight % 3 != 0)
-                        {
-                            isNotified = false;
+                            StaticObject.RestApis.TryAdd(user.Id, api);
                         }
+
+                        var wallet = await api.V5Api.Account.GetBalancesAsync(AccountType.Unified);
+                        if(wallet.Success && wallet.Data != null)
+                        {
+                            var balance = Math.Round(wallet.Data.List.FirstOrDefault()?.TotalWalletBalance ?? 0, 0);
+                            var budget = Math.Round((await _userService.GetGeneralSetting(user.Id))?.Budget ?? 0, 0);
+                            var pnlCash = Math.Round(balance - budget, 0);
+                            var pnlPercent = budget > 0 ? Math.Round((pnlCash / budget) * 100, 2) : 0;
+                            _ = _teleMessage.WalletNotifyMessage(balance, budget, pnlCash, pnlPercent, user.Setting.TeleChannel);
+                        }                        
                     }
-                });
-            }
+                }
+                else if (hoursSinceMidnight % 3 != 0)
+                {
+                    isNotified = false;
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -776,7 +742,7 @@ public class BotService : IBotService
             BybitRestClient api;
             if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
             {
-                api = new BybitRestClient();                
+                api = new BybitRestClient();
                 api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
                 StaticObject.RestApis.TryAdd(config.UserId, api);
             }
