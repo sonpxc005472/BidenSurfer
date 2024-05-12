@@ -456,9 +456,9 @@ public class BotService : IBotService
                                 }
 
                                 var wallet = await api.V5Api.Account.GetBalancesAsync(AccountType.Unified);
-                                var balance = wallet.Data.List.FirstOrDefault()?.TotalWalletBalance ?? 0;
-                                var budget = (await _userService.GetGeneralSetting(user.Id))?.Budget ?? 0;
-                                var pnlCash = balance - budget;
+                                var balance = Math.Round(wallet.Data.List.FirstOrDefault()?.TotalWalletBalance ?? 0, 0);
+                                var budget = Math.Round((await _userService.GetGeneralSetting(user.Id))?.Budget ?? 0, 0);
+                                var pnlCash = Math.Round(balance - budget, 0);
                                 var pnlPercent = budget > 0 ? Math.Round((pnlCash / budget) * 100, 2) : 0;
                                 _ = _teleMessage.WalletNotifyMessage(balance, budget, pnlCash, pnlPercent, user.Setting.TeleChannel);
                             }
