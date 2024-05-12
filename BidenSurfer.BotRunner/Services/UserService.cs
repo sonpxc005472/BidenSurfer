@@ -13,6 +13,7 @@ public interface IUserService
     void DeleteAllCached();
     void SaveSymbolCollateral(long userId, List<string> symbolUser);
     List<string> GetSymbolCollateral(long userId);
+    Task<GeneralSettingDto?> GetGeneralSetting(long userId);
 }
 
 public class UserService : IUserService
@@ -58,6 +59,28 @@ public class UserService : IUserService
         }).ToList();
         StaticObject.AllUsers = users;
         return users;
+    }
+
+    public async Task<GeneralSettingDto?> GetGeneralSetting(long userId)
+    {
+        var setting = await _dbContext.GeneralSettings.FirstOrDefaultAsync(x => x.UserId == userId);
+        if (setting == null)
+        {
+            return new GeneralSettingDto
+            {
+                Userid = userId,
+                Budget = 0,
+                AssetTracking = 0,
+                Id = 0
+            };
+        }
+        return new GeneralSettingDto
+        {
+            Id = setting.Id,
+            Budget = setting?.Budget,
+            AssetTracking = setting?.AssetTracking,
+            Userid = setting.UserId
+        };
     }
 
     public List<string> GetSymbolCollateral(long userId)

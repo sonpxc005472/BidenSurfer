@@ -1,4 +1,6 @@
-﻿using Telegram.Bot;
+﻿using Bybit.Net.Enums;
+using CryptoExchange.Net.CommonObjects;
+using Telegram.Bot;
 
 namespace BidenSurfer.Infras.Helpers
 {
@@ -50,6 +52,12 @@ namespace BidenSurfer.Infras.Helpers
         public async Task ErrorMessage(string symbol, string oc, string positionSide, string tele, string error)
         {
             var text = $"🚩 <b>{symbol}</b> | {positionSide.ToUpper()} | {oc}\n<b>ERROR</b>: <code>{error}</code>";
+            await SendMessage(text, tele);
+        }
+
+        public async Task WalletNotifyMessage(decimal balance, decimal budget, decimal pnlCash, decimal pnlPercent, string tele)
+        {
+            var text = $"💰 <b>BALANCE: ${balance}</b>\nBUDGET: <code>${budget}</code> | PNL: <code>${pnlCash}</code> ({pnlPercent}%)";
             await SendMessage(text, tele);
         }
     }

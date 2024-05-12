@@ -13,6 +13,8 @@ using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
 using System;
 using BidenSurfer.Infras.Entities;
+using CryptoExchange.Net.CommonObjects;
+using Telegram.Bot.Types;
 
 public interface IBotService
 {
@@ -415,6 +417,7 @@ public class BotService : IBotService
             //var configDtos = await _configService.GetAllActive();
             var symbols = StaticObject.Symbols.Where(c => c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly).Select(c => c.Name).Distinct().ToList();
             //var unsubsSymbols = symbols.Where(s => !StaticObject.Kline1mSubscriptions.ContainsKey(s)).ToList();
+            bool isNotified = false;
             foreach (var symbol in symbols)
             {
                 var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { symbol }, KlineInterval.OneMinute, async data =>
@@ -427,7 +430,44 @@ public class BotService : IBotService
                             StaticObject.Kline1mSubscriptions[symbol] = kline;
                         }
                     }
+                    // Notify wallet balance and asset tracking
+                    if(symbol == "BTCUSDT")
+                    {
+                        DateTime currentTime = DateTime.Now;
+                        TimeSpan timeSinceMidnight = currentTime.TimeOfDay;
+                        double hoursSinceMidnight = Math.Floor(timeSinceMidnight.TotalHours);
 
+                        if (hoursSinceMidnight % 3 == 0 && !isNotified)
+                        {
+                            isNotified = true;
+                            var users = StaticObject.AllUsers.Where(u => u.Status == (int)UserStatusEnums.Active && u.Setting != null).ToList();
+                            foreach (var user in users)
+                            {
+                                BybitRestClient api;
+                                if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
+                                {
+                                    var userSetting = user.Setting;
+                                    api = new BybitRestClient(options =>
+                                    {
+                                        options.ApiCredentials = new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey);
+                                    });
+
+                                    StaticObject.RestApis.TryAdd(user.Id, api);
+                                }
+
+                                var wallet = await api.V5Api.Account.GetBalancesAsync(AccountType.Unified);
+                                var balance = wallet.Data.List.FirstOrDefault()?.TotalWalletBalance ?? 0;
+                                var budget = (await _userService.GetGeneralSetting(user.Id))?.Budget ?? 0;
+                                var pnlCash = balance - budget;
+                                var pnlPercent = budget > 0 ? Math.Round((pnlCash / budget) * 100, 2) : 0;
+                                _ = _teleMessage.WalletNotifyMessage(balance, budget, pnlCash, pnlPercent, user.Setting.TeleChannel);
+                            }
+                        }      
+                        else if (hoursSinceMidnight % 3 != 0)
+                        {
+                            isNotified = false;
+                        }
+                    }
                 });
             }
         }

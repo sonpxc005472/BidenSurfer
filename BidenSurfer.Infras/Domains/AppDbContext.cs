@@ -27,9 +27,11 @@ namespace BidenSurfer.Infras.Domains
             modelBuilder.ApplyConfiguration(new ConfigConfiguration());
             modelBuilder.ApplyConfiguration(new ScannerConfiguration());
             modelBuilder.ApplyConfiguration(new ScannerSettingConfiguration());
+            modelBuilder.ApplyConfiguration(new GeneralSettingConfiguration());
         }
         public DbSet<User>? Users { get; set; }
         public DbSet<UserSetting>? UserSettings { get; set; }
+        public DbSet<GeneralSetting>? GeneralSettings { get; set; }
         public DbSet<Config>? Configs { get; set; }
         public DbSet<Scanner>? Scanners { get; set; }
         public DbSet<ScannerSetting>? ScannerSetting { get; set; }

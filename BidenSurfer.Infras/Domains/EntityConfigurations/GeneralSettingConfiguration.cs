@@ -17,7 +17,7 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
                  .HasColumnType("BIGSERIAL")
                  .IsRequired();
 
-            builder.Property(x => x.Userid)
+            builder.Property(x => x.UserId)
                  .HasColumnName("userid")
                  .HasColumnType("bigint")
                  .IsRequired();           

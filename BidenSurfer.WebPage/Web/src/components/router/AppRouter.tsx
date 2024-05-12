@@ -10,6 +10,7 @@ import ProfileLayout from '@app/components/profile/ProfileLayout';
 import RequireAuth from '@app/components/router/RequireAuth';
 import { withLoading } from '@app/hocs/withLoading.hoc';
 import ApiSettingPage from '@app/pages/ApiSettingPage';
+import GeneralSettingPage from '@app/pages/GeneralSettingPage';
 
 const ServerErrorPage = React.lazy(() => import('@app/pages/ServerErrorPage'));
 const Error404Page = React.lazy(() => import('@app/pages/Error404Page'));
@@ -51,7 +52,7 @@ export const AppRouter: React.FC = () => {
           <Route path="configurations" element={<Configurations />} />  
           <Route path="scanners" element={<Scanners />} />    
           <Route path="api-settings" element={<ApiSettingPage />} />    
-          <Route path="account-settings" element={<ApiSettingPage />} />            
+          <Route path="general-settings" element={<GeneralSettingPage />} />            
           <Route path="server-error" element={<ServerError />} />
           <Route path="404" element={<Error404 />} />
           <Route path="profile" element={<ProfileLayout />}>

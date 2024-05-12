@@ -1,7 +1,8 @@
 import { createAction, createAsyncThunk, createSlice, PrepareAction } from '@reduxjs/toolkit';
 import { UserModel } from '@app/domain/UserModel';
 import {
-  ApiData, saveApi
+  ApiData, GeneralSettingData, saveApi,
+  saveGeneralSetting
 } from '@app/api/user.api';
 import { persistUser, readUser } from '@app/services/localStorage.service';
 import { ConfigurationForm, saveConfiguration, saveScanner, saveScannerSetting, ScannerForm, ScannerSettingForm, setConfigActive } from '@app/api/table.api';
@@ -26,6 +27,11 @@ export const doSaveApi = createAsyncThunk(
   'user/doSaveApi',
   async (saveApiPayload: ApiData) => saveApi(saveApiPayload),
 );
+export const doSaveGeneralSetting = createAsyncThunk(
+  'user/doSaveGeneralSetting',
+  async (savePayload: GeneralSettingData) => saveGeneralSetting(savePayload),
+);
+
 
 export const doSaveConfiguration = createAsyncThunk(
   'user/doSaveConfiguration',

@@ -42,7 +42,7 @@ const ApiSettingPage: React.FC = () => {
   
   return (
     <>
-      <PageTitle>Settings</PageTitle>
+      <PageTitle>Api Settings</PageTitle>
       <ApiInfo />
     </>
   );

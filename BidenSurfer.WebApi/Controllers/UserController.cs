@@ -80,7 +80,24 @@ namespace BidenSurfer.WebApi.Controllers
             await _userService.SaveApiSetting(setting);
             return Ok();
         }
-        
+
+        [HttpGet("general-setting")]
+        [Authorize]
+        public async Task<IActionResult> GeneralSetting()
+        {
+            var setting = await _userService.GetGeneralSetting();
+            return Ok(setting);
+        }
+
+
+        [HttpPost("save-general-setting")]
+        [Authorize]
+        public async Task<IActionResult> SaveGeneralSetting(GeneralSettingDto setting)
+        {
+            var rs = await _userService.SaveGeneralSetting(setting);
+            return Ok(rs);
+        }
+
         [HttpGet("max-borrow")]
         [Authorize]
         public async Task<IActionResult> GetMaxBorrow([FromQuery] string symbol, [FromQuery] string orderSide)

@@ -25,6 +25,8 @@ public interface IUserService
     Task<bool> Delete(long id);
     Task<UserSettingDto?> GetApiSetting();
     Task<bool> SaveApiSetting(UserSettingDto userSettingDto);
+    Task<GeneralSettingDto?> GetGeneralSetting();
+    Task<bool> SaveGeneralSetting(GeneralSettingDto generalSettingDto);
     Task<decimal> GetMaximumBorrow(string symbol, string orderSide);
     string GenHash(string text);
 }
@@ -273,5 +275,53 @@ public class UserService : IUserService
             Console.WriteLine(ex.Message);
             return 0;
         }
+    }
+
+    public async Task<GeneralSettingDto?> GetGeneralSetting()
+    {
+        var userId = _securityContextAccessor.UserId;
+        var setting = await _context.GeneralSettings.FirstOrDefaultAsync(x => x.UserId == userId);
+        if (setting == null)
+        {
+            return new GeneralSettingDto
+            {
+                Userid = userId,
+                Budget = 0,
+                AssetTracking = 0,
+                Id = 0
+            };
+        }
+        return new GeneralSettingDto
+        {
+            Id = setting.Id,
+            Budget = setting?.Budget,
+            AssetTracking = setting?.AssetTracking,
+            Userid = setting.UserId
+        };
+    }
+
+    public async Task<bool> SaveGeneralSetting(GeneralSettingDto generalSettingDto)
+    {
+        var userId = _securityContextAccessor.UserId;
+        var setting = await _context.GeneralSettings?.FirstOrDefaultAsync(c => c.UserId == userId);
+        if (setting == null)
+        {
+            var userSetting = new GeneralSetting
+            {
+                UserId = userId,
+                Budget = generalSettingDto.Budget,
+                AssetTracking = generalSettingDto.AssetTracking
+            };
+            _context.GeneralSettings.Add(userSetting);
+        }
+        else
+        {
+            setting.Budget = generalSettingDto.Budget;
+            setting.AssetTracking = generalSettingDto.AssetTracking;
+            _context.GeneralSettings?.Update(setting);
+        }
+        await _context.SaveChangesAsync();
+       
+        return true;
     }
 }

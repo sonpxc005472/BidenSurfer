@@ -67,7 +67,7 @@ export const ApiInfo: React.FC = () => {
     let aSecret = '';
     let aPass = '';
     let aTele = '';
-    let aUserId = '';
+    let aUserId = 0;
     let aid = 0;
     for (let api of fv) {
       if (api.name === 'apiKey') {

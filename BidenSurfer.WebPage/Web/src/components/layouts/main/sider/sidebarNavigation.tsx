@@ -43,9 +43,9 @@ export const sidebarNavigation: SidebarNavigationItem[] = [
     url: '/api-settings'
   },
   {
-    title: 'Account Settings',
-    key: 'account-settings',
+    title: 'General Settings',
+    key: 'general-settings',
     icon: <SettingOutlined />,
-    url: '/account-settings'
+    url: '/general-settings'
   }
 ]
