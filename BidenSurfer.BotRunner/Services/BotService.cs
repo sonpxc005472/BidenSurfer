@@ -108,7 +108,7 @@ public class BotService : IBotService
                             {
                                 if (!order.isClosingFilledOrder)
                                 {
-                                    if ((currentTime - order.EditedDate.Value).TotalMilliseconds >= 3000)
+                                    if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 3500)
                                     {
                                         await TryTakeProfit(order, currentPrice);
                                     }
@@ -121,7 +121,7 @@ public class BotService : IBotService
 
                             // Cancel order if expired
                             // todo: decrease amount to origin amount if expired
-                            if ((currentTime - preTimeCancel).TotalMilliseconds >= 5000)
+                            if ((currentTime - preTimeCancel).TotalMilliseconds >= 10000)
                             {
                                 preTimeCancel = currentTime;
                                 var configExpired = StaticObject.AllConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.EditedDate != null && x.Value.Expire != null && x.Value.Expire.Value != 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.Expire.Value) < currentTime)).Select(c => c.Value).ToList();
@@ -584,7 +584,7 @@ public class BotService : IBotService
                                     }
                                     else
                                     {
-                                        _configService.AddOrEditConfig(config);
+                                        await TakePlaceOrder(config, closePrice);
                                     }
 
                                 }
