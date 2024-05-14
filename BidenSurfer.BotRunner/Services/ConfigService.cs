@@ -173,12 +173,13 @@ public class ConfigService : IConfigService
     {
         var winDict = _redisCacheService.GetCachedData<Dictionary<string, ConfigWinLose>>(AppConstants.RedisConfigWinLose);
         var key = $"{configDto.UserId}_{configDto.Symbol}_{configDto.PositionSide}_{configDto.OrderChange}";
-        var winLose = new ConfigWinLose();
+        
+        ConfigWinLose? winLose;
         if (winDict != null && winDict.ContainsKey(key))
         {
             var win = winDict[key];
-            win.Total = win.Total + 1;
-            if(isWin) win.Win = win.Win + 1;
+            win.Total++;
+            if (isWin) win.Win++;
             winDict[key] = win;
             winLose = win;
         }
@@ -188,7 +189,7 @@ public class ConfigService : IConfigService
             winLose = new ConfigWinLose
             {
                 Total = 1,
-                Win = isWin? 1 : 0
+                Win = isWin ? 1 : 0
             };
             winDict.Add(key, winLose);
         }
