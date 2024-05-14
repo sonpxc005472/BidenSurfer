@@ -307,7 +307,7 @@ public class BotService : IBotService
             }
             else
             {
-                if (!amendOrder.Error.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase))
+                if (!amendOrder.Error.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase) || !amendOrder.Error.Message.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase))
                 {
                     var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
                     Console.WriteLine(message);
@@ -370,7 +370,16 @@ public class BotService : IBotService
                     var message = isExpired ? $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}" : $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}";
                     Console.WriteLine(message);
                     _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
-
+                    await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
+                    await _bus.Send(new OnOffConfigMessageScanner
+                    {
+                        Configs = new List<ConfigDto> {
+                                    new ConfigDto{
+                                        CustomId = config.CustomId,
+                                        IsActive = false,
+                                    }
+                                }
+                    });
                     return true;
                 }
                 else

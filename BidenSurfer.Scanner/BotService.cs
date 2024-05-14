@@ -103,7 +103,6 @@ public class BotService : IBotService
                                     {
                                         var scanners = StaticObject.AllScanners.Where(c => c.IsActive).ToList();
                                         var configs = StaticObject.AllConfigs.Where(c => c.Value.IsActive).ToList();
-                                        bool isMatched = false;
                                         var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
@@ -122,7 +121,6 @@ public class BotService : IBotService
                                                     && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume && !blackList.Any(b => b == symbolDetail?.BaseAsset && (!onlyPairs.Any() || onlyPairs.Any(b => b == symbolDetail?.BaseAsset)))
                                                     )
                                                 {
-                                                    isMatched = true;
                                                     candle.Confirmed = true;
                                                     Console.WriteLine($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
                                                     Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
@@ -130,11 +128,15 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for long side
-                                                    newConfigs = await CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close);
+                                                    var scanConfigs = await CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close);
+                                                    if (scanConfigs.Any())
+                                                    {
+                                                        newConfigs.AddRange(scanConfigs);
+                                                    }
                                                 }
                                             }
                                         }
-                                        if (isMatched && newConfigs.Any())
+                                        if (newConfigs.Any())
                                         {
                                             await _bus.Send(new NewConfigCreatedMessage {  ConfigDtos = newConfigs });
                                             await _bus.Send(new SaveNewConfigMessage{ NewScanConfigs = newConfigs });                                            
@@ -144,7 +146,6 @@ public class BotService : IBotService
                                     {
                                         var scanners = StaticObject.AllScanners;
                                         var configs = StaticObject.AllConfigs;
-                                        bool isMatched = false;
                                         var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
@@ -164,7 +165,6 @@ public class BotService : IBotService
                                                     && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading && !blackList.Any(b => b == instrument?.BaseAsset && (!onlyPairs.Any() || onlyPairs.Any(b => b == instrument?.BaseAsset)))
                                                     )
                                                 {
-                                                    isMatched = true;
                                                     candle.Confirmed = true;
                                                     Console.WriteLine($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
                                                     Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
@@ -172,11 +172,15 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for short side
-                                                    newConfigs = await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close);
+                                                    var scanConfigs = await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close);
+                                                    if (scanConfigs.Any())
+                                                    {
+                                                        newConfigs.AddRange(scanConfigs);
+                                                    }
                                                 }
                                             }                                            
                                         }
-                                        if (isMatched && newConfigs.Any())
+                                        if (newConfigs.Any())
                                         {
                                             await _bus.Send(new NewConfigCreatedMessage { ConfigDtos = newConfigs });
                                             await _bus.Send(new SaveNewConfigMessage { NewScanConfigs = newConfigs });                                            
