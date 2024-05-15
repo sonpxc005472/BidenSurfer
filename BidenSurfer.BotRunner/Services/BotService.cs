@@ -21,7 +21,7 @@ public interface IBotService
     Task GetSpotSymbols();
     Task SubscribeOrderChannel();
     Task<bool> TakePlaceOrder(ConfigDto config, decimal currentPrice);
-    Task<bool> AmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice);
+    BybitEditOrderRequest BuildAmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice);
     Task<bool> CancelOrder(ConfigDto config, bool isExpired);
     Task<bool> CancelAllOrder();
 }
@@ -73,6 +73,12 @@ public class BotService : IBotService
                                 var allActiveConfigs = StaticObject.AllConfigs;
                                 var symbolConfigs = allActiveConfigs.Where(c => c.Value.Symbol == symbol && c.Value.IsActive).Select(c => c.Value).ToList();
                                 var openScanners = symbolConfigs.Where(x => x.CreatedBy == AppConstants.CreatedByScanner && !string.IsNullOrEmpty(x.ClientOrderId)).ToList();
+                                var editOrders = new Dictionary<long, List<BybitEditOrderRequest>>();
+                                if (prePrice == 0)
+                                {
+                                    prePrice = currentPrice;
+                                }
+                                var priceDiff = Math.Abs(currentPrice - prePrice) / prePrice * 100;
                                 foreach (var symbolConfig in symbolConfigs)
                                 {
                                     bool isExistedScanner = openScanners.Any(x => x.UserId == symbolConfig.UserId);
@@ -85,18 +91,66 @@ public class BotService : IBotService
                                         await TakePlaceOrder(symbolConfig, currentPrice);
                                     }
                                     else if (!string.IsNullOrEmpty(symbolConfig.ClientOrderId) && !existingFilledOrders.Any())
-                                    {
-                                        if (prePrice == 0)
-                                        {
-                                            prePrice = currentPrice;
-                                        }
-                                        var priceDiff = Math.Abs(currentPrice - prePrice) / prePrice * 100;
+                                    {                                        
                                         //Nếu giá dịch chuyển lớn hơn 0.05% so với giá lúc trước thì amend order
                                         if (priceDiff > (decimal)0.05)
                                         {
-                                            prePrice = currentPrice;
                                             //Amend order
-                                            await AmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
+                                            var editOrder = BuildAmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
+                                            if (editOrder != null)
+                                            {
+                                                if (editOrders.ContainsKey(symbolConfig.UserId))
+                                                {
+                                                    var userEditOrders = editOrders[symbolConfig.UserId];
+                                                    userEditOrders.Add(editOrder);
+                                                    editOrders[symbolConfig.UserId] = userEditOrders;
+                                                }
+                                                else
+                                                {
+                                                    editOrders.Add(symbolConfig.UserId, new List<BybitEditOrderRequest> { editOrder });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (editOrders.Any())
+                                {
+                                    prePrice = currentPrice;
+                                    foreach (var editOrder in editOrders)
+                                    {
+                                        var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == editOrder.Key)?.Setting;
+                                        BybitRestClient api;
+                                        if (!StaticObject.RestApis.TryGetValue(editOrder.Key, out api))
+                                        {
+                                            api = new BybitRestClient();
+                                            api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
+                                            StaticObject.RestApis.TryAdd(editOrder.Key, api);
+                                        }
+
+                                        var amendOrder = await api.V5Api.Trading.EditMultipleOrdersAsync
+                                            (
+                                                Category.Spot,
+                                                editOrder.Value
+                                            );
+
+                                        var editResults = amendOrder.Data?.ToList();
+                                        if(editResults != null && editResults.Any())
+                                        {
+                                            foreach (var editResult in editResults)
+                                            {
+                                                if (editResult.Code != 0)
+                                                {
+                                                    var config = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.ClientOrderId == editResult.Data?.ClientOrderId).Value;
+                                                    if(config != null)
+                                                    {
+                                                        var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {editResult.Code} - {editResult.Message}";
+                                                        Console.WriteLine(message);
+                                                        _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {editResult.Message}");
+                                                        await CancelOrder(config);
+                                                    }                                                    
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -264,67 +318,31 @@ public class BotService : IBotService
 
     }
 
-    public async Task<bool> AmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice)
+    public BybitEditOrderRequest BuildAmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice)
     {
-        var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
-        if (userSetting == null) return false;
         try
-        {
-            BybitRestClient api;
-            if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
-            {
-                api = new BybitRestClient();
-
-                api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
-                StaticObject.RestApis.TryAdd(config.UserId, api);
-            }
+        {            
             var symbol = config.Symbol;
             var orderPriceAndQuantity = CalculateOrderPriceQuantityTP(currentPrice, config);
             var orderPrice = orderPriceAndQuantity.Item1;
-            var tpPriceUpdate = orderPriceAndQuantity.Item3;
             if ((config.PositionSide == AppConstants.ShortSide && orderPrice <= openPrice) || (config.PositionSide == AppConstants.LongSide && orderPrice >= openPrice))
             {
-                orderPrice = openPrice;
-                var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
-                var tpPrice = config.PositionSide == AppConstants.ShortSide ? orderPrice - ((currentPrice * config.OrderChange / 100) * _tp / 100) : orderPrice + ((currentPrice * config.OrderChange / 100) * _tp / 100);
-                tpPriceUpdate = (decimal)(((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize);
+                orderPrice = openPrice;               
             }
-            var amendOrder = await api.V5Api.Trading.EditOrderAsync
-                (
-                    Category.Spot,
-                    symbol,
-                    clientOrderId: config.ClientOrderId,
-                    quantity: orderPriceAndQuantity.Item2,
-                    price: orderPrice
-                );
-            if (amendOrder.Success)
+            var orderRequest = new BybitEditOrderRequest
             {
-                config.TPPrice = tpPriceUpdate;
-                config.OrderStatus = 1;
-                config.TotalQuantity = orderPriceAndQuantity.Item2;
-                _configService.AddOrEditConfig(config);
-                return true;
-            }
-            else
-            {
-                if (!amendOrder.Error.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
-                    Console.WriteLine(message);
-                    _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
-                    await CancelOrder(config);
-                }
-
-            }
-            return false;
+                ClientOrderId = config.ClientOrderId,
+                Symbol = symbol,
+                Quantity = orderPriceAndQuantity.Item2,
+                Price = orderPrice
+            };
+            
+            return orderRequest;
         }
         catch (Exception ex)
         {
-            var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} Ex: {ex.Message}";
-            Console.WriteLine(message);
-            _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {ex.Message}");
-            await CancelOrder(config);
-            return false;
+            Console.WriteLine(ex.Message);
+            return null;
         }
     }
 

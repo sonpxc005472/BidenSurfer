@@ -12,6 +12,7 @@ namespace BidenSurfer.Scanner.Consumers
         }
         public async Task Consume(ConsumeContext<UpdateUserForScannerMessage> context)
         {
+            Console.WriteLine("UserUpdateFromApiConsumer...");
             await _userService.GetAllActive();            
         }
     }

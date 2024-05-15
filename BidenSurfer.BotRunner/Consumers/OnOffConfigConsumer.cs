@@ -15,6 +15,7 @@ namespace BidenSurfer.BotRunner.Consumers
         }
         public async Task Consume(ConsumeContext<OnOffConfigMessageBotRunner> context)
         {
+            Console.WriteLine($"OnOffConfigConsumer {string.Join(",", context.Message.Configs.Select(c => c.CustomId).ToList())}");
             _configService.OnOffConfig(context.Message.Configs);
         }
     }

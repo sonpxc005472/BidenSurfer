@@ -13,6 +13,7 @@ namespace BidenSurfer.BotRunner.Consumers
         }
         public async Task Consume(ConsumeContext<UpdateUserForBotRunnerMessage> context)
         {
+            Console.WriteLine("UserUpdateFromApiConsumer...");
             await _userService.GetAllActive();            
         }
     }

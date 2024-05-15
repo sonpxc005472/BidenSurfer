@@ -15,6 +15,7 @@ namespace BidenSurfer.WebApi.Consumers
         public async Task Consume(ConsumeContext<UpdateConfigMessage> context)
         {
             var configDtos = context.Message.Configs;
+            Console.WriteLine($"UpdateConfigConsumer: {string.Join(",", configDtos.Select(x => $"{x.Symbol} - Active:{x.IsActive} - OC: {x.OrderChange}").ToList())}");
             foreach(var config in configDtos)
             {
                 var configUpdate = new AddEditConfigDto

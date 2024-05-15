@@ -18,6 +18,7 @@ namespace BidenSurfer.BotRunner.Consumers
             var configs = context.Message?.ConfigDtos;
             if (configs != null && configs.Any())
             {
+                Console.WriteLine($"ConfigUpdateFromApiConsumer: {string.Join(",", configs.Select(x => $"{x.CustomId} - Active:{x.IsActive} - OC: {x.OrderChange}").ToList())}");
                 _configService.AddOrEditConfigFromApi(configs);
                 await _botService.SubscribeSticker();
             }                        

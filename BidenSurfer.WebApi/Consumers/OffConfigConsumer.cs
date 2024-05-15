@@ -14,6 +14,7 @@ namespace BidenSurfer.WebApi.Consumers
         public async Task Consume(ConsumeContext<OffConfigMessage> context)
         {
             var customeIds = context.Message.Configs;
+            Console.WriteLine($"OffConfigConsumer {string.Join(",", customeIds)}");
             await _configService.OffConfigs(customeIds);   
         }
     }

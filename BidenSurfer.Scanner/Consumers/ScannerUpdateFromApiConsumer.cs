@@ -16,6 +16,7 @@ namespace BidenSurfer.Scanner.Consumers
             var scanners = context.Message?.ScannerDtos;
             if (scanners != null && scanners.Any())
             {
+                Console.WriteLine($"ScannerUpdateFromApiConsumer: {string.Join(",", scanners.Select(x => $"{x.Title} - Active:{x.IsActive} - OC: {x.OrderChange}").ToList())}");
                 _scannerService.AddOrEdit(scanners);
             }                        
         }

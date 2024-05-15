@@ -14,6 +14,7 @@ namespace BidenSurfer.WebApi.Consumers
         public async Task Consume(ConsumeContext<AmountExpireMessage> context)
         {
             var customeIds = context.Message.Configs;
+            Console.WriteLine($"AmountExpireConsumer {string.Join(",", customeIds)}");
             await _configService.AmountExpireUpdate(customeIds);   
         }
     }

@@ -17,6 +17,7 @@ namespace BidenSurfer.WebApi.Consumers
             var newScans = context.Message?.NewScanConfigs;
             if (newScans != null && newScans.Any())
             {
+                Console.WriteLine($"SaveNewConfigConsumer: {string.Join(",", newScans.Select(x => $"{x.Symbol} - Active:{x.IsActive} - OC: {x.OrderChange}").ToList())}");
                 await _configService.SaveNewScanToDb(newScans);
             }               
         }
