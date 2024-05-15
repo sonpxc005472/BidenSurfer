@@ -15,7 +15,7 @@ public interface IConfigService
     Task<IEnumerable<ConfigDto>> GetConfigsByUser(long userId);
     Task<IEnumerable<ConfigDto>> GetByActiveUser();
     Task<ConfigDto?> GetById(long id);
-    Task<bool> AddOrEdit(AddEditConfigDto config);
+    Task<bool> AddOrEdit(AddEditConfigDto config, bool fromBotUpdate);
     Task<bool> SaveNewScanToDb(List<ConfigDto> configs);
     Task<bool> Delete(long id);
     Task<bool> SetConfigActiveStatus(long id, bool isActive);
@@ -37,7 +37,7 @@ public class ConfigService : IConfigService
         _securityContextAccessor = securityContextAccessor;
     }
 
-    public async Task<bool> AddOrEdit(AddEditConfigDto config)
+    public async Task<bool> AddOrEdit(AddEditConfigDto config, bool fromBotUpdate)
     {
         var configDto = new ConfigDto();
         var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == config.Id);
@@ -89,20 +89,24 @@ public class ConfigService : IConfigService
             configDto = configEntity.ToDto();
         }
 
-        _ = _bus.Send(new ConfigUpdateFromApiForBotRunnerMessage
+        if(!fromBotUpdate)
         {
-            ConfigDtos = new List<ConfigDto>
+            _ = _bus.Send(new ConfigUpdateFromApiForBotRunnerMessage
+            {
+                ConfigDtos = new List<ConfigDto>
             {
                 configDto
             }
-        });
-        _ = _bus.Send(new ConfigUpdateFromApiForScannerMessage
-        {
-            ConfigDtos = new List<ConfigDto>
+            });
+            _ = _bus.Send(new ConfigUpdateFromApiForScannerMessage
+            {
+                ConfigDtos = new List<ConfigDto>
             {
                 configDto
             }
-        });
+            });
+        }    
+        
         return true;
     }
 

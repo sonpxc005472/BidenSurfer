@@ -65,7 +65,7 @@ public class BotService : IBotService
                             var currentData = data.Data.FirstOrDefault();
                             var currentTime = DateTime.Now;
                             var currentPrice = currentData.ClosePrice;
-                            
+
                             // every 2s change order
                             if ((currentTime - preTime).TotalMilliseconds >= 2500)
                             {
@@ -98,8 +98,8 @@ public class BotService : IBotService
                                             //Amend order
                                             await AmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
                                         }
-                                    }                                    
-                                }                                
+                                    }
+                                }
                             }
 
                             //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
@@ -153,7 +153,7 @@ public class BotService : IBotService
                                     }
                                     _ = _bus.Send(new AmountExpireMessage { Configs = configAmountExpired.Select(c => c.CustomId).ToList() });
                                 }
-                            }                            
+                            }
                         }
 
                     });
@@ -430,14 +430,14 @@ public class BotService : IBotService
                         }
 
                         var wallet = await api.V5Api.Account.GetBalancesAsync(AccountType.Unified);
-                        if(wallet.Success && wallet.Data != null)
+                        if (wallet.Success && wallet.Data != null)
                         {
                             var balance = Math.Round(wallet.Data.List.FirstOrDefault()?.TotalWalletBalance ?? 0, 0);
                             var budget = Math.Round((await _userService.GetGeneralSetting(user.Id))?.Budget ?? 0, 0);
                             var pnlCash = Math.Round(balance - budget, 0);
                             var pnlPercent = budget > 0 ? Math.Round((pnlCash / budget) * 100, 2) : 0;
                             _ = _teleMessage.WalletNotifyMessage(balance, budget, pnlCash, pnlPercent, user.Setting.TeleChannel);
-                        }                        
+                        }
                     }
                 }
                 else if (hoursSinceMidnight % 3 != 0)
@@ -552,17 +552,20 @@ public class BotService : IBotService
                                     config.isClosingFilledOrder = false;
                                     config.EditedDate = DateTime.Now;
                                     var amountIncrease = config.Amount;
+                                    bool isChanged = false;
                                     if (pnlCash <= 0 && config.CreatedBy != AppConstants.CreatedByScanner && config.IncreaseOcPercent != null && config.IncreaseOcPercent > 0)
                                     {
+                                        isChanged = true;
                                         config.OrderChange = config.OrderChange + (config.OrderChange * config.IncreaseOcPercent.Value / 100);
                                     }
                                     if (config.IncreaseAmountPercent != null && config.IncreaseAmountPercent > 0)
                                     {
+                                        isChanged = true;
                                         amountIncrease = config.Amount + ((config.OriginAmount.HasValue ? config.OriginAmount.Value : 0) * config.IncreaseAmountPercent.Value / 100);
-                                    }
-                                    if (config.AmountLimit != null && config.AmountLimit > 0)
-                                    {
-                                        amountIncrease = amountIncrease > config.AmountLimit ? config.AmountLimit.Value : amountIncrease;
+                                        if (config.AmountLimit != null && config.AmountLimit > 0)
+                                        {
+                                            amountIncrease = amountIncrease > config.AmountLimit ? config.AmountLimit.Value : amountIncrease;
+                                        }
                                     }
 
                                     config.Amount = config.CreatedBy == AppConstants.CreatedByScanner && pnlCash <= 0 ? (config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount) : amountIncrease;
@@ -594,6 +597,16 @@ public class BotService : IBotService
                                     else
                                     {
                                         await TakePlaceOrder(config, closePrice);
+                                        if (isChanged)
+                                        {
+                                            await _bus.Send(new UpdateConfigMessage()
+                                            {
+                                                Configs = new List<ConfigDto>
+                                                {
+                                                    config
+                                                }
+                                            });
+                                        }
                                     }
 
                                 }

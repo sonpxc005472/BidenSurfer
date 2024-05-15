@@ -40,7 +40,7 @@ namespace BidenSurfer.WebApi.Controllers
         [HttpPost("addoredit")]
         public async Task<IActionResult> AddOrEdit(AddEditConfigDto config)
         {
-            var issuccess = await _configService.AddOrEdit(config);
+            var issuccess = await _configService.AddOrEdit(config, false);
             return Ok(issuccess);
         }
 

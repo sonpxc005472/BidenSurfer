@@ -32,7 +32,7 @@ namespace BidenSurfer.WebApi.Consumers
                     PositionSide = config.PositionSide,
                     Symbol = config.Symbol
                 };
-                await _configService.AddOrEdit(configUpdate);
+                await _configService.AddOrEdit(configUpdate, true);
             }
         }
     }
