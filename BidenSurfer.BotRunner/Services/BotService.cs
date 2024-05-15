@@ -307,7 +307,7 @@ public class BotService : IBotService
             }
             else
             {
-                if (!amendOrder.Error.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase) || !amendOrder.Error.Message.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase))
+                if (!amendOrder.Error.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase))
                 {
                     var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
                     Console.WriteLine(message);
