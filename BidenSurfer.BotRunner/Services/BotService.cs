@@ -188,14 +188,7 @@ public class BotService : IBotService
                                         await CancelOrder(config, true);
                                     }
                                 }
-                                if (configExpired.Any())
-                                {
-                                    _ = _bus.Send(new OnOffConfigMessageScanner()
-                                    {
-                                        Configs = configExpired
-                                    });
-                                    _ = _bus.Send(new OffConfigMessage { Configs = configExpired.Select(c => c.CustomId).ToList() });
-                                }
+                                
                                 var configAmountExpired = StaticObject.AllConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.OrderStatus != 2 && x.Value.EditedDate != null && x.Value.IncreaseAmountExpire != null && x.Value.IncreaseAmountExpire.Value > 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.IncreaseAmountExpire.Value) < currentTime)).Select(c => c.Value).ToList();
                                 if (configAmountExpired.Any())
                                 {

@@ -52,7 +52,14 @@ public class ConfigService : IConfigService
                     existedConfig.CreatedBy = config.CreatedBy;
                     existedConfig.CreatedDate = config.CreatedDate;
                     existedConfig.EditedDate = config.EditedDate;
-                    StaticObject.AllConfigs[config.CustomId] = existedConfig;
+                    if(!config.IsActive && config.CreatedBy == AppConstants.CreatedByScanner)
+                    {
+                        StaticObject.AllConfigs.TryRemove(config.CustomId, out _);
+                    }
+                    else
+                    {
+                        StaticObject.AllConfigs[config.CustomId] = existedConfig;
+                    }                    
                 }
             }
 

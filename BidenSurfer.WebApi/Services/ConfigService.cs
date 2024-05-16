@@ -71,7 +71,6 @@ public class ConfigService : IConfigService
         }
         else
         {
-            //Edit            
             configEntity.Symbol = config.Symbol;
             configEntity.PositionSide = config.PositionSide;
             configEntity.OrderChange = config.OrderChange;
@@ -84,7 +83,16 @@ public class ConfigService : IConfigService
             configEntity.Expire = config.Expire;
             configEntity.EditedDate = DateTime.Now;
             configEntity.OriginAmount = config.Amount;
-            _context.Configs.Update(configEntity);
+            if (!config.IsActive && configEntity.CreatedBy == AppConstants.CreatedByScanner)
+            {
+                _context.Configs.Remove(configEntity);
+            }
+            else
+            {
+                //Edit
+                _context.Configs.Update(configEntity);
+            }
+            
             await _context.SaveChangesAsync();
             configDto = configEntity.ToDto();
         }
@@ -347,7 +355,15 @@ public class ConfigService : IConfigService
             var config = await _context.Configs?.FirstOrDefaultAsync(x => x.Id == id);
             if (null == config) return false;
             config.IsActive = isActive;
-            _context.Configs.Update(config);
+            if(config.CreatedBy == AppConstants.CreatedByScanner && !isActive)
+            {
+                _context.Configs.Remove(config);
+            }
+            else
+            {
+                _context.Configs.Update(config);
+            }
+            
             await _context.SaveChangesAsync();
             _ = _bus.Send(new ConfigUpdateFromApiForBotRunnerMessage { ConfigDtos = new List<ConfigDto> { config.ToDto() } });
             _ = _bus.Send(new ConfigUpdateFromApiForScannerMessage { ConfigDtos = new List<ConfigDto> { config.ToDto() } });

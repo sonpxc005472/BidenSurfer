@@ -273,6 +273,10 @@ public class ConfigService : IConfigService
                         if(isOffConfig)
                         {
                             await CancelOrder(caconfig);
+                            if(config.CreatedBy == AppConstants.CreatedByScanner)
+                            {
+                                StaticObject.AllConfigs.TryRemove(config.CustomId, out _);
+                            }                            
                         }
                     }
                 }

@@ -258,39 +258,6 @@ public class BotService : IBotService
         }
         return configs;
     }
-
-    private readonly decimal _tp = 70;
-    private (decimal, decimal, decimal) CalculateOrderPriceQuantityTP(decimal currentPrice, ConfigDto config)
-    {
-        var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;
-        var orderPrice = config.PositionSide == AppConstants.ShortSide ? currentPrice + (currentPrice * config.OrderChange / 100) : currentPrice - (currentPrice * config.OrderChange / 100);
-        var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
-        var orderPriceWithTicksize = ((int)(orderPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
-        var quantity = config.Amount / orderPriceWithTicksize;
-        var quantityWithTicksize = ((int)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
-        var tpPrice = config.PositionSide == AppConstants.ShortSide ? orderPrice - ((currentPrice * config.OrderChange / 100) * _tp / 100) : orderPrice + ((currentPrice * config.OrderChange / 100) * _tp / 100);
-        var tpPriceWithTicksize = ((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
-
-
-        return (orderPriceWithTicksize ?? 0, quantityWithTicksize ?? 0, tpPriceWithTicksize ?? 0);
-    }
-
-    private BybitRestClient InitRestApi(long userId)
-    {
-        var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == userId)?.Setting;
-        if (userSetting == null) return null;
-        BybitRestClient api;
-        if (!StaticObject.RestApis.TryGetValue(userId, out api))
-        {            
-            api = new BybitRestClient(options =>
-            {
-                options.ApiCredentials = new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey);
-            });
-
-            StaticObject.RestApis.TryAdd(userId, api);
-        }
-        return api;
-    }
 }
 
 
