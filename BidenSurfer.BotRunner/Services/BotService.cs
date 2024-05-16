@@ -865,7 +865,7 @@ public class BotService : IBotService
     {
         try
         {
-            Console.Write("Cancel all orders...");
+            Console.WriteLine("Cancel all orders...");
             StaticObject.IsInternalCancel = true;
             foreach (var user in StaticObject.AllUsers)
             {
@@ -890,7 +890,7 @@ public class BotService : IBotService
                         );
                     if (rs.Success)
                     {
-                        Console.Write("Cancel all orders successfully");
+                        Console.WriteLine("Cancel all orders successfully");
                     }
                 }
             }
