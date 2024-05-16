@@ -15,12 +15,13 @@ namespace BidenSurfer.BotRunner.Consumers
         public async Task Consume(ConsumeContext<NewConfigCreatedMessage> context)
         {
             var newScans = context.Message?.ConfigDtos;
-            if (newScans != null && newScans.Any())
+            var currentPrice = context.Message?.Price;
+            if (newScans != null && currentPrice.HasValue && newScans.Any())
             {
-                Console.WriteLine($"ScannerIndicatorConsumer: {string.Join(",", newScans.Select(x => $"{x.CustomId} - Active:{x.IsActive} - OC: {x.OrderChange}").ToList())}");
+                Console.WriteLine($"ScannerIndicatorConsumer: {string.Join(",", newScans.Select(x => $"{x.Symbol} - Active:{x.IsActive} - OC: {x.OrderChange}").ToList())}");
                 foreach (var config in newScans)
                 {
-                    StaticObject.AllConfigs.TryAdd(config.CustomId, config);
+                    await _botService.TakePlaceOrder(config, currentPrice.Value);
                 }
 
                 await _botService.SubscribeSticker();

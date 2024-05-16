@@ -128,19 +128,10 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for long side
-                                                    var scanConfigs = await CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close);
-                                                    if (scanConfigs.Any())
-                                                    {
-                                                        newConfigs.AddRange(scanConfigs);
-                                                    }
+                                                    await CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close);                                                   
                                                 }
                                             }
-                                        }
-                                        if (newConfigs.Any())
-                                        {
-                                            await _bus.Send(new NewConfigCreatedMessage {  ConfigDtos = newConfigs });
-                                            await _bus.Send(new SaveNewConfigMessage{ NewScanConfigs = newConfigs });                                            
-                                        }
+                                        }                                        
                                     }
                                     if (shortPercent > (decimal)0.8 && shortElastic >= 70)
                                     {
@@ -172,19 +163,10 @@ public class BotService : IBotService
                                                     Console.WriteLine($"=====================================================================================");
 
                                                     // create new configs for short side
-                                                    var scanConfigs = await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close);
-                                                    if (scanConfigs.Any())
-                                                    {
-                                                        newConfigs.AddRange(scanConfigs);
-                                                    }
+                                                    await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close);                                                   
                                                 }
                                             }                                            
-                                        }
-                                        if (newConfigs.Any())
-                                        {
-                                            await _bus.Send(new NewConfigCreatedMessage { ConfigDtos = newConfigs });
-                                            await _bus.Send(new SaveNewConfigMessage { NewScanConfigs = newConfigs });                                            
-                                        }
+                                        }                                        
                                     }
                                 }
                             }
@@ -233,12 +215,12 @@ public class BotService : IBotService
         var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == scanner.UserId)?.Setting;
         if (userSetting == null) return new ();
         var maxOcAbs = Math.Abs(maxOC);
-        var minOc = (maxOcAbs - (decimal)0.2) / (maxOcAbs > 4 ? 3 : 2);
+        var minOc = maxOcAbs / (maxOcAbs > 5 ? 3 : 2);
         var rangeOc = minOc / scanner.OcNumber;
         var configs = new List<ConfigDto>();
         for (var i = 1; i <= scanner.OcNumber; i++)
         {
-            var oc = Math.Round(minOc + (rangeOc * i), 2);
+            var oc = Math.Round(NumberHelpers.RandomDecimal(minOc, maxOcAbs), 2);
 
             if (currentOpen + i > maxOpen)
             {
@@ -269,42 +251,10 @@ public class BotService : IBotService
                 ScannerTitle = scanner.Title
             };
             _configService.AddOrEditConfig(new List<ConfigDto> { config });
-            var restApi = InitRestApi(scanner.UserId);
-            if (restApi == null) return new ();
-            var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;
-            if (config.OrderType == (int)OrderTypeEnums.Spot)
-            {
-                orderSide = OrderSide.Buy;
-            }
-            
-            var orderPriceAndQuantity = CalculateOrderPriceQuantityTP(currentPrice, config);
-            string clientOrderId = Guid.NewGuid().ToString();
-            var order = await restApi.V5Api.Trading.PlaceOrderAsync(
-                Category.Spot, symbol,
-                orderSide,
-                NewOrderType.Limit,
-                orderPriceAndQuantity.Item2,
-                orderPriceAndQuantity.Item1,
-                config.OrderType == (int)OrderTypeEnums.Margin,
-                clientOrderId: clientOrderId);
-
+            _ = _bus.Send(new NewConfigCreatedMessage { ConfigDtos = new List<ConfigDto> { config }, Price = currentPrice });
+            _ = _bus.Send(new SaveNewConfigMessage { NewScanConfigs = new List<ConfigDto> { config } });
             _ = _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
-            if (order.Success)
-            {
-                config.OrderId = order.Data.OrderId;
-                config.ClientOrderId = clientOrderId;                
-                config.TotalQuantity = orderPriceAndQuantity.Item2;
-                config.TPPrice = orderPriceAndQuantity.Item3;
-                config.OrderStatus = 1;
-                configs.Add(config);               
-            }
-            else
-            {
-                var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {order?.Error?.Message}";
-                Console.WriteLine(message);                
-                _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, order?.Error?.Message ?? "Place order error!");
-                _configService.Delete(config.CustomId);
-            }        
+            configs.Add(config);
         }
         return configs;
     }

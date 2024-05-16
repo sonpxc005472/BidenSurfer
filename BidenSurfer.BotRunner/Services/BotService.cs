@@ -51,13 +51,12 @@ public class BotService : IBotService
             var symbols = configList.Where(c => c.IsActive).Select(c => c.Symbol).Distinct().ToList();
 
             foreach (var symbol in symbols)
-            {
-                UpdateSubscription candleSubs;
-                DateTime preTime = DateTime.Now;
-                DateTime preTimeCancel = DateTime.Now;
-                decimal prePrice = 0;
-                if (!StaticObject.TickerSubscriptions.TryGetValue(symbol, out candleSubs))
-                {
+            {                
+                if (!StaticObject.TickerSubscriptions.TryGetValue(symbol, out _))
+                {                    
+                    DateTime preTime = DateTime.Now;
+                    DateTime preTimeCancel = DateTime.Now;
+                    decimal prePrice = 0;
                     var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(symbol, KlineInterval.OneMinute, async data =>
                     {
                         if (data != null)
@@ -266,6 +265,11 @@ public class BotService : IBotService
                 }
                 string clientOrderId = Guid.NewGuid().ToString();
                 Console.WriteLine($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: {clientOrderId}");
+                config.ClientOrderId = clientOrderId;
+                config.TPPrice = orderPriceAndQuantity.Item3;
+                config.OrderStatus = 1;
+                config.TotalQuantity = orderPriceAndQuantity.Item2;
+                _configService.AddOrEditConfig(config);
                 var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
                     (
                         Category.Spot,
@@ -280,20 +284,16 @@ public class BotService : IBotService
                 if (placedOrder.Success)
                 {
                     config.OrderId = placedOrder.Data.OrderId;
-                    config.ClientOrderId = clientOrderId;
-                    config.TPPrice = orderPriceAndQuantity.Item3;
-                    config.OrderStatus = 1;
-                    config.TotalQuantity = orderPriceAndQuantity.Item2;
                     _configService.AddOrEditConfig(config);
                 }
                 else
                 {
+                    config.IsActive = false;
+                    _configService.AddOrEditConfig(config);
                     var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {placedOrder?.Error?.Message}";
                     Console.WriteLine(message);
                     _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, placedOrder?.Error?.Message ?? string.Empty);
-                    config.IsActive = false;
-                    _configService.AddOrEditConfig(config);
-
+                    
                     await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
                     await _bus.Send(new OnOffConfigMessageScanner
                     {
