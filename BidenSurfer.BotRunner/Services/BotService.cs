@@ -138,16 +138,16 @@ public class BotService : IBotService
                                         {
                                             foreach (var editResult in editResults)
                                             {
-                                                if (editResult.Code != 0)
+                                                if (editResult.Code != 0 && !editResult.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase) && !editResult.Message.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase))
                                                 {
                                                     var config = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.ClientOrderId == editResult.Data?.ClientOrderId).Value;
-                                                    if(config != null)
+                                                    if (config != null)
                                                     {
                                                         var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {editResult.Code} - {editResult.Message}";
                                                         Console.WriteLine(message);
                                                         _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {editResult.Message}");
                                                         await CancelOrder(config);
-                                                    }                                                    
+                                                    }
                                                 }
                                             }
                                         }
@@ -257,7 +257,6 @@ public class BotService : IBotService
                     orderSide = OrderSide.Buy;
                 }
                 string clientOrderId = Guid.NewGuid().ToString();
-                Console.WriteLine($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: {clientOrderId}");
                 config.ClientOrderId = clientOrderId;
                 config.TPPrice = orderPriceAndQuantity.Item3;
                 config.OrderStatus = 1;
@@ -276,6 +275,7 @@ public class BotService : IBotService
                     );
                 if (placedOrder.Success)
                 {
+                    Console.WriteLine($"Took order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: {clientOrderId}");
                     config.OrderId = placedOrder.Data.OrderId;
                     _configService.AddOrEditConfig(config);
                 }
