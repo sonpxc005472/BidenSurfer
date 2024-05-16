@@ -865,6 +865,7 @@ public class BotService : IBotService
     {
         try
         {
+            Console.Write("Cancel all orders...");
             StaticObject.IsInternalCancel = true;
             foreach (var user in StaticObject.AllUsers)
             {
@@ -883,10 +884,14 @@ public class BotService : IBotService
 
                 if (api != null)
                 {
-                    await api.V5Api.Trading.CancelAllOrderAsync
+                    var rs = await api.V5Api.Trading.CancelAllOrderAsync
                         (
                             Category.Spot
                         );
+                    if (rs.Success)
+                    {
+                        Console.Write("Cancel all orders successfully");
+                    }
                 }
             }
             await Task.Delay(200);
