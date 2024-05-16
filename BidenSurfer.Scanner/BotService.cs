@@ -215,12 +215,12 @@ public class BotService : IBotService
         var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == scanner.UserId)?.Setting;
         if (userSetting == null) return new ();
         var maxOcAbs = Math.Abs(maxOC);
-        var minOc = maxOcAbs / (maxOcAbs > 5 ? 3 : 2);
+        var minOc = maxOcAbs / (maxOcAbs > 5 ? 2 : 1.5M);
         var rangeOc = minOc / scanner.OcNumber;
         var configs = new List<ConfigDto>();
         for (var i = 1; i <= scanner.OcNumber; i++)
         {
-            var oc = Math.Round(NumberHelpers.RandomDecimal(minOc, maxOcAbs), 2);
+            var oc = Math.Round(NumberHelpers.RandomDecimal(minOc, maxOcAbs), 3);
 
             if (currentOpen + i > maxOpen)
             {
