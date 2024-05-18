@@ -146,33 +146,21 @@ export const ConfigurationTable: React.FC = () => {
 
   const columns: ColumnsType<ConfigurationTableRow> = [
     {
-      title: t('tables.actions'),
-      dataIndex: 'actions',
-      width: '10px',
+      title: () => (<div>Symbol ({tableData.data.filter((item) => item.isActive).length}/{tableData.data.length})</div>),
+      dataIndex: 'symbol',
+      width: '30px',
       render: (text: string, record: { id: number; isActive: boolean }) => {
         return (
-          <BaseSpace>
-            {/* <BaseButton
-              type="ghost"
-              onClick={() => {
-                notificationController.info({ message: t('tables.inviteMessage', { name: record.name }) });
-              }}
-            >
-              {t('tables.invite')}
-            </BaseButton> */}
+          <BaseSpace>            
             <BaseTooltip title="edit">
               <BaseButton type="default" size='small' icon={<EditFilled />} onClick={() => handleOpenAddEdit(record.id)} />
             </BaseTooltip>
             <BaseSwitch size='small' checked={record.isActive} onChange={() => handleActiveRow(record.id, !record.isActive)} />
+            <div>{text}</div>
           </BaseSpace>
         );
       },
-    },
-    {
-      title: 'Symbol',
-      dataIndex: 'symbol',
-      width: '10px'
-    },
+    },    
     {
       title: 'Position',
       dataIndex: 'positionSide',

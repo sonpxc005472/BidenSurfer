@@ -178,9 +178,8 @@ export const ScannerTable: React.FC = () => {
 
   const columns: ColumnsType<ScannerTableRow> = [
     {
-      title: t('tables.actions'),
-      dataIndex: 'actions',
-      width: '10px',
+      title: () => (<div>Title ({tableData.data.filter((item) => item.isActive).length}/{tableData.data.length})</div>),
+      dataIndex: 'title',
       render: (text: string, record: { id: number; isActive: boolean }) => {
         return (
           <BaseSpace>            
@@ -188,14 +187,10 @@ export const ScannerTable: React.FC = () => {
               <BaseButton type="default" size='small' icon={<EditFilled />} onClick={() => handleOpenAddEdit(record.id)} />
             </BaseTooltip>
             <BaseSwitch size='small' checked={record.isActive} onChange={() => handleActiveRow(record.id, !record.isActive)} />
+            <div>{text}</div>
           </BaseSpace>
         );
       },
-    },
-    {
-      title: 'Name',
-      dataIndex: 'title',
-      width: '10px'
     },
     {
       title: 'Position',

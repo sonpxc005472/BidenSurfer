@@ -12,6 +12,7 @@ using MassTransit;
 using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
 using System;
+using System.Text.Json;
 
 public interface IBotService
 {
@@ -380,23 +381,22 @@ public class BotService : IBotService
                     var messageSub = isExpired ? $"Expired {config.Expire}m" : $"Cancelled";
                     var message = isExpired ? $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}" : $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}";
                     Console.WriteLine(message);
-                    _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
-                    await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
-                    await _bus.Send(new OnOffConfigMessageScanner
-                    {
-                        Configs = new List<ConfigDto> {
-                                    new ConfigDto{
-                                        CustomId = config.CustomId,
-                                        IsActive = false,
-                                    }
-                                }
-                    });
-                    return true;
+                    _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);                   
                 }
                 else
                 {
                     Console.WriteLine($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
                 }
+                await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
+                await _bus.Send(new OnOffConfigMessageScanner
+                {
+                    Configs = new List<ConfigDto> {
+                                    new ConfigDto{
+                                        CustomId = config.CustomId,
+                                        IsActive = false,
+                                    }
+                                }
+                });
                 await Task.Delay(200);
                 StaticObject.IsInternalCancel = false;
             }
@@ -408,7 +408,7 @@ public class BotService : IBotService
             StaticObject.IsInternalCancel = false;
             return false;
         }
-        return false;
+        return true;
     }
 
     public async Task SubscribeKline1m()
@@ -485,6 +485,7 @@ public class BotService : IBotService
                 {
                     var result = await socket.V5PrivateApi.SubscribeToOrderUpdatesAsync(async (data) =>
                     {
+                        Console.WriteLine($"Order updated: data: {JsonSerializer.Serialize(data.Data)} - original: {JsonSerializer.Serialize(data.OriginalData)}");
                         var updatedDatas = data.Data.ToList();
                         foreach (var updatedData in updatedDatas)
                         {
