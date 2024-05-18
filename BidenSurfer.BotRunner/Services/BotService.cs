@@ -485,7 +485,7 @@ public class BotService : IBotService
                 {
                     var result = await socket.V5PrivateApi.SubscribeToOrderUpdatesAsync(async (data) =>
                     {
-                        Console.WriteLine($"Order updated: data: {JsonSerializer.Serialize(data.Data)} - original: {JsonSerializer.Serialize(data.OriginalData)}");
+                        //Console.WriteLine($"Order updated: data: {JsonSerializer.Serialize(data.Data)} - original: {JsonSerializer.Serialize(data.OriginalData)}");
                         var updatedDatas = data.Data.ToList();
                         foreach (var updatedData in updatedDatas)
                         {
