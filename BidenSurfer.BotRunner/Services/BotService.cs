@@ -12,7 +12,6 @@ using MassTransit;
 using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
 using System;
-using System.Text.Json;
 
 public interface IBotService
 {
@@ -139,7 +138,7 @@ public class BotService : IBotService
                                         {
                                             foreach (var editResult in editResults)
                                             {
-                                                if (editResult.Code != 0 && !editResult.Message.Contains("not exist", StringComparison.InvariantCultureIgnoreCase) && !editResult.Message.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase))
+                                                if (editResult.Code != 0 && IsNeededCancel(editResult.Message))
                                                 {
                                                     var config = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.ClientOrderId == editResult.Data?.ClientOrderId).Value;
                                                     if (config != null)
@@ -904,5 +903,10 @@ public class BotService : IBotService
             Console.WriteLine(ex.Message);
             return false;
         }
+    }
+
+    private bool IsNeededCancel(string errorMessage)
+    {
+        return !errorMessage.Contains("not exist", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("pending order modification", StringComparison.InvariantCultureIgnoreCase);
     }
 }
