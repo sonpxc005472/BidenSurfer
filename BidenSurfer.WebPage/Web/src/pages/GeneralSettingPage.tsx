@@ -7,7 +7,7 @@ import { BaseForm } from '@app/components/common/forms/BaseForm/BaseForm';
 import { BaseRow } from '@app/components/common/BaseRow/BaseRow';
 import { BaseButton } from '@app/components/common/BaseButton/BaseButton';
 import { notificationController } from '@app/controllers/notificationController';
-import { doSaveGeneralSetting } from '@app/store/slices/userSlice';
+import { doSaveGeneralSetting, setBotStatus } from '@app/store/slices/userSlice';
 import { BaseButtonsForm } from '@app/components/common/forms/BaseButtonsForm/BaseButtonsForm';
 import { getGeneralSetting, startStopBot } from '@app/api/user.api';
 import { mergeBy } from '@app/utils/utils';
@@ -24,6 +24,8 @@ const GeneralSettingPage: React.FC = () => {
   const [isLoading, setLoading] = useState(false);
 
   const [isStop, setStop] = useState(false);
+  const [isStopping, setStopping] = useState(false);
+
   const { isMounted } = useMounted();
   const [fields, setFields] = useState<FieldData[]>([
     { name: 'budget', value: '' },
@@ -55,14 +57,18 @@ const GeneralSettingPage: React.FC = () => {
   
   const [form] = BaseButtonsForm.useForm();
   const handleStartStop = () => {
+      setStopping(true);
       startStopBot({
         id : 0,
         userId : 0,
         assetTracking : 0,
         budget : 0,
-        stop : isStop
+        stop : !isStop
       }).then((res) => {     
-        fetch();
+        setStop(!isStop);
+        dispatch(setBotStatus(!isStop));
+      }).finally(()=>{
+        setStopping(false);
       });
   }
   const handleSubmit = () => {
@@ -155,6 +161,7 @@ const GeneralSettingPage: React.FC = () => {
     <BaseRow style={{marginTop: "10px"}}>
         <Button
           type="primary"
+          loading={isStopping}
           icon={<PoweroffOutlined />}
           onClick={handleStartStop}
         >

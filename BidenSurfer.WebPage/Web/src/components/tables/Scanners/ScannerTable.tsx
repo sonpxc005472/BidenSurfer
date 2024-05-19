@@ -69,6 +69,8 @@ export const ScannerTable: React.FC = () => {
 
   const [form] = BaseForm.useForm();  
   const [settingForm] = BaseForm.useForm();  
+  const [isStop, setStop] = useState(false);
+  const [isStopping, setStopping] = useState(false);
 
   const fetch = useCallback(
     () => {
@@ -98,6 +100,7 @@ export const ScannerTable: React.FC = () => {
           maxOpen: res.maxOpen,
           blackList: res.blackList
         });
+        setStop(res.stop ?? false);
         setIsSettingModalOpen(true);
       }      
     });
@@ -310,7 +313,6 @@ export const ScannerTable: React.FC = () => {
   const onSettingFinish = async (values = {}) => {
     handleSaveScannerSetting();
   };
-  const [isStop, setStop] = useState(false);
 
   const handleSaveScannerSetting = () => {
     const maxOpen = settingForm.getFieldValue('maxOpen');
@@ -333,13 +335,16 @@ export const ScannerTable: React.FC = () => {
       });
   };
   const handleStartStop = () => {
+    setStopping(true);
     startStopScanner({
       id : 0,
       userId : 0,
       blackList : [],      
-      stop : isStop
+      stop : !isStop
     }).then((res) => {     
-      fetch();
+      setStop(!isStop);      
+    }).finally(()=>{
+      setStopping(false);
     });
   }
   
@@ -500,6 +505,15 @@ export const ScannerTable: React.FC = () => {
                       }}>
                       Cancel
                     </BaseButton>
+                    <BaseButton
+                      type="primary"
+                      htmlType="button"
+                      loading={isStopping}
+                      icon={<PoweroffOutlined />}
+                      onClick={handleStartStop}
+                    >
+                      {isStop ? (<>Start</>) : (<>Stop</>)}
+                    </BaseButton>
                   </BaseButtonsForm.Item>                
                 </>
                 
@@ -520,17 +534,7 @@ export const ScannerTable: React.FC = () => {
                       <BaseSelect mode='multiple' showArrow showSearch placeholder='Select symbol' options={selectOptions} />
                     </BaseButtonsForm.Item>
                   </BaseCol>                  
-              </BaseRow>
-              <BaseRow style={{marginTop: "10px"}}>
-                  <BaseButton
-                    type="primary"
-                    htmlType="button"
-                    icon={<PoweroffOutlined />}
-                    onClick={handleStartStop}
-                  >
-                    {isStop ? (<>Start</>) : (<>Stop</>)}
-                  </BaseButton>      
-              </BaseRow>                                          
+              </BaseRow>                                                        
             </BaseButtonsForm>            
       </BaseModal>
       <AddScannerSettingButton type="primary" shape="circle" icon={<SettingOutlined />} size="large" onClick={()=> handleOpenScannerSetting()}></AddScannerSettingButton>      

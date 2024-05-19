@@ -9,10 +9,12 @@ import { ConfigurationForm, saveConfiguration, saveScanner, saveScannerSetting, 
 
 export interface UserState {
   user: UserModel | null;
+  isBotStopped: boolean;
 }
 
 const initialState: UserState = {
   user: readUser(),
+  isBotStopped: false,
 };
 
 export const setUser = createAction<PrepareAction<UserModel>>('user/setUser', (newUser) => {
@@ -20,6 +22,12 @@ export const setUser = createAction<PrepareAction<UserModel>>('user/setUser', (n
 
   return {
     payload: newUser,
+  };
+});
+
+export const setBotStatus = createAction<PrepareAction<boolean>>('user/setBotStatus', (isStop) => {
+  return {
+    payload: isStop,
   };
 });
 
@@ -52,7 +60,15 @@ export const doSaveScannerSetting = createAsyncThunk(
 export const userSlice = createSlice({
   name: 'user',
   initialState,
-  reducers: {}
+  reducers: {},
+  extraReducers: (builder) => {
+    builder.addCase(setUser, (state, action) => {
+      state.user = action.payload;
+    });
+    builder.addCase(setBotStatus, (state, action) => {
+      state.isBotStopped = action.payload;
+    });
+  },
 });
 
 export default userSlice.reducer;
