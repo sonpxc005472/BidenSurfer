@@ -105,5 +105,13 @@ namespace BidenSurfer.WebApi.Controllers
             var maxAmount = await _userService.GetMaximumBorrow(symbol, orderSide);
             return Ok(maxAmount);
         }
+
+        [Authorize]
+        [HttpPost("start-stop-bot")]
+        public async Task<IActionResult> StartStopBot(GeneralSettingDto setting)
+        {
+            var rs = await _userService.StartStopBot(setting);
+            return Ok(rs);
+        }
     }
 }

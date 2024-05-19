@@ -5,9 +5,9 @@ import { BaseButton } from '@app/components/common/BaseButton/BaseButton';
 import { useTranslation } from 'react-i18next';
 import { BaseSpace } from '@app/components/common/BaseSpace/BaseSpace';
 import { BaseTooltip } from '@app/components/common/BaseTooltip/BaseTooltip';
-import { DeleteOutlined, EditFilled, PlusOutlined, SettingOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditFilled, PlusOutlined, PoweroffOutlined, SettingOutlined } from '@ant-design/icons';
 import { BaseSwitch } from '@app/components/common/BaseSwitch/BaseSwitch';
-import { ScannerForm, ScannerSettingForm, ScannerTableRow, SymbolData, deleteScanner, getScannerData, getScannerSetting, getSymbolData, setScannerActive } from 'api/table.api';
+import { ScannerForm, ScannerSettingForm, ScannerTableRow, SymbolData, deleteScanner, getScannerData, getScannerSetting, getSymbolData, setScannerActive, startStopScanner } from 'api/table.api';
 import { useMounted } from '@app/hooks/useMounted';
 import { BaseModal } from '@app/components/common/BaseModal/BaseModal';
 import { BaseForm } from '@app/components/common/forms/BaseForm/BaseForm';
@@ -23,6 +23,7 @@ import { BaseTag } from '@app/components/common/BaseTag/BaseTag';
 import { BaseInput } from '@app/components/common/inputs/BaseInput/BaseInput';
 import { AddScannerButton, AddScannerSettingButton } from './Scanner.styles';
 import { NumberInput } from '@app/components/header/dropdowns/settingsDropdown/settingsOverlay/nightModeSettings/NightTimeSlider/NightTimeSlider.styles';
+import { startStopBot } from '@app/api/user.api';
 
 const initialFormValues: ScannerForm = {
   id: undefined,
@@ -309,6 +310,7 @@ export const ScannerTable: React.FC = () => {
   const onSettingFinish = async (values = {}) => {
     handleSaveScannerSetting();
   };
+  const [isStop, setStop] = useState(false);
 
   const handleSaveScannerSetting = () => {
     const maxOpen = settingForm.getFieldValue('maxOpen');
@@ -330,6 +332,16 @@ export const ScannerTable: React.FC = () => {
         notificationController.error({ message: err.message });        
       });
   };
+  const handleStartStop = () => {
+    startStopScanner({
+      id : 0,
+      userId : 0,
+      blackList : [],      
+      stop : isStop
+    }).then((res) => {     
+      fetch();
+    });
+  }
   
   return (
     <>
@@ -509,7 +521,16 @@ export const ScannerTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>                  
               </BaseRow>
-                                                        
+              <BaseRow style={{marginTop: "10px"}}>
+                  <BaseButton
+                    type="primary"
+                    htmlType="button"
+                    icon={<PoweroffOutlined />}
+                    onClick={handleStartStop}
+                  >
+                    {isStop ? (<>Start</>) : (<>Stop</>)}
+                  </BaseButton>      
+              </BaseRow>                                          
             </BaseButtonsForm>            
       </BaseModal>
       <AddScannerSettingButton type="primary" shape="circle" icon={<SettingOutlined />} size="large" onClick={()=> handleOpenScannerSetting()}></AddScannerSettingButton>      

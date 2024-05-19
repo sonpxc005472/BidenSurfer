@@ -15,6 +15,8 @@ namespace BidenSurfer.Infras
         public static ConcurrentDictionary<string, UpdateSubscription> TickerSubscriptions = new ConcurrentDictionary<string, UpdateSubscription>();
         public static Dictionary<string, BybitKlineUpdate> Kline1mSubscriptions = new Dictionary<string, BybitKlineUpdate>();
         public static Dictionary<string, decimal> SymbolTurnover = new Dictionary<string, decimal>();
+        public static Dictionary<long, bool> BotStatus = new Dictionary<long, bool>();
+        public static Dictionary<long, bool> ScannerStatus = new Dictionary<long, bool>();
         public static ConcurrentDictionary<long, UpdateSubscription> OrderSubscriptions = new ConcurrentDictionary<long, UpdateSubscription>();
         public static ConcurrentDictionary<string,ConfigDto> FilledOrders = new ConcurrentDictionary<string,ConfigDto>();
         public static ConcurrentDictionary<string,ConfigDto> AllConfigs = new ConcurrentDictionary<string,ConfigDto>();

@@ -75,6 +75,10 @@ namespace BidenSurfer.Scanner
                 {
                     x.Consumer<UserUpdateFromApiConsumer>(ctx);
                 });
+                cfg.ReceiveEndpoint(QueueName.StartStopBotForScannerMessage, x =>
+                {
+                    x.Consumer<StartStopBotConsumer>(ctx);
+                });
                 #endregion
 
                 #region Publish endpoints

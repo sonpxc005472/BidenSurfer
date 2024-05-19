@@ -14,6 +14,7 @@ export interface GeneralSettingData {
   userId: number;
   budget: number;
   assetTracking: number;
+  stop?: boolean;
 }
 
 
@@ -28,3 +29,6 @@ export const getGeneralSetting = (): Promise<GeneralSettingData> =>
 
 export const saveGeneralSetting = (data: GeneralSettingData): Promise<boolean> =>
   httpApi.post<boolean>('user/save-general-setting', { ...data }).then(({ data }) => data);
+
+export const startStopBot = (data: GeneralSettingData): Promise<boolean> =>
+  httpApi.post<boolean>('user/start-stop-bot', { ...data }).then(({ data }) => data);

@@ -8,7 +8,9 @@ namespace BidenSurfer.Infras.BusEvents
         public static readonly string ScannerIndicator = "ScannerIndicator";
         public static readonly string SaveNewConfig = "SaveNewConfig";
         public static readonly string StartOrStopUserBot = "StartOrStopUserBot";
-        public static readonly string RestartUserBot = "RestartUserBot";
+        public static readonly string StartStopBotForBotRunnerMessage = "StartStopBotForBotRunnerMessage";
+        public static readonly string StartStopBotForScannerMessage = "StartStopBotForScannerMessage";
+        public static readonly string StartStopScannerMessage = "StartStopScannerMessage";
         public static readonly string OnOffConfigMessageBotRunner = "OnOffConfigMessageBotRunner";
         public static readonly string OnOffConfigMessageScanner = "OnOffConfigMessageScanner";
         public static readonly string UpdateConfigMessage = "UpdateConfigMessage";

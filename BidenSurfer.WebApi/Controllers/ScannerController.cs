@@ -77,5 +77,13 @@ namespace BidenSurfer.WebApi.Controllers
             var rs = await _scannerService.SetScannerActiveStatus(setActive.Id, setActive.IsActive);
             return Ok(rs);
         }
+
+        [Authorize]
+        [HttpPost("start-stop")]
+        public async Task<IActionResult> StartStopScanner(ScannerSettingDto setting)
+        {
+            var rs = await _scannerService.StartStopScanner(setting);
+            return Ok(rs);
+        }
     }
 }

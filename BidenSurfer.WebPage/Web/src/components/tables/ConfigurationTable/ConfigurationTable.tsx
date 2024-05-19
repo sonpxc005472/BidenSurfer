@@ -5,9 +5,9 @@ import { BaseButton } from '@app/components/common/BaseButton/BaseButton';
 import { useTranslation } from 'react-i18next';
 import { BaseSpace } from '@app/components/common/BaseSpace/BaseSpace';
 import { BaseTooltip } from '@app/components/common/BaseTooltip/BaseTooltip';
-import { DeleteOutlined, EditFilled, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditFilled, PlusOutlined, ScanOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { BaseSwitch } from '@app/components/common/BaseSwitch/BaseSwitch';
-import { ConfigurationForm, ConfigurationTableRow, SymbolData, deleteConfig, getConfigurationData, getMaxBorrow, getSymbolData, setConfigActive } from 'api/table.api';
+import formatNumber, { ConfigurationForm, ConfigurationTableRow, SymbolData, deleteConfig, getConfigurationData, getMaxBorrow, getSymbolData, setConfigActive } from 'api/table.api';
 import { useMounted } from '@app/hooks/useMounted';
 import { BaseModal } from '@app/components/common/BaseModal/BaseModal';
 import { BaseForm } from '@app/components/common/forms/BaseForm/BaseForm';
@@ -15,7 +15,7 @@ import { BaseRow } from '@app/components/common/BaseRow/BaseRow';
 import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
 import { AddConfigurationButton } from './Configuration.styles';
 import { BaseSelect } from '@app/components/common/selects/BaseSelect/BaseSelect';
-import { InputNumber, Typography } from 'antd';
+import { Badge, InputNumber, Typography } from 'antd';
 import { doSaveConfiguration } from '@app/store/slices/userSlice';
 import { useAppDispatch } from '@app/hooks/reduxHooks';
 import { notificationController } from '@app/controllers/notificationController';
@@ -148,7 +148,7 @@ export const ConfigurationTable: React.FC = () => {
     {
       title: () => (<div>Symbol ({tableData.data.filter((item) => item.isActive).length}/{tableData.data.length})</div>),
       dataIndex: 'symbol',
-      width: '30px',
+      width: '20%',
       render: (text: string, record: { id: number; isActive: boolean }) => {
         return (
           <BaseSpace>            
@@ -156,7 +156,7 @@ export const ConfigurationTable: React.FC = () => {
               <BaseButton type="default" size='small' icon={<EditFilled />} onClick={() => handleOpenAddEdit(record.id)} />
             </BaseTooltip>
             <BaseSwitch size='small' checked={record.isActive} onChange={() => handleActiveRow(record.id, !record.isActive)} />
-            <div>{text}</div>
+            {text}
           </BaseSpace>
         );
       },
@@ -164,36 +164,63 @@ export const ConfigurationTable: React.FC = () => {
     {
       title: 'Position',
       dataIndex: 'positionSide',
-      width: '10px',
+      width: '10%',
+      render: (text: string, record: { createdBy: string }) => {
+        return (
+          <BaseSpace>
+            {
+              record.createdBy === 'scanner' ? 
+              (<Badge count={<StarFilled style={{ color: 'red' }} />}>
+                {<div style={{paddingRight: "10px"}}>{text}</div>}
+              </Badge>) : (<div>{text}</div>)
+            }            
+          </BaseSpace>
+        );
+      }
     }, 
     {
       title: 'Amount',
-      dataIndex: 'amount'
+      dataIndex: 'amount',
+      width: '10%',
+      render: (text: string, record: { amount: number }) => {
+        return (
+          formatNumber(record.amount, 2)
+        );
+      }
     },
     {
       title: 'OC',
       dataIndex: 'orderChange',
+      width: '5%',
     },
     {
       title: 'Auto Amount',
       dataIndex: 'increaseAmountPercent',
+      width: '5%',
     },
     {
       title: 'Amount Expire',
       dataIndex: 'increaseAmountExpire',
+      width: '5%',
     },
     {
       title: 'Amount Limit',
       dataIndex: 'amountLimit',
+      width: '10%',
+      render: (text: string, record: { amountLimit: number }) => {
+        return (
+          formatNumber(record.amountLimit, 2)
+        );
+      }
     },  
     {
       title: 'Expire',
       dataIndex: 'expire',
+      width: '5%',
     },
     {
       title: '',
       dataIndex: 'delete',
-      width: '5%',
       render: (text: string, record: { id: number, isActive: boolean }) => {
         return (
           <BaseSpace>            

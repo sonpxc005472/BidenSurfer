@@ -8,7 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 
 public interface IUserService
-{ 
+{
+    Task GetBotStatus();
     Task<List<UserDto>> GetAllActive();
     void DeleteAllCached();
     void SaveSymbolCollateral(long userId, List<string> symbolUser);
@@ -59,6 +60,17 @@ public class UserService : IUserService
         }).ToList();
         StaticObject.AllUsers = users;
         return users;
+    }
+
+    public async Task GetBotStatus()
+    {
+        var result = await _dbContext?.GeneralSettings.ToListAsync();
+
+        StaticObject.BotStatus = result.Select(r => new
+        {
+            r.UserId,
+            r.Stop
+        }).Distinct().ToDictionary(r => r.UserId, r => r.Stop.HasValue ? !r.Stop.Value : true);
     }
 
     public async Task<GeneralSettingDto?> GetGeneralSetting(long userId)

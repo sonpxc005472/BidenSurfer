@@ -106,6 +106,11 @@ public class BotService : IBotService
                                         var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
+                                            //Bot is stopping so do not do anymore
+                                            if (StaticObject.BotStatus.ContainsKey(scanner.UserId) && !StaticObject.BotStatus[scanner.UserId])
+                                            {
+                                                continue;
+                                            }
                                             var sideOrderExisted = configs.Any(x => x.Value.Symbol == symbol && x.Value.UserId == scanner.UserId && x.Value.PositionSide != scanner.PositionSide);
                                             var scanOcExisted = configs.Any(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.UserId == scanner.UserId && c.Value.IsActive);
                                             if (!scanOcExisted && !sideOrderExisted)
@@ -140,6 +145,11 @@ public class BotService : IBotService
                                         var newConfigs = new List<ConfigDto>();
                                         foreach (var scanner in scanners)
                                         {
+                                            //Bot is stopping so do not do anymore
+                                            if ((StaticObject.BotStatus.ContainsKey(scanner.UserId) && !StaticObject.BotStatus[scanner.UserId]) || (StaticObject.ScannerStatus.ContainsKey(scanner.UserId) && !StaticObject.ScannerStatus[scanner.UserId]))
+                                            {
+                                                continue;
+                                            }
                                             var sideOrderExisted = configs.Any(x => x.Value.Symbol == symbol && x.Value.UserId == scanner.UserId && x.Value.PositionSide != scanner.PositionSide);
                                             var scanOcExisted = configs.Any(c => c.Value.IsActive && c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.UserId == scanner.UserId);
                                             if (!scanOcExisted && !sideOrderExisted)

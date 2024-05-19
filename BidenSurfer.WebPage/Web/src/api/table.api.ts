@@ -58,6 +58,7 @@ export interface ScannerSettingForm {
   userId?: number;
   maxOpen?: number;
   blackList?: string[];
+  stop?: boolean;
 }
 
 export interface ConfigurationTableRow {
@@ -74,7 +75,17 @@ export interface ConfigurationTableRow {
   expire: number;
   amountLimit: number;
   isActive: boolean;
+  createdBy: string;
 }
+
+export default function formatNumber(num: number, precision: number = 1): string {
+  if (num > 999) {
+    const formatted = (num / 1000).toFixed(precision) + 'K';
+    return formatted;
+  }
+  return num.toString();
+}
+
 
 export interface ScannerTableRow {
   id: number;
@@ -165,6 +176,8 @@ export const deleteScanner = (id: number): Promise<boolean> =>
 export const setScannerActive = (id: number, isActive: boolean): Promise<boolean> =>
   httpApi.put<boolean>('scanner/set-active', { id: id, isActive: isActive }).then(({ data }) => data);
 
+export const startStopScanner = (data: ScannerSettingForm): Promise<boolean> =>
+  httpApi.post<boolean>('scanner/start-stop', { ...data }).then(({ data }) => data);
 
 export const getBasicTableData = (pagination: Pagination): Promise<BasicTableData> => {
   return new Promise((res) => {

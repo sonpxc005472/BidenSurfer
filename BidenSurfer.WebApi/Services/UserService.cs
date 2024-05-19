@@ -27,6 +27,7 @@ public interface IUserService
     Task<bool> SaveApiSetting(UserSettingDto userSettingDto);
     Task<GeneralSettingDto?> GetGeneralSetting();
     Task<bool> SaveGeneralSetting(GeneralSettingDto generalSettingDto);
+    Task<bool> StartStopBot(GeneralSettingDto generalSettingDto);
     Task<decimal> GetMaximumBorrow(string symbol, string orderSide);
     string GenHash(string text);
 }
@@ -288,7 +289,8 @@ public class UserService : IUserService
                 Userid = userId,
                 Budget = 0,
                 AssetTracking = 0,
-                Id = 0
+                Id = 0,
+                Stop = false
             };
         }
         return new GeneralSettingDto
@@ -296,7 +298,8 @@ public class UserService : IUserService
             Id = setting.Id,
             Budget = setting?.Budget,
             AssetTracking = setting?.AssetTracking,
-            Userid = setting.UserId
+            Userid = setting.UserId,
+            Stop = setting?.Stop
         };
     }
 
@@ -310,7 +313,8 @@ public class UserService : IUserService
             {
                 UserId = userId,
                 Budget = generalSettingDto.Budget,
-                AssetTracking = generalSettingDto.AssetTracking
+                AssetTracking = generalSettingDto.AssetTracking,
+                Stop = false
             };
             _context.GeneralSettings.Add(userSetting);
         }
@@ -324,4 +328,27 @@ public class UserService : IUserService
        
         return true;
     }
+
+    public async Task<bool> StartStopBot(GeneralSettingDto generalSettingDto)
+    {
+        var userId = _securityContextAccessor.UserId;
+        var setting = await _context.GeneralSettings?.FirstOrDefaultAsync(c => c.UserId == userId);
+        if (setting != null && setting.Stop != generalSettingDto.Stop)
+        {
+            setting.Stop = generalSettingDto.Stop;
+            _context?.GeneralSettings?.Update(setting);
+            await _context.SaveChangesAsync();
+            _ = _bus.Send(new StartStopBotForBotRunnerMessage
+            {
+                UserId = userId,
+                IsStop = generalSettingDto.Stop.Value
+            });
+            _ = _bus.Send(new StartStopBotForScannerMessage
+            {
+                UserId = userId,
+                IsStop = generalSettingDto.Stop.Value
+            });
+        }
+        return true;
+    }    
 }

@@ -86,7 +86,9 @@ namespace BidenSurfer.WebApi
 
                 #region Publish endpoints
 
-                EndpointConvention.Map<RestartBotMessage>(new Uri($"queue:{QueueName.RestartUserBot}"));
+                EndpointConvention.Map<StartStopBotForBotRunnerMessage>(new Uri($"queue:{QueueName.StartStopBotForBotRunnerMessage}"));
+                EndpointConvention.Map<StartStopBotForScannerMessage>(new Uri($"queue:{QueueName.StartStopBotForScannerMessage}"));
+                EndpointConvention.Map<StartStopScannerMessage>(new Uri($"queue:{QueueName.StartStopScannerMessage}"));
                 EndpointConvention.Map<OnOffConfigMessageBotRunner>(new Uri($"queue:{QueueName.OnOffConfigMessageBotRunner}"));
                 EndpointConvention.Map<OnOffConfigMessageScanner>(new Uri($"queue:{QueueName.OnOffConfigMessageScanner}"));
                 EndpointConvention.Map<ConfigUpdateFromApiForBotRunnerMessage>(new Uri($"queue:{QueueName.ConfigUpdateFromApiForBotRunnerMessage}"));

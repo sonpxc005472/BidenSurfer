@@ -30,6 +30,7 @@ namespace BidenSurfer.Scanner.Services
             }
             await _configService.GetAllActiveAsync();
             await _userService.GetAllActive();
+            await _userService.GetBotStatus();
             await _scannerService.GetScannerSettings();
             await _scannerService.GetAll();
             await _botService.SubscribeSticker();

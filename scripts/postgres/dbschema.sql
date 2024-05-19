@@ -62,14 +62,16 @@ CREATE TABLE IF NOT EXISTS scannersetting (
     id 	BIGSERIAL PRIMARY KEY,
     userid BIGINT NOT NULL,
 	blacklist JSONB,
-	maxopen INTEGER
+	maxopen INTEGER,
+	stop boolean
 );
 
 CREATE TABLE IF NOT EXISTS generalsetting (
     id 	BIGSERIAL PRIMARY KEY,
     userid BIGINT NOT NULL,
 	budget numeric(8,2),
-    assettracking numeric(8,2)
+    assettracking numeric(8,2),
+	stop boolean
 );
 
 INSERT INTO users(fullname, username, password, email, role, status) VALUES('admin','admin','23D42F5F3F66498B2C8FF4C20B8C5AC826E47146','admin@bisurfer.xyz',1,1);

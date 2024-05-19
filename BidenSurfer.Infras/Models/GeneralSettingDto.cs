@@ -5,4 +5,5 @@ public class GeneralSettingDto
     public long Userid { get; set; }
     public decimal? Budget { get; set; }
     public decimal? AssetTracking { get; set; }
+    public bool? Stop { get; set; }
 }

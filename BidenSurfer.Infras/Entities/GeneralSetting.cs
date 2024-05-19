@@ -9,4 +9,5 @@ public class GeneralSetting
     public long UserId { get; set; }
     public decimal? Budget { get; set; }
     public decimal? AssetTracking { get; set; }    
+    public bool? Stop { get; set; }
 }

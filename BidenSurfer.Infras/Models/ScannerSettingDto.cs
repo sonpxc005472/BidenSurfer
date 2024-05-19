@@ -5,4 +5,5 @@ public class ScannerSettingDto
     public long UserId { get; set; }
     public int MaxOpen { get; set; } = 10;
     public List<string>? BlackList { get; set; }
+    public bool? Stop { get; set; }
 }

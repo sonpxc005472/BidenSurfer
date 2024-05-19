@@ -10,6 +10,7 @@ using System.Collections.Generic;
 public interface IUserService
 { 
     Task<List<UserDto>> GetAllActive();
+    Task GetBotStatus();
 }
 
 public class UserService : IUserService
@@ -48,5 +49,14 @@ public class UserService : IUserService
         
         return users;
     }
-        
+
+    public async Task GetBotStatus()
+    {
+        var result = await _dbContext?.GeneralSettings.ToListAsync();
+
+        StaticObject.BotStatus = result.Select(r => new
+        {
+           r.UserId, r.Stop
+        }).Distinct().ToDictionary(r => r.UserId, r => r.Stop.HasValue ? !r.Stop.Value : true);
+    }
 }

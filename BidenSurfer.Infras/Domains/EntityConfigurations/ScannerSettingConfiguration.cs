@@ -32,7 +32,9 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
                  .HasConversion(
                     v => JsonConvert.SerializeObject(v),
                     v => JsonConvert.DeserializeObject<List<string>>(v));
-            
+            builder.Property(x => x.Stop)
+                 .HasColumnName("stop")
+                 .HasColumnType("boolean");
         }
     }
 }

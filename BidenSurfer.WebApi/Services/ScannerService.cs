@@ -19,17 +19,20 @@ public interface IScannerService
     Task<ScannerSettingDto?> GetScannerSettingByUser(long userId);
     Task<IEnumerable<ScannerSettingDto>> GetAllScannerSetting();
     Task<bool> AddOrEditScannerSetting(ScannerSettingDto scannerSetting);
+    Task<bool> StartStopScanner(ScannerSettingDto setting);
 }
 
 public class ScannerService : IScannerService
 {
     private readonly AppDbContext _context;
     private readonly IBus _bus;
+    private ISecurityContextAccessor _securityContextAccessor;
 
-    public ScannerService(AppDbContext context, IBus bus)
+    public ScannerService(AppDbContext context, IBus bus, ISecurityContextAccessor securityContextAccessor)
     {
         _context = context;
         _bus = bus;
+        _securityContextAccessor = securityContextAccessor;
     }
 
     public async Task<bool> AddOrEdit(ScannerDto scanner)
@@ -188,7 +191,8 @@ public class ScannerService : IScannerService
             Id = r.Id,
             UserId = r.Userid,
             BlackList = r.BlackList,
-            MaxOpen = r.MaxOpen
+            MaxOpen = r.MaxOpen,
+            Stop = r.Stop
         };
     }
 
@@ -266,5 +270,23 @@ public class ScannerService : IScannerService
             Console.WriteLine(ex.Message);
             return false;
         }
+    }
+
+    public async Task<bool> StartStopScanner(ScannerSettingDto settingDto)
+    {
+        var userId = _securityContextAccessor.UserId;
+        var setting = await _context.ScannerSetting?.FirstOrDefaultAsync(c => c.Userid == userId);
+        if (setting != null && setting.Stop != settingDto.Stop)
+        {
+            setting.Stop = settingDto.Stop;
+            _context?.ScannerSetting?.Update(setting);
+            await _context.SaveChangesAsync();
+            await _bus.Send(new StartStopScannerMessage
+            {
+                UserId = userId,
+                IsStop = settingDto.Stop.Value
+            });
+        }
+        return true;
     }
 }

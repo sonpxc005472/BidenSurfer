@@ -29,7 +29,11 @@ namespace S5E.ABPCMS.Infrastructure.EntityConfigurations
             builder.Property(x => x.AssetTracking)
                  .HasColumnName("assettracking")
                  .HasColumnType("numeric(8,2)");
-            
+
+            builder.Property(x => x.Stop)
+                 .HasColumnName("stop")
+                 .HasColumnType("boolean");
+
         }
     }
 }

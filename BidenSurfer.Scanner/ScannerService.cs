@@ -3,6 +3,7 @@ using BidenSurfer.Infras;
 using BidenSurfer.Infras.Domains;
 using BidenSurfer.Infras.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 
 namespace BidenSurfer.Scanner.Services;
 public interface IScannerService
@@ -105,7 +106,9 @@ public class ScannerService : IScannerService
                     BlackList = c.BlackList,
                     MaxOpen = c.MaxOpen
                 });
-                StaticObject.AllScannerSetting = resultDto;                
+                StaticObject.AllScannerSetting = resultDto;
+                StaticObject.ScannerStatus = result.Select(x => new { x.Userid, x.Stop }).Distinct()
+                .ToDictionary(g => g.Userid, g => g.Stop.HasValue ? !g.Stop.Value : true);                
             }
             
             return StaticObject.AllScannerSetting;

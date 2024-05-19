@@ -12,10 +12,12 @@ using MassTransit;
 using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
 using System;
+using CryptoExchange.Net.CommonObjects;
 
 public interface IBotService
 {
     Task<BybitSocketClient> SubscribeSticker();
+    Task<bool> UnsubscribeAll();
     Task SubscribeKline1m();
     Task InitUserApis();
     Task GetSpotSymbols();
@@ -80,6 +82,11 @@ public class BotService : IBotService
                                 var priceDiff = Math.Abs(currentPrice - prePrice) / prePrice * 100;
                                 foreach (var symbolConfig in symbolConfigs)
                                 {
+                                    //Bot is stopping so do not do anymore
+                                    if(StaticObject.BotStatus.ContainsKey(symbolConfig.UserId) && !StaticObject.BotStatus[symbolConfig.UserId])
+                                    {
+                                        continue;
+                                    }    
                                     bool isExistedScanner = openScanners.Any(x => x.UserId == symbolConfig.UserId);
                                     bool isLongSide = symbolConfig.PositionSide == AppConstants.LongSide;
                                     var existingFilledOrders = StaticObject.FilledOrders.Where(x => x.Value.UserId == symbolConfig.UserId && x.Value.OrderStatus == 2 && x.Value.Symbol == symbol).Select(r => r.Value).ToList();
@@ -904,9 +911,22 @@ public class BotService : IBotService
             return false;
         }
     }
-
+    
     private bool IsNeededCancel(string errorMessage)
     {
         return !errorMessage.Contains("not exist", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("pending order modification", StringComparison.InvariantCultureIgnoreCase);
+    }
+
+    public async Task<bool> UnsubscribeAll()
+    {
+        Console.WriteLine("Unsubscribe all...");
+
+        var subsToUnsubs = StaticObject.TickerSubscriptions.ToList();
+        foreach (var unsub in subsToUnsubs)
+        {
+            await StaticObject.PublicWebsocket.UnsubscribeAsync(unsub.Value);
+        }
+        StaticObject.TickerSubscriptions.Clear();
+        return true;
     }
 }
