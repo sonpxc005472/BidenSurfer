@@ -8,6 +8,8 @@ using BidenSurfer.Infras.BusEvents;
 using MassTransit;
 using BidenSurfer.BotRunner.Consumers;
 using BidenSurfer.Infras.Helpers;
+using BidenSurfer.Infras.Loggers;
+using Serilog;
 
 namespace BidenSurfer.BotRunner
 {
@@ -27,6 +29,7 @@ namespace BidenSurfer.BotRunner
                 config.AddEnvironmentVariables();
                 config.AddCommandLine(args);
             })
+            .UseLogging("Bot Runner")
             .ConfigureServices((hostContext, services) =>
             {
                 var builder = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory())

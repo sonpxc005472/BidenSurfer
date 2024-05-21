@@ -337,6 +337,16 @@ public class UserService : IUserService
         {
             setting.Stop = generalSettingDto.Stop;
             _context?.GeneralSettings?.Update(setting);
+            if(generalSettingDto.Stop.HasValue && generalSettingDto.Stop.Value)
+            {
+                var userConfig = await _context.Configs.Where(x => x.Userid == userId && x.IsActive).ToListAsync();
+                foreach (var item in userConfig)
+                {
+                    item.IsActive = false;
+                }
+                _context.Configs.UpdateRange(userConfig);
+            }
+
             await _context.SaveChangesAsync();
             _ = _bus.Send(new StartStopBotForBotRunnerMessage
             {

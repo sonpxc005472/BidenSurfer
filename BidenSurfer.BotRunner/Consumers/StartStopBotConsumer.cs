@@ -23,7 +23,9 @@ namespace BidenSurfer.BotRunner.Consumers
             else
             {
                 StaticObject.BotStatus.Add(userId, !isStop);
-            }                       
+            }           
+            if (isStop)
+                await _botService.CancelAllOrder(userId);
         }
     }
 }

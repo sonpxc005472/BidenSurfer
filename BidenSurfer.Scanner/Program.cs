@@ -8,6 +8,7 @@ using MassTransit;
 using BidenSurfer.Infras.Domains;
 using BidenSurfer.Scanner.Consumers;
 using BidenSurfer.Infras.Helpers;
+using BidenSurfer.Infras.Loggers;
 
 namespace BidenSurfer.Scanner
 {
@@ -27,6 +28,7 @@ namespace BidenSurfer.Scanner
                 config.AddEnvironmentVariables();
                 config.AddCommandLine(args);
             })
+            .UseLogging("Scanner")
             .ConfigureServices((hostContext, services) =>
             {
                 var builder = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory())

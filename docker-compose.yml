@@ -2,6 +2,17 @@
 version: '3.7'
 
 services:
+
+  seq:
+    image: datalust/seq
+    container_name: seq
+    environment:
+      - ACCEPT_EULA=Y
+    networks:
+      - bidensurfer
+    volumes:
+      - seq-data:/data
+      
   bidensurferrabbitmq:
     image: rabbitmq:3-management
     container_name: bidensurferrabbitmq
@@ -72,6 +83,9 @@ services:
       - bidensurfer
     depends_on:
       - bot-webapi
+      
+volumes:
+  seq-data:
       
 networks:
   bidensurfer:

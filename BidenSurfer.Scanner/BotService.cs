@@ -14,6 +14,7 @@ using BidenSurfer.Infras.Entities;
 using System.Diagnostics.Metrics;
 using Telegram.Bot.Types;
 using CryptoExchange.Net.Authentication;
+using Microsoft.Extensions.Logging;
 
 public interface IBotService
 {
@@ -24,13 +25,13 @@ public class BotService : IBotService
 {
     IBus _bus;
     IConfigService _configService;
-    IScannerService _scannerService;
+    private readonly ILogger<BotService> _logger;
     private readonly ITeleMessage _teleMessage;
-    public BotService(IBus bus, IConfigService configService, IScannerService scannerService, ITeleMessage teleMessage)
+    public BotService(IBus bus, IConfigService configService, ILogger<BotService> logger, ITeleMessage teleMessage)
     {
         _bus = bus;
         _configService = configService;
-        _scannerService = scannerService;
+        _logger = logger;
         _teleMessage = teleMessage;
     }
 
@@ -127,10 +128,10 @@ public class BotService : IBotService
                                                     )
                                                 {
                                                     candle.Confirmed = true;
-                                                    Console.WriteLine($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
-                                                    Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
-                                                    Console.WriteLine($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
-                                                    Console.WriteLine($"=====================================================================================");
+                                                    _logger.LogInformation($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
+                                                    _logger.LogInformation($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
+                                                    _logger.LogInformation($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+                                                    _logger.LogInformation($"=====================================================================================");
 
                                                     // create new configs for long side
                                                     await CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close);                                                   
@@ -167,10 +168,10 @@ public class BotService : IBotService
                                                     )
                                                 {
                                                     candle.Confirmed = true;
-                                                    Console.WriteLine($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
-                                                    Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
-                                                    Console.WriteLine($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
-                                                    Console.WriteLine($"=====================================================================================");
+                                                    _logger.LogInformation($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
+                                                    _logger.LogInformation($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
+                                                    _logger.LogInformation($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+                                                    _logger.LogInformation($"=====================================================================================");
 
                                                     // create new configs for short side
                                                     await CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close);                                                   
@@ -214,7 +215,7 @@ public class BotService : IBotService
 
             if (!subResult.Success)
             {
-                Console.WriteLine("subscribe trade error: " + subResult.Error);
+                _logger.LogInformation("subscribe trade error: " + subResult.Error);
             }
         }
         
