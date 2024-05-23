@@ -22,6 +22,8 @@ namespace BidenSurfer.Infras.BusEvents
         public static readonly string UpdateUserForBotRunnerMessage = "UpdateUserForBotRunnerMessage";
         public static readonly string ScannerSettingUpdateFromApiMessage = "ScannerSettingUpdateFromApiMessage";
         public static readonly string ScannerDeleteFromApiMessage = "ScannerDeleteFromApiMessage";
+        public static readonly string SymbolInfoUpdateForScannerMessage = "SymbolInfoUpdateForScannerMessage";
+        public static readonly string SymbolInfoUpdateForBotRunnerMessage = "SymbolInfoUpdateForBotRunnerMessage";
 
     }
 }

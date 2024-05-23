@@ -85,6 +85,11 @@ namespace BidenSurfer.Scanner
                 {
                     x.Consumer<StartStopScannerConsumer>(ctx);
                 });
+                cfg.ReceiveEndpoint(QueueName.SymbolInfoUpdateForScannerMessage, x =>
+                {
+                    x.Consumer<SymbolsUpdateFromApiConsumer>(ctx);
+                });
+
                 #endregion
 
                 #region Publish endpoints

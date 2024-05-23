@@ -15,6 +15,7 @@ using System;
 using CryptoExchange.Net.CommonObjects;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using StackExchange.Redis;
 
 public interface IBotService
 {
@@ -25,7 +26,7 @@ public interface IBotService
     Task GetSpotSymbols();
     Task SubscribeOrderChannel();
     Task<bool> TakePlaceOrder(ConfigDto config, decimal currentPrice);
-    BybitEditOrderRequest BuildAmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice);
+    Task<bool> AmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice);
     Task<bool> CancelOrder(ConfigDto config, bool isExpired);
     Task<bool> CancelAllOrder(long? userId = null);
 }
@@ -72,7 +73,7 @@ public class BotService : IBotService
                             var currentPrice = currentData.ClosePrice;
 
                             // every 2s change order
-                            if ((currentTime - preTime).TotalMilliseconds >= 2500)
+                            if ((currentTime - preTime).TotalMilliseconds >= 3000)
                             {
                                 preTime = currentTime;
                                 var allActiveConfigs = StaticObject.AllConfigs;
@@ -84,13 +85,14 @@ public class BotService : IBotService
                                     prePrice = currentPrice;
                                 }
                                 var priceDiff = Math.Abs(currentPrice - prePrice) / prePrice * 100;
+                                bool isPriceChanged = false;
                                 foreach (var symbolConfig in symbolConfigs)
                                 {
                                     //Bot is stopping so do not do anymore
-                                    if(StaticObject.BotStatus.ContainsKey(symbolConfig.UserId) && !StaticObject.BotStatus[symbolConfig.UserId])
+                                    if (StaticObject.BotStatus.ContainsKey(symbolConfig.UserId) && !StaticObject.BotStatus[symbolConfig.UserId])
                                     {
                                         continue;
-                                    }    
+                                    }
                                     bool isExistedScanner = openScanners.Any(x => x.UserId == symbolConfig.UserId);
                                     bool isLongSide = symbolConfig.PositionSide == AppConstants.LongSide;
                                     var existingFilledOrders = StaticObject.FilledOrders.Where(x => x.Value.UserId == symbolConfig.UserId && x.Value.OrderStatus == 2 && x.Value.Symbol == symbol).Select(r => r.Value).ToList();
@@ -105,69 +107,20 @@ public class BotService : IBotService
                                         //Nếu giá dịch chuyển lớn hơn 0.05% so với giá lúc trước thì amend order
                                         if (priceDiff > (decimal)0.05)
                                         {
+                                            isPriceChanged = true;
                                             //Amend order
-                                            var editOrder = BuildAmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
-                                            if (editOrder != null)
-                                            {
-                                                if (editOrders.ContainsKey(symbolConfig.UserId))
-                                                {
-                                                    var userEditOrders = editOrders[symbolConfig.UserId];
-                                                    userEditOrders.Add(editOrder);
-                                                    editOrders[symbolConfig.UserId] = userEditOrders;
-                                                }
-                                                else
-                                                {
-                                                    editOrders.Add(symbolConfig.UserId, new List<BybitEditOrderRequest> { editOrder });
-                                                }
-                                            }
+                                            await AmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
                                         }
                                     }
                                 }
-
-                                if (editOrders.Any())
+                                if (isPriceChanged)
                                 {
                                     prePrice = currentPrice;
-                                    foreach (var editOrder in editOrders)
-                                    {
-                                        var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == editOrder.Key)?.Setting;
-                                        BybitRestClient api;
-                                        if (!StaticObject.RestApis.TryGetValue(editOrder.Key, out api))
-                                        {
-                                            api = new BybitRestClient();
-                                            api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
-                                            StaticObject.RestApis.TryAdd(editOrder.Key, api);
-                                        }
-
-                                        var amendOrder = await api.V5Api.Trading.EditMultipleOrdersAsync
-                                            (
-                                                Category.Spot,
-                                                editOrder.Value
-                                            );
-
-                                        var editResults = amendOrder.Data?.ToList();
-                                        if(editResults != null && editResults.Any())
-                                        {
-                                            foreach (var editResult in editResults)
-                                            {
-                                                if (editResult.Code != 0 && IsNeededCancel(editResult.Message))
-                                                {
-                                                    var config = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.ClientOrderId == editResult.Data?.ClientOrderId).Value;
-                                                    if (config != null)
-                                                    {
-                                                        var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {editResult.Code} - {editResult.Message}";
-                                                        _logger.LogInformation(message);
-                                                        _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {editResult.Message}");
-                                                        await CancelOrder(config);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
                                 }
                             }
 
                             //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
-                            var filledOrders = StaticObject.FilledOrders.Select(r => r.Value).ToList();
+                            var filledOrders = StaticObject.FilledOrders.Where(r => r.Value.Symbol == symbol).Select(r => r.Value).ToList();
                             foreach (var order in filledOrders)
                             {
                                 if (!order.isClosingFilledOrder)
@@ -181,36 +134,7 @@ public class BotService : IBotService
                                 {
                                     await TryTakeProfit(order, currentPrice);
                                 }
-                            }
-
-                            // Cancel order if expired
-                            // todo: decrease amount to origin amount if expired
-                            if ((currentTime - preTimeCancel).TotalMilliseconds >= 10000)
-                            {
-                                preTimeCancel = currentTime;
-                                var configExpired = StaticObject.AllConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.EditedDate != null && x.Value.Expire != null && x.Value.Expire.Value != 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.Expire.Value) < currentTime)).Select(c => c.Value).ToList();
-                                var cancelledConfigs = new List<string>();
-                                foreach (var config in configExpired)
-                                {
-                                    var isFilledOrder = StaticObject.FilledOrders.Any(x => x.Key == config.CustomId);
-                                    if (!isFilledOrder)
-                                    {
-                                        config.IsActive = false;
-                                        await CancelOrder(config, true);
-                                    }
-                                }
-                                
-                                var configAmountExpired = StaticObject.AllConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.OrderStatus != 2 && x.Value.EditedDate != null && x.Value.IncreaseAmountExpire != null && x.Value.IncreaseAmountExpire.Value > 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.IncreaseAmountExpire.Value) < currentTime)).Select(c => c.Value).ToList();
-                                if (configAmountExpired.Any())
-                                {
-                                    foreach (var config in configAmountExpired)
-                                    {
-                                        config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
-                                        _configService.AddOrEditConfig(config);
-                                    }
-                                    _ = _bus.Send(new AmountExpireMessage { Configs = configAmountExpired.Select(c => c.CustomId).ToList() });
-                                }
-                            }
+                            }                            
                         }
 
                     });
@@ -322,31 +246,67 @@ public class BotService : IBotService
 
     }
 
-    public BybitEditOrderRequest BuildAmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice)
+    public async Task<bool> AmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice)
     {
+        var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
+        if (userSetting == null) return false;
         try
-        {            
+        {
+            BybitRestClient api;
+            if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
+            {
+                api = new BybitRestClient();
+
+                api.SetApiCredentials(new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey));
+                StaticObject.RestApis.TryAdd(config.UserId, api);
+            }
             var symbol = config.Symbol;
             var orderPriceAndQuantity = CalculateOrderPriceQuantityTP(currentPrice, config);
             var orderPrice = orderPriceAndQuantity.Item1;
+            var tpPriceUpdate = orderPriceAndQuantity.Item3;
             if ((config.PositionSide == AppConstants.ShortSide && orderPrice <= openPrice) || (config.PositionSide == AppConstants.LongSide && orderPrice >= openPrice))
             {
-                orderPrice = openPrice;               
+                orderPrice = openPrice;
+                var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
+                var tpPrice = config.PositionSide == AppConstants.ShortSide ? orderPrice - ((currentPrice * config.OrderChange / 100) * _tp / 100) : orderPrice + ((currentPrice * config.OrderChange / 100) * _tp / 100);
+                tpPriceUpdate = (decimal)(((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize);
             }
-            var orderRequest = new BybitEditOrderRequest
+            var amendOrder = await api.V5Api.Trading.EditOrderAsync
+                (
+                    Category.Spot,
+                    symbol,
+                    clientOrderId: config.ClientOrderId,
+                    quantity: orderPriceAndQuantity.Item2,
+                    price: orderPrice
+                );
+            if (amendOrder.Success)
             {
-                ClientOrderId = config.ClientOrderId,
-                Symbol = symbol,
-                Quantity = orderPriceAndQuantity.Item2,
-                Price = orderPrice
-            };
-            
-            return orderRequest;
+                config.TPPrice = tpPriceUpdate;
+                config.OrderStatus = 1;
+                config.TotalQuantity = orderPriceAndQuantity.Item2;
+                _configService.AddOrEditConfig(config);
+                return true;
+            }
+            else
+            {
+                if (IsNeededCancel(amendOrder.Error.Message))
+                {
+                    var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
+                    _logger.LogInformation(message);
+                    _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
+                    await CancelOrder(config);
+                }
+
+            }
+            return false;
         }
         catch (Exception ex)
         {
-            _logger.LogInformation(ex.Message);
-            return null;
+            var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} Ex: {ex.Message}";
+            _logger.LogInformation(message);
+            _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {ex.Message}");
+            await CancelOrder(config);
+            return false;
         }
     }
 
@@ -426,12 +386,43 @@ public class BotService : IBotService
         try
         {
             bool isNotified = false;
+            var preTimeCancel = DateTime.Now;
+
             var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { "BTCUSDT" }, KlineInterval.OneMinute, async data =>
             {
                 DateTime currentTime = DateTime.Now;
                 TimeSpan timeSinceMidnight = currentTime.TimeOfDay;
                 double hoursSinceMidnight = Math.Floor(timeSinceMidnight.TotalHours);
 
+                // Cancel order if expired
+                if ((currentTime - preTimeCancel).TotalMilliseconds >= 10000)
+                {
+                    preTimeCancel = currentTime;
+                    var configExpired = StaticObject.AllConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.EditedDate != null && x.Value.Expire != null && x.Value.Expire.Value != 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.Expire.Value) < currentTime)).Select(c => c.Value).ToList();
+                    var cancelledConfigs = new List<string>();
+                    foreach (var config in configExpired)
+                    {
+                        var isFilledOrder = StaticObject.FilledOrders.Any(x => x.Key == config.CustomId);
+                        if (!isFilledOrder)
+                        {
+                            config.IsActive = false;
+                            await CancelOrder(config, true);
+                        }
+                    }
+
+                    var configAmountExpired = StaticObject.AllConfigs.Where(x => (x.Value.IsActive && !string.IsNullOrEmpty(x.Value.OrderId) && x.Value.OrderStatus != 2 && x.Value.EditedDate != null && x.Value.IncreaseAmountExpire != null && x.Value.IncreaseAmountExpire.Value > 0 && x.Value.EditedDate.Value.AddMinutes(x.Value.IncreaseAmountExpire.Value) < currentTime)).Select(c => c.Value).ToList();
+                    if (configAmountExpired.Any())
+                    {
+                        foreach (var config in configAmountExpired)
+                        {
+                            config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
+                            _configService.AddOrEditConfig(config);
+                        }
+                        _ = _bus.Send(new AmountExpireMessage { Configs = configAmountExpired.Select(c => c.CustomId).ToList() });
+                    }
+                }
+
+                // Notify wallet every 3 hours
                 if (hoursSinceMidnight % 3 == 0 && !isNotified)
                 {
                     isNotified = true;
@@ -759,21 +750,17 @@ public class BotService : IBotService
                 clientOrderId: clientOrderId
             );
 
-            if (placedOrder.Success && configToUpdate != null)
-            {
-                _logger.LogInformation($"Closing Filled Order: {orderUpdate.Symbol}|{configToUpdate.PositionSide}| {configToUpdate.OrderChange}|${orderPrice}- ClientOrderId: {placedOrder.Data.ClientOrderId}");
-            }
-            else
+            if (!placedOrder.Success)
             {
                 StaticObject.FilledOrders.TryRemove(configToUpdate.CustomId, out _);
-                _logger.LogInformation($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange} error: {placedOrder?.Error?.Message}");
+                _logger.LogInformation($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange}| ${(orderUpdate?.QuantityFilled ?? 0) * orderPrice} error: {placedOrder?.Error?.Message}");
             }
 
         }
         catch (Exception ex)
         {
             StaticObject.FilledOrders.TryRemove(configToUpdate.CustomId, out _);
-            _logger.LogInformation($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange} Error: {ex.Message}");
+            _logger.LogInformation($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange} Ex: {ex.Message}");
         }
 
     }
@@ -865,7 +852,9 @@ public class BotService : IBotService
         {
             var publicApi = new BybitRestClient();
             var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
-            StaticObject.Symbols = spotSymbols.ToList();
+            var symbolInfos = spotSymbols.Where(c => (c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly) && c.Name.EndsWith("USDT")).ToList() ?? new List<BybitSpotSymbol>();
+
+            StaticObject.Symbols = symbolInfos.ToList();
         }
         catch (Exception ex)
         {

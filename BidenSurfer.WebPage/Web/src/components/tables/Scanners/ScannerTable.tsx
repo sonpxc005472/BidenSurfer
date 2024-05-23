@@ -496,24 +496,26 @@ export const ScannerTable: React.FC = () => {
               footer={
                 <>
                   <BaseButtonsForm.Item style={{marginTop: '30px'}}>
-                    <BaseButton type="primary" htmlType="submit" style={{float: 'right', width: '100px'}}>
+                    <BaseButton type="primary" htmlType="submit" style={{float: 'right', width: '80px'}}>
                       Save
-                    </BaseButton>
-                    <BaseButton type="primary" htmlType="button" style={{float: 'right', width: '100px', marginRight: '20px'}}
-                      onClick={() => {              
-                        setIsSettingModalOpen(false);
-                      }}>
-                      Cancel
                     </BaseButton>
                     <BaseButton
                       type="primary"
                       htmlType="button"
                       loading={isStopping}
                       icon={<PoweroffOutlined />}
+                      style={{float: 'left', width: '100px'}}
                       onClick={handleStartStop}
                     >
                       {isStop ? (<>Start</>) : (<>Stop</>)}
                     </BaseButton>
+                    <BaseButton type="primary" htmlType="button" style={{float: 'left', width: '80px', marginLeft: '10px'}}
+                      onClick={() => {              
+                        setIsSettingModalOpen(false);
+                      }}>
+                      Cancel
+                    </BaseButton>
+                    
                   </BaseButtonsForm.Item>                
                 </>
                 

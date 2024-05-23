@@ -97,6 +97,8 @@ namespace BidenSurfer.WebApi
                 EndpointConvention.Map<ScannerUpdateFromApiMessage>(new Uri($"queue:{QueueName.ScannerUpdateFromApiMessage}"));
                 EndpointConvention.Map<UpdateUserForScannerMessage>(new Uri($"queue:{QueueName.UpdateUserForScannerMessage}"));
                 EndpointConvention.Map<UpdateUserForBotRunnerMessage>(new Uri($"queue:{QueueName.UpdateUserForBotRunnerMessage}"));
+                EndpointConvention.Map<SymbolInfoUpdateForScannerMessage>(new Uri($"queue:{QueueName.SymbolInfoUpdateForScannerMessage}"));
+                EndpointConvention.Map<SymbolInfoUpdateForBotRunnerMessage>(new Uri($"queue:{QueueName.SymbolInfoUpdateForBotRunnerMessage}"));
 
                 #endregion
             }

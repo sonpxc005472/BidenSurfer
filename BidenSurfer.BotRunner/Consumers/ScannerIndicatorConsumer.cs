@@ -23,8 +23,12 @@ namespace BidenSurfer.BotRunner.Consumers
                 {
                     await _botService.TakePlaceOrder(config, currentPrice.Value);
                 }
-
-                await _botService.SubscribeSticker();
+                // get all keys of the dictionary StaticObject.TickerSubscriptions
+                var symbols = StaticObject.TickerSubscriptions.Keys.ToList();
+                if (newScans.Any(x=> !symbols.Contains(x.Symbol)))
+                {
+                    await _botService.SubscribeSticker();
+                }
             }                        
         }
     }

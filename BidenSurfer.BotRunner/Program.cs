@@ -84,6 +84,10 @@ namespace BidenSurfer.BotRunner
                 {
                     x.Consumer<StartStopBotConsumer>(ctx);
                 });
+                cfg.ReceiveEndpoint(QueueName.SymbolInfoUpdateForBotRunnerMessage, x =>
+                {
+                    x.Consumer<SymbolsUpdateFromApiConsumer>(ctx);
+                });
 
                 #endregion
 

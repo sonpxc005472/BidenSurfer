@@ -20,6 +20,7 @@ import { doSaveConfiguration } from '@app/store/slices/userSlice';
 import { useAppDispatch } from '@app/hooks/reduxHooks';
 import { notificationController } from '@app/controllers/notificationController';
 import { BaseButtonsForm } from '@app/components/common/forms/BaseButtonsForm/BaseButtonsForm';
+import { getGeneralSetting } from '@app/api/user.api';
 
 const initialFormValues: ConfigurationForm = {
   id: undefined,
@@ -59,7 +60,7 @@ export const ConfigurationTable: React.FC = () => {
         if (isMounted.current) {          
           setTableData({data: res});
         }
-      });      
+      });
     },
     [isMounted],
   );
@@ -288,7 +289,7 @@ export const ConfigurationTable: React.FC = () => {
       increaseOcPercent: increaseOcPercent ?? 0,
       isActive: isActive
     };
-    debugger;
+    
     dispatch(doSaveConfiguration(formValues))
       .unwrap()
       .then(() => {

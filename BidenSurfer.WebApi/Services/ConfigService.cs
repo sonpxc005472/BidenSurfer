@@ -9,6 +9,7 @@ using BidenSurfer.Infras.Models;
 using Microsoft.EntityFrameworkCore;
 using Bybit.Net.Clients;
 using Bybit.Net.Enums;
+using Bybit.Net.Objects.Models.V5;
 
 public interface IConfigService
 {
@@ -338,7 +339,11 @@ public class ConfigService : IConfigService
         {
             var publicApi = new BybitRestClient();
             var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
-            var marginSymbols = spotSymbols.Where(c => (c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly) && c.Name.EndsWith("USDT")).Select(c => new { c.Name, c.BaseAsset }).Distinct().OrderBy(c => c.BaseAsset).ToList();
+            var symbolInfos = spotSymbols.Where(c => (c.MarginTrading == MarginTrading.Both || c.MarginTrading == MarginTrading.UtaOnly) && c.Name.EndsWith("USDT")).ToList() ?? new List<BybitSpotSymbol>();
+            var marginSymbols = symbolInfos.Select(c => new { c.Name, c.BaseAsset }).Distinct().OrderBy(c => c.BaseAsset).ToList();
+            _ = _bus.Send(new SymbolInfoUpdateForBotRunnerMessage { Symbols = symbolInfos });
+            _ = _bus.Send(new SymbolInfoUpdateForScannerMessage { Symbols = symbolInfos });
+
             return marginSymbols.ConvertAll(s => new SymbolDto { Value = s.Name, Label = s.BaseAsset });
         }
         catch (Exception ex)
