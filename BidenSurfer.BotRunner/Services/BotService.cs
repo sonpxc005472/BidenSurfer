@@ -16,6 +16,7 @@ using CryptoExchange.Net.CommonObjects;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using StackExchange.Redis;
+using BidenSurfer.Infras.Entities;
 
 public interface IBotService
 {
@@ -64,6 +65,7 @@ public class BotService : IBotService
                     DateTime preTime = DateTime.Now;
                     DateTime preTimeCancel = DateTime.Now;
                     decimal prePrice = 0;
+                    bool isBeeingTakeProfit = false;
                     var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(symbol, KlineInterval.OneMinute, async data =>
                     {
                         if (data != null)
@@ -119,22 +121,36 @@ public class BotService : IBotService
                                 }
                             }
 
-                            //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
-                            var filledOrders = StaticObject.FilledOrders.Where(r => r.Value.Symbol == symbol).Select(r => r.Value).ToList();
-                            foreach (var order in filledOrders)
+                            if(!isBeeingTakeProfit)
                             {
-                                if (!order.isClosingFilledOrder)
+                                isBeeingTakeProfit = true;
+                                try
                                 {
-                                    if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 3500)
+                                    //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
+                                    var filledOrders = StaticObject.FilledOrders.Where(r => r.Value.Symbol == symbol).Select(r => r.Value).ToList();
+                                    foreach (var order in filledOrders)
                                     {
-                                        await TryTakeProfit(order, currentPrice);
+                                        if (!order.isClosingFilledOrder)
+                                        {
+                                            if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 3500)
+                                            {
+                                                await TryTakeProfit(order, currentPrice);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 500)
+                                            {
+                                                await TryTakeProfit(order, currentPrice);
+                                            }
+                                        }
                                     }
                                 }
-                                else
+                                finally
                                 {
-                                    await TryTakeProfit(order, currentPrice);
-                                }
-                            }                            
+                                    isBeeingTakeProfit = false;
+                                }                                
+                            }                                                       
                         }
 
                     });
@@ -709,7 +725,7 @@ public class BotService : IBotService
 
     }
 
-    private async Task TakeProfit(BybitOrderUpdate orderUpdate, UserDto user)
+    private async Task TakeProfit(BybitOrderUpdate orderUpdate, UserDto user, int tryCount = 0, decimal quantity = 0)
     {
         var configToUpdate = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.ClientOrderId == orderUpdate?.ClientOrderId).Value;
         if (configToUpdate == null)
@@ -728,15 +744,23 @@ public class BotService : IBotService
                 StaticObject.RestApis.TryAdd(user.Id, api);
             }
             var ordSide = orderUpdate?.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
+            quantity = tryCount == 0 ? (orderUpdate?.QuantityFilled ?? 0) : quantity * 0.95M;
             var orderPrice = CalculateTP(orderUpdate.AveragePrice, configToUpdate);
+            var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == orderUpdate.Symbol);
+            var quantityWithTicksize = ((int)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
+
             var clientOrderId = Guid.NewGuid().ToString();
-            _logger.LogInformation($"Taking profit {orderUpdate.Symbol} - {ordSide} - {clientOrderId}");
-            configToUpdate.ClientOrderId = clientOrderId;
-            configToUpdate.FilledPrice = orderUpdate.AveragePrice;
-            configToUpdate.FilledQuantity = orderUpdate.QuantityFilled;
-            configToUpdate.OrderStatus = 2;
-            configToUpdate.EditedDate = DateTime.Now;
-            StaticObject.FilledOrders.TryAdd(configToUpdate.CustomId, configToUpdate);
+            if(tryCount == 0)
+            {
+                _logger.LogInformation($"Taking profit {orderUpdate.Symbol} - {ordSide} - {clientOrderId}");
+                configToUpdate.ClientOrderId = clientOrderId;
+                configToUpdate.FilledPrice = orderUpdate.AveragePrice;
+                configToUpdate.FilledQuantity = orderUpdate.QuantityFilled;
+                configToUpdate.OrderStatus = 2;
+                configToUpdate.EditedDate = DateTime.Now;
+                StaticObject.FilledOrders.TryAdd(configToUpdate.CustomId, configToUpdate);
+            }
+            
             //_configService.AddOrEditConfig(configToUpdate);
             var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
             (
@@ -744,7 +768,7 @@ public class BotService : IBotService
                 orderUpdate?.Symbol,
                 ordSide,
                 NewOrderType.Limit,
-                orderUpdate?.QuantityFilled ?? 0,
+                quantityWithTicksize ?? 0,
                 orderPrice,
                 false,
                 clientOrderId: clientOrderId
@@ -752,8 +776,16 @@ public class BotService : IBotService
 
             if (!placedOrder.Success)
             {
-                StaticObject.FilledOrders.TryRemove(configToUpdate.CustomId, out _);
-                _logger.LogInformation($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange}| ${(orderUpdate?.QuantityFilled ?? 0) * orderPrice} error: {placedOrder?.Error?.Message}");
+                if(tryCount <= 3)
+                {
+                    _logger.LogInformation($"Retry take profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange}| ${quantity * orderPrice} | {tryCount} error: {placedOrder?.Error?.Message} - code: {placedOrder?.Error?.Code}");
+                    await TakeProfit(orderUpdate, user, tryCount + 1, quantity);
+                }
+                else
+                {                    
+                    StaticObject.FilledOrders.TryRemove(configToUpdate.CustomId, out _);
+                    _logger.LogInformation($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange}| ${(orderUpdate?.QuantityFilled ?? 0) * orderPrice} error: {placedOrder?.Error?.Message} - code: {placedOrder?.Error?.Code}");
+                }                
             }
 
         }
@@ -792,10 +824,12 @@ public class BotService : IBotService
                 );
 
             config.EditedDate = DateTime.Now;
+
             if (!amendOrder.Success)
             {
                 _logger.LogInformation($"Try to take profit {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId} Error: {amendOrder.Error?.Code}-{amendOrder.Error?.Message}");
-                StaticObject.FilledOrders.TryRemove(config.CustomId, out _);
+                var isRemoved = StaticObject.FilledOrders.TryRemove(config.CustomId, out _);
+                _logger.LogInformation($"Try to take profit: removed: {isRemoved} - {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId}");
                 config.OrderId = string.Empty;
                 config.ClientOrderId = string.Empty;
                 config.OrderStatus = 1;
@@ -813,6 +847,8 @@ public class BotService : IBotService
         {
             // Log error to telegram
             _logger.LogInformation($"Try to take profit {config.Symbol}|{config.PositionSide}|{config.OrderChange} Ex: {ex.Message}");
+            var isRemoved = StaticObject.FilledOrders.TryRemove(config.CustomId, out _);
+            _logger.LogInformation($"Try to take profit: removed: {isRemoved} - {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId}");
             return false;
         }
     }
