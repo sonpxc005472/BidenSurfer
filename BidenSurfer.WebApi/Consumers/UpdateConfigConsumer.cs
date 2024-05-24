@@ -21,6 +21,7 @@ namespace BidenSurfer.WebApi.Consumers
                 var configUpdate = new AddEditConfigDto
                 {
                     Id = config.Id,
+                    CustomId = config.CustomId,
                     Amount = config.Amount,
                     AmountLimit = config.AmountLimit,
                     Expire = config.Expire,

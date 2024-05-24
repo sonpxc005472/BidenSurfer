@@ -30,18 +30,20 @@ public class ConfigService : IConfigService
     private readonly AppDbContext _context;
     private readonly IBus _bus;
     private ISecurityContextAccessor _securityContextAccessor;
+    private readonly ILogger<ConfigService> _logger;
 
-    public ConfigService(AppDbContext context, IBus bus, ISecurityContextAccessor securityContextAccessor)
+    public ConfigService(AppDbContext context, IBus bus, ISecurityContextAccessor securityContextAccessor, ILogger<ConfigService> logger)
     {
         _context = context;
         _bus = bus;
         _securityContextAccessor = securityContextAccessor;
+        _logger = logger;
     }
 
     public async Task<bool> AddOrEdit(AddEditConfigDto config, bool fromBotUpdate)
     {
         var configDto = new ConfigDto();
-        var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == config.Id);
+        var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == config.Id || c.CustomId == config.CustomId);
         if (configEntity == null)
         {
             //Add new
@@ -305,7 +307,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine("OffConfigs Error: " + ex.Message);
+            _logger.LogError("OffConfigs Error: " + ex.Message);
             return false;
         }
     }
@@ -314,22 +316,25 @@ public class ConfigService : IConfigService
     {
         try
         {
+            _logger.LogInformation("AmountExpireUpdate: " + string.Join(",", customIds));
             var configEntities = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
             if (!configEntities.Any())
             {
+                _logger.LogInformation("AmountExpireUpdate: No config found");
                 return;
             }
             foreach (var entity in configEntities)
             {
                 entity.Amount = entity.OriginAmount.HasValue ? entity.OriginAmount.Value : entity.Amount;
                 entity.EditedDate = DateTime.Now;
+                _logger.LogInformation($"AmountExpireUpdate: {entity.Symbol} - {entity.Amount}");
             }
             _context.Configs.UpdateRange(configEntities);
             await _context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
-            Console.WriteLine("AmountExpireUpdate Error: " + ex.Message);
+            _logger.LogError("AmountExpireUpdate Error: " + ex.Message);
         }
     }
 
@@ -348,7 +353,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            _logger.LogError(ex.Message);
             return new List<SymbolDto>();
         }
     }
@@ -376,7 +381,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            _logger.LogError(ex.Message);
             return false;
         }
     }

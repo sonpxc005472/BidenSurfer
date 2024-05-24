@@ -1,4 +1,5 @@
 using BidenSurfer.Infras.Entities;
+using System;
 
 namespace BidenSurfer.Infras.Models;
 public class ConfigDto
@@ -33,6 +34,10 @@ public class ConfigDto
     public bool isClosingFilledOrder { get; set; }
     public string ScannerTitle { get; set; }
     public UserDto UserDto { get; set; }
+    public ConfigDto Clone()
+    {
+        return (ConfigDto)MemberwiseClone();
+    }
 }
 
 public static class ConfigHelper

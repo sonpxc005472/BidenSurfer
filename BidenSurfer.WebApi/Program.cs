@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Net;
+using BidenSurfer.Infras.Loggers;
 
 
 namespace BidenSurfer.WebApi
@@ -19,6 +20,7 @@ namespace BidenSurfer.WebApi
                     config.AddEnvironmentVariables();
                     config.AddCommandLine(args);
                 })
+                .UseLogging("WebApi")
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.ConfigureKestrel((ctx, options) =>
