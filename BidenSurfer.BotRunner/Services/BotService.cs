@@ -763,7 +763,7 @@ public class BotService : IBotService
                 StaticObject.RestApis.TryAdd(user.Id, api);
             }
             var ordSide = orderUpdate?.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-            quantity = tryCount == 0 ? (orderUpdate?.QuantityFilled ?? 0) : quantity * 0.95M;
+            quantity = tryCount == 0 ? (orderUpdate?.QuantityFilled ?? 0) : quantity * 0.98M;
             var orderPrice = CalculateTP(orderUpdate.AveragePrice, configToUpdate);
             var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == orderUpdate.Symbol);
             var quantityWithTicksize = ((int)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
@@ -773,7 +773,7 @@ public class BotService : IBotService
             var cloneConfig = configToUpdate.Clone();
             cloneConfig.ClientOrderId = clientOrderId;
             cloneConfig.FilledPrice = orderUpdate.AveragePrice;
-            cloneConfig.FilledQuantity = orderUpdate.QuantityFilled;
+            cloneConfig.FilledQuantity = quantity;
             cloneConfig.OrderStatus = 2;
             cloneConfig.EditedDate = DateTime.Now;
             StaticObject.FilledOrders.TryAdd(cloneConfig.CustomId, cloneConfig);
