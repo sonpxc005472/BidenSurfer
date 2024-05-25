@@ -334,15 +334,15 @@ export const ScannerTable: React.FC = () => {
         notificationController.error({ message: err.message });        
       });
   };
-  const handleStartStop = () => {
+  const handleStartStop = (checked: boolean) => {
     setStopping(true);
     startStopScanner({
       id : 0,
       userId : 0,
       blackList : [],      
-      stop : !isStop
+      stop : !checked
     }).then((res) => {     
-      setStop(!isStop);      
+      setStop(!checked);      
     }).finally(()=>{
       setStopping(false);
     });
@@ -498,24 +498,14 @@ export const ScannerTable: React.FC = () => {
                   <BaseButtonsForm.Item style={{marginTop: '30px'}}>
                     <BaseButton type="primary" htmlType="submit" style={{float: 'right', width: '80px'}}>
                       Save
-                    </BaseButton>
-                    <BaseButton
-                      type="primary"
-                      htmlType="button"
-                      loading={isStopping}
-                      icon={<PoweroffOutlined />}
-                      style={{float: 'left', width: '100px'}}
-                      onClick={handleStartStop}
-                    >
-                      {isStop ? (<>Start</>) : (<>Stop</>)}
-                    </BaseButton>
-                    <BaseButton type="primary" htmlType="button" style={{float: 'left', width: '80px', marginLeft: '10px'}}
+                    </BaseButton>   
+                    <BaseButton type="primary" htmlType="button" style={{float: 'right', width: '80px', marginRight: '10px'}}
                       onClick={() => {              
                         setIsSettingModalOpen(false);
                       }}>
                       Cancel
-                    </BaseButton>
-                    
+                    </BaseButton>                 
+                    <BaseSwitch style={{ float: 'left', marginTop: '10px'}} loading={isStopping} size='default' checkedChildren="Stop" unCheckedChildren="Start" checked={!isStop} onChange={handleStartStop} />                    
                   </BaseButtonsForm.Item>                
                 </>
                 

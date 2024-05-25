@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { PageTitle } from '@app/components/common/PageTitle/PageTitle';
 import { BaseCol } from '@app/components/common/BaseCol/BaseCol';
 import { useMounted } from '@app/hooks/useMounted';
-import { useAppDispatch, useAppSelector } from '@app/hooks/reduxHooks';
+import { useAppDispatch } from '@app/hooks/reduxHooks';
 import { BaseForm } from '@app/components/common/forms/BaseForm/BaseForm';
 import { BaseRow } from '@app/components/common/BaseRow/BaseRow';
 import { BaseButton } from '@app/components/common/BaseButton/BaseButton';
@@ -11,8 +11,8 @@ import { doSaveGeneralSetting, setBotStatus } from '@app/store/slices/userSlice'
 import { BaseButtonsForm } from '@app/components/common/forms/BaseButtonsForm/BaseButtonsForm';
 import { getGeneralSetting, startStopBot } from '@app/api/user.api';
 import { mergeBy } from '@app/utils/utils';
-import { Button, InputNumber } from 'antd';
-import { PoweroffOutlined } from '@ant-design/icons';
+import { InputNumber } from 'antd';
+import { BaseSwitch } from '@app/components/common/BaseSwitch/BaseSwitch';
 interface FieldData {
   name: string | number;
   //  
@@ -56,16 +56,16 @@ const GeneralSettingPage: React.FC = () => {
   }, [fetch]);  
   
   const [form] = BaseButtonsForm.useForm();
-  const handleStartStop = () => {
+  const handleStartStop = (checked: boolean) => {
       setStopping(true);
       startStopBot({
         id : 0,
         userId : 0,
         assetTracking : 0,
         budget : 0,
-        stop : !isStop
+        stop : !checked
       }).then((res) => {     
-        setStop(!isStop);
+        setStop(!checked);
         dispatch(setBotStatus(!isStop));
       }).finally(()=>{
         setStopping(false);
@@ -158,15 +158,8 @@ const GeneralSettingPage: React.FC = () => {
     <BaseRow style={{marginTop: "20px"}}>
       <h1>Bot Setting</h1>
     </BaseRow>
-    <BaseRow style={{marginTop: "10px"}}>
-        <Button
-          type="primary"
-          loading={isStopping}
-          icon={<PoweroffOutlined />}
-          onClick={handleStartStop}
-        >
-          {isStop ? (<>Start</>) : (<>Stop</>)}
-        </Button>      
+    <BaseRow style={{marginTop: "10px"}}>        
+        <BaseSwitch loading={isStopping} size='default' checkedChildren="Stop" unCheckedChildren="Start" checked={!isStop} onChange={handleStartStop} />    
     </BaseRow>
     </>
   );

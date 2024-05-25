@@ -21,6 +21,7 @@ import { useAppDispatch } from '@app/hooks/reduxHooks';
 import { notificationController } from '@app/controllers/notificationController';
 import { BaseButtonsForm } from '@app/components/common/forms/BaseButtonsForm/BaseButtonsForm';
 import { getGeneralSetting } from '@app/api/user.api';
+import { persistRememberConfig, readRememberConfig } from '@app/services/localStorage.service';
 
 const initialFormValues: ConfigurationForm = {
   id: undefined,
@@ -50,6 +51,7 @@ export const ConfigurationTable: React.FC = () => {
   const { isMounted } = useMounted();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isEditConfig, setIsEditConfig] = useState<boolean>(false);
+  const [isRemember, setIsRemember] = useState<boolean>(false);
   const { Text } = Typography;
 
   const [form] = BaseForm.useForm();  
@@ -70,7 +72,7 @@ export const ConfigurationTable: React.FC = () => {
   }, [fetch]);
  
   const handleOpenAddEdit = (rowId?: number) => {   
-    
+    setIsRemember(false);
     if(rowId)
       {        
         setIsEditConfig(true);
@@ -108,9 +110,25 @@ export const ConfigurationTable: React.FC = () => {
           }
         });
         setIsEditConfig(false);
-        form.setFieldsValue({
-          ...initialFormValues
-        })
+        const rememberConfig = readRememberConfig();
+        if(rememberConfig)
+          {
+            form.setFieldsValue({
+              ...initialFormValues,
+              amount: rememberConfig.amount,
+              amountLimit: rememberConfig.amountLimit,
+              expire: rememberConfig.expire,
+              increaseAmountExpire: rememberConfig.increaseAmountExpire,
+              increaseAmountPercent: rememberConfig.increaseAmountPercent,
+              increaseOcPercent: rememberConfig.increaseOcPercent,
+              orderChange: rememberConfig.orderChange
+            });
+          }
+          else{
+            form.setFieldsValue({
+              ...initialFormValues
+            });
+          }        
       }
       setIsModalOpen(true);
   };
@@ -237,6 +255,9 @@ export const ConfigurationTable: React.FC = () => {
   const onSwitchChange = (checked: boolean) => {
     form.setFieldsValue({ isActive: checked });
   };
+  const onRememberSwitchChange = (checked: boolean) => {
+    setIsRemember(checked);
+  };
   const handleSymbolChange = (value: unknown) => {
     const positionSide = form.getFieldValue('positionSide');
     if(value && positionSide)
@@ -289,7 +310,11 @@ export const ConfigurationTable: React.FC = () => {
       increaseOcPercent: increaseOcPercent ?? 0,
       isActive: isActive
     };
-    
+    if(isRemember)
+      {
+        persistRememberConfig(formValues);
+      }
+
     dispatch(doSaveConfiguration(formValues))
       .unwrap()
       .then(() => {
@@ -301,10 +326,7 @@ export const ConfigurationTable: React.FC = () => {
       });
   };
   const [isFieldsChanged, setFieldsChanged] = useState(true);
-  const onFinish = async (values = {}) => {
-    handleSaveConfig();
-  };
-  
+    
   return (
     <>
       <BaseTable
@@ -341,11 +363,12 @@ export const ConfigurationTable: React.FC = () => {
                       }}>
                       Cancel
                     </BaseButton>
+                    <BaseSwitch checkedChildren="Not Remember" unCheckedChildren="Remember" checked = {isRemember} onChange={onRememberSwitchChange} />
                   </BaseButtonsForm.Item>                
                 </>
                 
               }    
-              onFinish={onFinish}
+              onFinish={handleSaveConfig}
             >
               <BaseRow gutter={{ xs: 10, md: 15, xl: 20 }}>
                   <BaseCol xs={16} md={12}>
@@ -407,8 +430,8 @@ export const ConfigurationTable: React.FC = () => {
                     </BaseButtonsForm.Item>
                   </BaseCol>
                   <BaseCol xs={12} md={12}>
-                    <BaseButtonsForm.Item name='isActive' label='Active' valuePropName="checked" style={{marginBottom: '5px'}}>
-                      <BaseSwitch onChange={onSwitchChange} />
+                    <BaseButtonsForm.Item name='isActive' label=' ' valuePropName="checked" style={{marginBottom: '5px'}}>
+                      <BaseSwitch checkedChildren="Deactive" unCheckedChildren="Active" onChange={onSwitchChange} />
                     </BaseButtonsForm.Item>
                   </BaseCol>
               </BaseRow>

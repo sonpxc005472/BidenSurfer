@@ -4,7 +4,7 @@ import {
   ApiData, GeneralSettingData, saveApi,
   saveGeneralSetting
 } from '@app/api/user.api';
-import { persistUser, readUser } from '@app/services/localStorage.service';
+import { persistRememberConfig, persistUser, readUser } from '@app/services/localStorage.service';
 import { ConfigurationForm, saveConfiguration, saveScanner, saveScannerSetting, ScannerForm, ScannerSettingForm, setConfigActive } from '@app/api/table.api';
 
 export interface UserState {
@@ -22,6 +22,14 @@ export const setUser = createAction<PrepareAction<UserModel>>('user/setUser', (n
 
   return {
     payload: newUser,
+  };
+});
+
+export const setRememberConfig = createAction<PrepareAction<ConfigurationForm>>('user/rememberConfig', (rememberConfig) => {
+  persistRememberConfig(rememberConfig);
+
+  return {
+    payload: rememberConfig,
   };
 });
 
