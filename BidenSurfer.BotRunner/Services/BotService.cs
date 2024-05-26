@@ -74,7 +74,7 @@ public class BotService : IBotService
                             var currentTime = DateTime.Now;
                             var currentPrice = currentData.ClosePrice;
 
-                            // every 2s change order
+                            // every 3s change order
                             if ((currentTime - preTime).TotalMilliseconds >= 3000)
                             {
                                 preTime = currentTime;
@@ -112,6 +112,8 @@ public class BotService : IBotService
                                             isPriceChanged = true;
                                             //Amend order
                                             await AmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
+                                            var delayTime = NumberHelpers.RandomInt(100, 250);
+                                            await Task.Delay(delayTime);
                                         }
                                     }
                                 }
@@ -232,7 +234,7 @@ public class BotService : IBotService
                 }
                 else
                 {
-                    if (placedOrder.Error?.Code == 131212 && !isRetry && previosAmount > 0)
+                    if ((placedOrder.Error?.Code == 131212 || placedOrder.Error?.Code == 170131) && !isRetry && previosAmount > 0)
                     {
                         await TakePlaceOrder(config, currentPrice, true, previosAmount);
                     }
@@ -240,7 +242,7 @@ public class BotService : IBotService
                     {
                         config.IsActive = false;
                         _configService.AddOrEditConfig(config);
-                        var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {placedOrder?.Error?.Message}";
+                        var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {placedOrder?.Error?.Message} - code: {placedOrder?.Error?.Code}";
                         _logger.LogInformation(message);
                         _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, placedOrder?.Error?.Message ?? string.Empty);
 
@@ -763,7 +765,7 @@ public class BotService : IBotService
                 StaticObject.RestApis.TryAdd(user.Id, api);
             }
             var ordSide = orderUpdate?.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-            quantity = tryCount == 0 ? (orderUpdate?.QuantityFilled ?? 0) : quantity * 0.98M;
+            quantity = tryCount == 0 ? (orderUpdate?.QuantityFilled ?? 0) : quantity * 0.9989M;
             var orderPrice = CalculateTP(orderUpdate.AveragePrice, configToUpdate);
             var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == orderUpdate.Symbol);
             var quantityWithTicksize = ((int)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;

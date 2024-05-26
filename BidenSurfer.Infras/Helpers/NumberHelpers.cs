@@ -10,5 +10,11 @@
             double randomDouble = random.NextDouble() * (doubleMaxValue - doubleMinValue) + doubleMinValue;
             return Convert.ToDecimal(randomDouble);
         }
+
+        public static int RandomInt(int minValue, int maxValue)
+        {
+            var random = new Random();
+            return random.Next(minValue, maxValue);
+        }
     }
 }
