@@ -41,6 +41,7 @@ namespace BidenSurfer.BotRunner
                     options.EnableSensitiveDataLogging(false);
                 });
                 services.AddSingleton<AppDbContext>();
+                services.AddCustomMassTransit(configuration);
                 services.AddSingleton<ITeleMessage, TeleMessage>();
                 services.AddScoped<IUserService, UserService>();
                 services.AddScoped<IConfigService, ConfigService>();
@@ -49,7 +50,6 @@ namespace BidenSurfer.BotRunner
                     options.Configuration = configuration.GetConnectionString("RedisConn");
                     options.InstanceName = "BidenSurfer_ByBit_";
                 });
-                services.AddCustomMassTransit(configuration);
                 services.AddScoped<IRedisCacheService, RedisCacheService>();
                 services.AddScoped<IBotService, BotService>();
                 services.AddHostedService<AutoRunBotService>();
@@ -98,6 +98,7 @@ namespace BidenSurfer.BotRunner
                 EndpointConvention.Map<AmountExpireMessage>(new Uri($"queue:{QueueName.AmountExpireMessage}"));
                 EndpointConvention.Map<OnOffConfigMessageScanner>(new Uri($"queue:{QueueName.OnOffConfigMessageScanner}"));
                 EndpointConvention.Map<UpdateConfigMessage>(new Uri($"queue:{QueueName.UpdateConfigMessage}"));
+                EndpointConvention.Map<SendTeleMessage>(new Uri($"queue:{QueueName.SendTeleMessage}"));
 
                 #endregion
             }
@@ -114,7 +115,7 @@ namespace BidenSurfer.BotRunner
                         hc.Password(messageBusOptions.Password);
                     });
 
-                    cfg.PrefetchCount = 16;
+                    cfg.PrefetchCount = 10;
 
                     ConfigureEnpoint(ctx, cfg);
                 });

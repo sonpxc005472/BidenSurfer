@@ -6,6 +6,7 @@ using BidenSurfer.WebApi;
 using BidenSurfer.WebApi.Services;
 using BidenSurfer.WebApi.Consumers;
 using BidenSurfer.WebApi.Helpers;
+using BidenSurfer.Infras.Helpers;
 
 namespace BidenSurfer.WebApi
 {
@@ -27,14 +28,15 @@ namespace BidenSurfer.WebApi
                 options.EnableDetailedErrors(true);
                 options.EnableSensitiveDataLogging(false);
             });
-            services.AddScoped<AppDbContext>();           
+            services.AddScoped<AppDbContext>();
+            services.AddCustomMassTransit(Configuration);
+            services.AddSingleton<ITeleMessage, TeleMessage>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IConfigService, ConfigService>();
             services.AddScoped<IScannerService, ScannerService>();
             services.AddControllers();
             services.AddHttpContextAccessor();
             services.AddScoped<ISecurityContextAccessor, SecurityContextAccessor>(); 
-            services.AddCustomMassTransit(Configuration);            
             services.AddCors(options =>
             {
                 options.AddPolicy("api", policy =>
@@ -81,6 +83,12 @@ namespace BidenSurfer.WebApi
                 {
                     x.Consumer<UpdateConfigConsumer>(ctx);
                 });
+                cfg.ReceiveEndpoint(QueueName.SendTeleMessage, x =>
+                {
+                    x.UseMessageRetry(r => r.Interval(2, TimeSpan.FromSeconds(3)));
+                    x.Consumer<SendTeleMessageConsumer>(ctx);
+                    x.PrefetchCount = 3;
+                });
 
                 #endregion
 
@@ -115,7 +123,7 @@ namespace BidenSurfer.WebApi
                         hc.Password(messageBusOptions.Password);
                     });
 
-                    cfg.PrefetchCount = 16;
+                    cfg.PrefetchCount = 10;
 
                     //cfg.UseMessageRetry(r => r.Incremental(5, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30)));
 

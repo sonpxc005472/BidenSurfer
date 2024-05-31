@@ -226,7 +226,7 @@ public class BotService : IBotService
         var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == scanner.UserId)?.Setting;
         if (userSetting == null) return new ();
         var maxOcAbs = Math.Abs(maxOC);
-        var minOc = maxOcAbs / (maxOcAbs > 5 ? 2 : 1.5M);
+        var minOc = maxOcAbs / (maxOcAbs >= 4 ? 2 : 1.5M);
         var rangeOc = (maxOcAbs - minOc) / scanner.OcNumber;
         var configs = new List<ConfigDto>();
         for (var i = 1; i <= scanner.OcNumber; i++)

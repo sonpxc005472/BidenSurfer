@@ -178,6 +178,7 @@ public class BotService : IBotService
 
     public async Task<bool> TakePlaceOrder(ConfigDto? config, decimal currentPrice, bool isRetry = false, decimal previosAmount = 0)
     {
+        var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
         try
         {
             if (StaticObject.FilledOrders.ContainsKey(config.CustomId))
@@ -185,8 +186,7 @@ public class BotService : IBotService
                 _logger.LogInformation($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: having another order to complete");
                 return false;
             }
-
-            var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
+            
             if (userSetting == null) return false;
             BybitRestClient api;
             if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
@@ -238,23 +238,11 @@ public class BotService : IBotService
                         await TakePlaceOrder(config, currentPrice, true, previosAmount);
                     }
                     else
-                    {
-                        config.IsActive = false;
-                        _configService.AddOrEditConfig(config);
+                    {                       
                         var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {placedOrder?.Error?.Message} - code: {placedOrder?.Error?.Code}";
                         _logger.LogInformation(message);
-                        _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, placedOrder?.Error?.Message ?? string.Empty);
-
-                        await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
-                        await _bus.Send(new OnOffConfigMessageScanner
-                        {
-                            Configs = new List<ConfigDto> {
-                                    new ConfigDto{
-                                        CustomId = config.CustomId,
-                                        IsActive = false,
-                                    }
-                                }
-                        });
+                       
+                        await TakeOrderError(config, placedOrder?.Error?.Message ?? string.Empty, userSetting.TeleChannel);
                     }
 
                 }
@@ -266,9 +254,27 @@ public class BotService : IBotService
         {
             // log error to the telegram channels
             _logger.LogInformation($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} Ex: {ex.Message}");
+            await TakeOrderError(config, ex.Message, userSetting.TeleChannel);
             return false;
         }
+    }
 
+    private async Task TakeOrderError(ConfigDto config, string message, string teleChannel)
+    {
+        config.IsActive = false;
+        _configService.AddOrEditConfig(config);
+        _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, teleChannel, message ?? string.Empty);
+
+        await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
+        await _bus.Send(new OnOffConfigMessageScanner
+        {
+            Configs = new List<ConfigDto> {
+                                    new ConfigDto{
+                                        CustomId = config.CustomId,
+                                        IsActive = false,
+                                    }
+                                }
+        });
     }
 
     public async Task<bool> AmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice)
@@ -583,6 +589,8 @@ public class BotService : IBotService
                                     await _mutex.WaitAsync();
                                     try
                                     {
+                                        var totalFee = closingOrder.TotalFee ?? 0;
+                                        var currentFee = (updatedData?.ExecutedFee ?? 0) * (updatedData?.AveragePrice ?? 0);
                                         var isRemoved = StaticObject.FilledOrders.TryRemove(closingOrder.CustomId, out _);
                                         _logger.LogInformation($"Take profit: {updatedData.Symbol} - removed: {isRemoved}");
 
@@ -590,8 +598,8 @@ public class BotService : IBotService
                                         var closePrice = updatedData?.AveragePrice ?? 0;
                                         var filledQuantity = updatedData?.QuantityFilled ?? 0;
                                         var tp = closingOrder.PositionSide == AppConstants.ShortSide ? (openPrice - closePrice) * filledQuantity : (closePrice - openPrice) * filledQuantity;
-                                        var pnlCash = Math.Round(tp, 2);
-                                        var pnlPercent = Math.Round((pnlCash / (openPrice * filledQuantity)) * 100, 2);
+                                        var pnlCash = Math.Round(tp - (totalFee + currentFee), 2);
+                                        var pnlPercent = Math.Round((tp / (openPrice * filledQuantity)) * 100, 2);
                                         var pnlText = pnlCash > 0 ? "WIN" : "LOSE";
                                         _logger.LogInformation($"{updatedData?.Symbol}|{closingOrder.OrderChange}|{pnlText}|PNL: ${pnlCash.ToString("0.00")} {pnlPercent.ToString("0.00")}%");
                                         var configWin = _configService.UpsertWinLose(config, pnlCash > 0);
@@ -772,10 +780,10 @@ public class BotService : IBotService
                 StaticObject.RestApis.TryAdd(user.Id, api);
             }
             var ordSide = orderUpdate?.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
-            quantity = tryCount == 0 ? (orderUpdate?.QuantityFilled ?? 0) : quantity * 0.9986M;
+            quantity = tryCount == 0 ? (orderUpdate?.QuantityFilled ?? 0) : quantity * 0.9989M;
             var orderPrice = CalculateTP(orderUpdate.AveragePrice, configToUpdate);
             var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == orderUpdate.Symbol);
-            var quantityWithTicksize = ((int)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
+            var quantityWithTicksize = ((long)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
 
             var clientOrderId = Guid.NewGuid().ToString();
             _logger.LogInformation($"Taking profit {orderUpdate.Symbol}|{ordSide}|quantity: {quantity}|{clientOrderId} - count: {tryCount}");
@@ -785,9 +793,9 @@ public class BotService : IBotService
             cloneConfig.FilledQuantity = quantityWithTicksize;
             cloneConfig.OrderStatus = 2;
             cloneConfig.EditedDate = DateTime.Now;
+            cloneConfig.TotalFee = (orderUpdate?.ExecutedFee ?? 0) * (orderUpdate?.AveragePrice ?? 0);
             StaticObject.FilledOrders.TryAdd(cloneConfig.CustomId, cloneConfig);
 
-            //_configService.AddOrEditConfig(configToUpdate);
             var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
             (
                 Category.Spot,
@@ -880,7 +888,7 @@ public class BotService : IBotService
     }
 
 
-    private readonly decimal _tp = 70;
+    private readonly decimal _tp = 80;
     private (decimal, decimal, decimal) CalculateOrderPriceQuantityTP(decimal currentPrice, ConfigDto config, bool isRetry = false, decimal previousAmount = 0)
     {
         var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;
@@ -888,7 +896,7 @@ public class BotService : IBotService
         var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
         var orderPriceWithTicksize = ((int)(orderPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
         var quantity = (isRetry ? previousAmount : config.Amount) / orderPriceWithTicksize;
-        var quantityWithTicksize = ((int)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
+        var quantityWithTicksize = ((long)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
         var tpPrice = config.PositionSide == AppConstants.ShortSide ? orderPrice - ((currentPrice * config.OrderChange / 100) * _tp / 100) : orderPrice + ((currentPrice * config.OrderChange / 100) * _tp / 100);
         var tpPriceWithTicksize = ((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
 

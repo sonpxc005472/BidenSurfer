@@ -33,6 +33,7 @@ public class ConfigDto
     public int? OrderStatus { get; set; } //1 - new, 2 - filled and closing
     public bool isClosingFilledOrder { get; set; }
     public string ScannerTitle { get; set; }
+    public decimal? TotalFee { get; set; }
     public UserDto UserDto { get; set; }
     public ConfigDto Clone()
     {

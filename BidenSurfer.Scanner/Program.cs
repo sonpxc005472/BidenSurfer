@@ -96,6 +96,7 @@ namespace BidenSurfer.Scanner
 
                 EndpointConvention.Map<NewConfigCreatedMessage>(new Uri($"queue:{QueueName.ScannerIndicator}"));
                 EndpointConvention.Map<SaveNewConfigMessage>(new Uri($"queue:{QueueName.SaveNewConfig}"));
+                EndpointConvention.Map<SendTeleMessage>(new Uri($"queue:{QueueName.SendTeleMessage}"));
 
                 #endregion
             }
