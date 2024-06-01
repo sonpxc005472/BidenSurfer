@@ -112,10 +112,13 @@ public class BotService : IBotService
                                         if (priceDiff > (decimal)0.05)
                                         {
                                             isPriceChanged = true;
-                                            //Amend order
-                                            await AmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
-                                            var delayTime = NumberHelpers.RandomInt(100, 250);
-                                            await Task.Delay(delayTime);
+                                            if(!symbolConfig.Timeout.HasValue || (symbolConfig.Timeout.HasValue && (currentTime - symbolConfig.Timeout.Value).TotalMilliseconds > 30000))
+                                            {
+                                                //Amend order
+                                                await AmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
+                                                var delayTime = NumberHelpers.RandomInt(100, 250);
+                                                await Task.Delay(delayTime);
+                                            }
                                         }
                                     }
                                 }
@@ -213,6 +216,7 @@ public class BotService : IBotService
                 config.TPPrice = orderPriceAndQuantity.Item3;
                 config.OrderStatus = 1;
                 config.TotalQuantity = orderPriceAndQuantity.Item2;
+                config.Timeout = null;
                 _configService.AddOrEditConfig(config);
                 var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
                     (
@@ -314,13 +318,18 @@ public class BotService : IBotService
             {
                 config.TPPrice = tpPriceUpdate;
                 config.OrderStatus = 1;
+                config.Timeout = null;
                 config.TotalQuantity = orderPriceAndQuantity.Item2;
                 _configService.AddOrEditConfig(config);
                 return true;
             }
             else
             {
-                if (IsNeededCancel(amendOrder.Error.Message))
+                if (amendOrder.Error.Message.Contains("Request timed out", StringComparison.InvariantCultureIgnoreCase) || amendOrder.Error.Message.Contains("Timestamp for this request is outside of the recvWindow", StringComparison.InvariantCultureIgnoreCase))
+                { 
+                    config.Timeout = DateTime.Now;
+                }
+                else if (IsNeededCancel(amendOrder.Error.Message))
                 {
                     var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
                     _logger.LogInformation(message);
@@ -534,7 +543,9 @@ public class BotService : IBotService
                             var orderId = updatedData?.OrderId;
                             var clientOrderId = updatedData?.ClientOrderId;
                             if (orderState != Bybit.Net.Enums.V5.OrderStatus.New && orderState != Bybit.Net.Enums.V5.OrderStatus.Created)
-                                _logger.LogInformation($"{updatedData?.Symbol} | {orderState} | {clientOrderId}");
+                            {
+                                _logger.LogInformation($"{updatedData?.Symbol} | {orderState} | {clientOrderId}");                               
+                            }
                             var config = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId).Value;
                             if (config == null)
                             {
@@ -544,6 +555,14 @@ public class BotService : IBotService
                             if (config == null)
                             {
                                 _logger.LogInformation("Null order: " + clientOrderId);
+                                if (orderState == Bybit.Net.Enums.V5.OrderStatus.PartiallyFilled)
+                                {
+                                    _ = _teleMessage.FillMessage(updatedData.Symbol, "", "", user.Setting?.TeleChannel, false, updatedData.QuantityFilled ?? 0, 0, updatedData.AveragePrice ?? 0);
+                                }
+                                else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Filled)
+                                {
+                                    _ = _teleMessage.FillMessage(updatedData.Symbol, "", "", user.Setting?.TeleChannel, true, updatedData.QuantityFilled ?? 0, 0, updatedData.AveragePrice ?? 0);
+                                }
                                 continue;
                             }
                             if (orderState == Bybit.Net.Enums.V5.OrderStatus.PartiallyFilled)

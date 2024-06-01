@@ -12,15 +12,17 @@ namespace BidenSurfer.Infras.Loggers
                 loggerConfiguration
                     .Enrich.WithProperty("ApplicationName", applicationName);
 
-                Configure(loggerConfiguration);
+                Configure(loggerConfiguration, applicationName);
             });
 
             return hostBuilder;
         }
 
-        private static void Configure(LoggerConfiguration loggerConfiguration)
+        private static void Configure(LoggerConfiguration loggerConfiguration, string applicationName)
         {
-            loggerConfiguration.WriteTo.Seq("http://seq:5341");
+            loggerConfiguration
+                .Filter.ByExcluding(m => applicationName == "WebApi" ? !m.Properties["SourceContext"].ToString().Contains("Consumers.SendTeleMessageConsumer") : string.IsNullOrEmpty(m.MessageTemplate.Text))
+                .WriteTo.Seq("http://seq:5341");
         }
     }
 }

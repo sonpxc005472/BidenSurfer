@@ -134,7 +134,7 @@ public class BotService : IBotService
                                                     _logger.LogInformation($"=====================================================================================");
 
                                                     // create new configs for long side
-                                                    CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close);                                                   
+                                                    CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);                                                   
                                                 }
                                             }
                                         }                                        
@@ -174,7 +174,7 @@ public class BotService : IBotService
                                                     _logger.LogInformation($"=====================================================================================");
 
                                                     // create new configs for short side
-                                                    CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close);                                                   
+                                                    CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);                                                   
                                                 }
                                             }                                            
                                         }                                        
@@ -221,12 +221,12 @@ public class BotService : IBotService
         
     }
 
-    private List<ConfigDto> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner, int maxOpen, int currentOpen, decimal currentPrice)
+    private List<ConfigDto> CalculateOcs(string symbol, decimal maxOC, ScannerDto scanner, int maxOpen, int currentOpen, decimal currentPrice, decimal vol)
     {
         var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == scanner.UserId)?.Setting;
         if (userSetting == null) return new ();
         var maxOcAbs = Math.Abs(maxOC);
-        var minOc = maxOcAbs / (maxOcAbs >= 4 ? 2 : 1.5M);
+        var minOc = maxOcAbs / (maxOcAbs >= 5 ? 3 : maxOcAbs >= 4 ? 2 : 1.5M);
         var rangeOc = (maxOcAbs - minOc) / scanner.OcNumber;
         var configs = new List<ConfigDto>();
         for (var i = 1; i <= scanner.OcNumber; i++)
@@ -262,7 +262,7 @@ public class BotService : IBotService
                 ScannerTitle = scanner.Title
             };
             _configService.AddOrEditConfig(new List<ConfigDto> { config });
-            _ = _bus.Send(new NewConfigCreatedMessage { ConfigDtos = new List<ConfigDto> { config }, Price = currentPrice });
+            _ = _bus.Send(new NewConfigCreatedMessage { ConfigDtos = new List<ConfigDto> { config }, Price = currentPrice, Volume = vol });
             _ = _bus.Send(new SaveNewConfigMessage { NewScanConfigs = new List<ConfigDto> { config } });
             _ = _teleMessage.ScannerOpenMessage(config.ScannerTitle, symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel);
             configs.Add(config);

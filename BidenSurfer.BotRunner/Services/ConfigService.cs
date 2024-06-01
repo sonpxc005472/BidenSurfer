@@ -75,6 +75,7 @@ public class ConfigService : IConfigService
                         caconfig.FilledQuantity = config.FilledQuantity;
                         caconfig.isClosingFilledOrder = config.isClosingFilledOrder;
                         caconfig.OriginAmount = config.OriginAmount;
+                        caconfig.Timeout = config.Timeout;
                         StaticObject.AllConfigs[config.CustomId] = caconfig;
                     }                                      
                 }                
@@ -118,6 +119,7 @@ public class ConfigService : IConfigService
                             configsToUpdateMem.OrderStatus = null;
                             configsToUpdateMem.EditedDate = DateTime.Now;
                             configsToUpdateMem.isClosingFilledOrder = false;
+                            configsToUpdateMem.Timeout = null;
                             configsToUpdateMem.Amount = configsToUpdateMem.OriginAmount ?? configsToUpdateMem.Amount;
                             StaticObject.AllConfigs[config.CustomId] = configsToUpdateMem;
                         }
@@ -232,6 +234,7 @@ public class ConfigService : IConfigService
                     cacheData.isClosingFilledOrder = false;
                     cacheData.isNewScan = false;
                     cacheData.EditedDate = DateTime.Now;
+                    cacheData.Timeout = null;
                     StaticObject.AllConfigs[config.CustomId] = cacheData;
                 }
             }
@@ -322,17 +325,18 @@ public class ConfigService : IConfigService
                         config.Symbol,
                         clientOrderId: config.ClientOrderId
                     );
-                config.OrderStatus = null;
-                config.ClientOrderId = string.Empty;
-                config.OrderId = string.Empty;
-                config.isClosingFilledOrder = false;
-                config.IsActive = false;
-                config.EditedDate = DateTime.Now;
-                config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
-                StaticObject.AllConfigs[config.CustomId] = config;
+                
 
                 if (cancelOrder.Success)
                 {
+                    config.OrderStatus = null;
+                    config.ClientOrderId = string.Empty;
+                    config.OrderId = string.Empty;
+                    config.isClosingFilledOrder = false;
+                    config.IsActive = false;
+                    config.EditedDate = DateTime.Now;
+                    config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
+                    StaticObject.AllConfigs[config.CustomId] = config;
                     var message = $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} Cancelled";
                     Console.WriteLine(message);
                     _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, "Cancelled");

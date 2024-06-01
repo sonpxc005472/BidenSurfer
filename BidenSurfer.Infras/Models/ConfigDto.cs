@@ -34,6 +34,7 @@ public class ConfigDto
     public bool isClosingFilledOrder { get; set; }
     public string ScannerTitle { get; set; }
     public decimal? TotalFee { get; set; }
+    public DateTime? Timeout { get; set; }
     public UserDto UserDto { get; set; }
     public ConfigDto Clone()
     {

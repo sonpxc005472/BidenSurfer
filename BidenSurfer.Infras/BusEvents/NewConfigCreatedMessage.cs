@@ -7,6 +7,7 @@ namespace BidenSurfer.Infras.BusEvents
     {
         public Guid CorrelationId { get; set; } = Guid.NewGuid();
         public decimal? Price { get; set;}
+        public decimal? Volume { get; set;}
         public List<ConfigDto>? ConfigDtos { get; set;}
     }
 }
