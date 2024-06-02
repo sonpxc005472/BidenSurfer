@@ -328,6 +328,7 @@ public class BotService : IBotService
                 if (amendOrder.Error.Message.Contains("Request timed out", StringComparison.InvariantCultureIgnoreCase) || amendOrder.Error.Message.Contains("Timestamp for this request is outside of the recvWindow", StringComparison.InvariantCultureIgnoreCase))
                 { 
                     config.Timeout = DateTime.Now;
+                    _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
                 }
                 else if (IsNeededCancel(amendOrder.Error.Message))
                 {
@@ -450,6 +451,7 @@ public class BotService : IBotService
                         }
                     }
 
+                    //Amount increase Expired
                     var configAmountExpired = StaticObject.AllConfigs
                     .Where(x => x.Value.IsActive
                             && !string.IsNullOrEmpty(x.Value.OrderId)
@@ -464,6 +466,7 @@ public class BotService : IBotService
                     {
                         foreach (var config in configAmountExpired)
                         {
+                            _logger.LogInformation($"Amount increase Expired: {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} - Current: {config.Amount}, Origin: {config.OriginAmount }");
                             config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
                             _configService.AddOrEditConfig(config);
                         }
@@ -622,7 +625,7 @@ public class BotService : IBotService
                                         var pnlText = pnlCash > 0 ? "WIN" : "LOSE";
                                         _logger.LogInformation($"{updatedData?.Symbol}|{closingOrder.OrderChange}|{pnlText}|PNL: ${pnlCash.ToString("0.00")} {pnlPercent.ToString("0.00")}%");
                                         var configWin = _configService.UpsertWinLose(config, pnlCash > 0);
-                                        _ = _teleMessage.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent, configWin.Win, configWin.Total);
+                                        _ = _teleMessage.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent, configWin.Win, configWin.Total, filledQuantity, config.TotalQuantity ?? 0, openPrice, closePrice);
                                         config.OrderId = string.Empty;
                                         config.ClientOrderId = string.Empty;
                                         config.OrderStatus = null;

@@ -21,7 +21,7 @@ namespace BidenSurfer.Infras.Loggers
         private static void Configure(LoggerConfiguration loggerConfiguration, string applicationName)
         {
             loggerConfiguration
-                .Filter.ByExcluding(m => applicationName == "WebApi" ? !m.Properties["SourceContext"].ToString().Contains("Consumers.SendTeleMessageConsumer") : string.IsNullOrEmpty(m.MessageTemplate.Text))
+                .Filter.ByExcluding(m => applicationName == "WebApi" ? (!m.Properties["SourceContext"].ToString().Contains("Consumers.SendTeleMessageConsumer") && !m.Properties["SourceContext"].ToString().Contains("Consumers.AmountExpireConsumer") && !m.Properties["SourceContext"].ToString().Contains("ConfigService")) : string.IsNullOrEmpty(m.MessageTemplate.Text))
                 .WriteTo.Seq("http://seq:5341");
         }
     }
