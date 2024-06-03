@@ -311,7 +311,6 @@ public class BotService : IBotService
                     Category.Spot,
                     symbol,
                     clientOrderId: config.ClientOrderId,
-                    quantity: orderPriceAndQuantity.Item2,
                     price: orderPrice
                 );
             if (amendOrder.Success)
@@ -319,7 +318,6 @@ public class BotService : IBotService
                 config.TPPrice = tpPriceUpdate;
                 config.OrderStatus = 1;
                 config.Timeout = null;
-                config.TotalQuantity = orderPriceAndQuantity.Item2;
                 _configService.AddOrEditConfig(config);
                 return true;
             }
@@ -589,22 +587,22 @@ public class BotService : IBotService
                                         Category.Spot,
                                         updatedData?.Symbol,
                                         clientOrderId: clientOrderId
-                                    );
-                                    if (cancelOrder.Success)
-                                    {
-                                        await TakeProfit(updatedData, user);
-                                    }
+                                    );                                    
                                 }
 
+                            }
+                            else if (orderState == Bybit.Net.Enums.V5.OrderStatus.PartiallyFilledCanceled)
+                            {
+                                await TakeProfit(updatedData, user);
                             }
                             else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Filled)
                             {
                                 var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
                                 if (closingOrder == null)
                                 {
-                                    await TakeProfit(updatedData, user);
                                     _logger.LogInformation($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}| {clientOrderId} - Filled");
                                     _ = _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
+                                    await TakeProfit(updatedData, user);
                                 }
                                 else
                                 {
@@ -875,7 +873,6 @@ public class BotService : IBotService
                     Category.Spot,
                     symbol,
                     clientOrderId: config.ClientOrderId,
-                    quantity: config.FilledQuantity,
                     price: orderPriceWithTicksize
                 );
 
@@ -884,12 +881,17 @@ public class BotService : IBotService
             if (!amendOrder.Success)
             {
                 _logger.LogInformation($"Try to take profit {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId} Error: {amendOrder.Error?.Code}-{amendOrder.Error?.Message}");
-                var isRemoved = StaticObject.FilledOrders.TryRemove(config.CustomId, out _);
-                _logger.LogInformation($"Try to take profit: removed: {isRemoved} - {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId}");
-                config.OrderId = string.Empty;
-                config.ClientOrderId = string.Empty;
-                config.OrderStatus = 1;
-                config.isClosingFilledOrder = false;
+
+                if (IsNeedStopRetry(amendOrder.Error.Message))
+                {
+                    var isRemoved = StaticObject.FilledOrders.TryRemove(config.CustomId, out _);
+                    _logger.LogInformation($"Try to take profit: removed: {isRemoved} - {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId}");
+                    config.OrderId = string.Empty;
+                    config.ClientOrderId = string.Empty;
+                    config.OrderStatus = 1;
+                    config.isClosingFilledOrder = false;
+                }
+                
             }
             else
             {
@@ -1033,6 +1035,11 @@ public class BotService : IBotService
     private bool IsNeededCancel(string errorMessage)
     {
         return !errorMessage.Contains("not exist", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("pending order modification", StringComparison.InvariantCultureIgnoreCase);
+    }
+    
+    private bool IsNeedStopRetry(string errorMessage)
+    {
+        return !errorMessage.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("pending order modification", StringComparison.InvariantCultureIgnoreCase);
     }
 
     public async Task<bool> UnsubscribeAll()

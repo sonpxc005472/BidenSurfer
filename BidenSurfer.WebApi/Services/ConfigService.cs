@@ -85,7 +85,7 @@ public class ConfigService : IConfigService
             configEntity.IncreaseOcPercent = config.IncreaseOcPercent;
             configEntity.Expire = config.Expire;
             configEntity.EditedDate = DateTime.Now;
-            configEntity.OriginAmount = config.Amount;
+            configEntity.OriginAmount = fromBotUpdate ? configEntity.OriginAmount : config.Amount;
             if (!config.IsActive && configEntity.CreatedBy == AppConstants.CreatedByScanner)
             {
                 _context.Configs.Remove(configEntity);
