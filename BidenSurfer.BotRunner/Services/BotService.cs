@@ -311,6 +311,7 @@ public class BotService : IBotService
                     Category.Spot,
                     symbol,
                     clientOrderId: config.ClientOrderId,
+                    quantity: orderPriceAndQuantity.Item2,
                     price: orderPrice
                 );
             if (amendOrder.Success)
@@ -318,6 +319,7 @@ public class BotService : IBotService
                 config.TPPrice = tpPriceUpdate;
                 config.OrderStatus = 1;
                 config.Timeout = null;
+                config.TotalQuantity = orderPriceAndQuantity.Item2;
                 _configService.AddOrEditConfig(config);
                 return true;
             }
