@@ -266,18 +266,20 @@ public class BotService : IBotService
     private async Task TakeOrderError(ConfigDto config, string message, string teleChannel)
     {
         config.IsActive = false;
+        config.OrderStatus = null;
+        config.ClientOrderId = string.Empty;
+        config.OrderId = string.Empty;
+        config.isClosingFilledOrder = false;
         _configService.AddOrEditConfig(config);
         _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, teleChannel, message ?? string.Empty);
 
         await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
         await _bus.Send(new OnOffConfigMessageScanner
         {
-            Configs = new List<ConfigDto> {
-                                    new ConfigDto{
-                                        CustomId = config.CustomId,
-                                        IsActive = false,
-                                    }
-                                }
+            Configs = new List<ConfigDto> 
+            {
+                config
+            }
         });
     }
 
@@ -666,13 +668,9 @@ public class BotService : IBotService
                                             await _bus.Send(new OnOffConfigMessageScanner()
                                             {
                                                 Configs = new List<ConfigDto>
-                                            {
-                                                new ConfigDto
                                                 {
-                                                    CustomId = config.CustomId,
-                                                    IsActive = false,
+                                                    config
                                                 }
-                                            }
                                             });
                                         }
                                         else
@@ -713,11 +711,7 @@ public class BotService : IBotService
                                 {
                                     Configs = new List<ConfigDto>
                                     {
-                                        new ConfigDto
-                                        {
-                                            CustomId = customId,
-                                            IsActive = false,
-                                        }
+                                        config
                                     }
                                 });
                                 _ = _teleMessage.OffConfigMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, "Cancelled");
