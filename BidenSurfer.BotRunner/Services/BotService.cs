@@ -112,7 +112,7 @@ public class BotService : IBotService
                                         if (priceDiff > (decimal)0.05)
                                         {
                                             isPriceChanged = true;
-                                            if(!symbolConfig.Timeout.HasValue || (symbolConfig.Timeout.HasValue && (currentTime - symbolConfig.Timeout.Value).TotalMilliseconds > 30000))
+                                            if (!symbolConfig.Timeout.HasValue || (symbolConfig.Timeout.HasValue && (currentTime - symbolConfig.Timeout.Value).TotalMilliseconds > 30000))
                                             {
                                                 //Amend order
                                                 await AmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
@@ -189,7 +189,7 @@ public class BotService : IBotService
                 _logger.LogInformation($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: having another order to complete");
                 return false;
             }
-            
+
             if (userSetting == null) return false;
             BybitRestClient api;
             if (!StaticObject.RestApis.TryGetValue(config.UserId, out api))
@@ -242,10 +242,10 @@ public class BotService : IBotService
                         await TakePlaceOrder(config, currentPrice, true, previosAmount);
                     }
                     else
-                    {                       
+                    {
                         var message = $"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {placedOrder?.Error?.Message} - code: {placedOrder?.Error?.Code}";
                         _logger.LogInformation(message);
-                       
+
                         await TakeOrderError(config, placedOrder?.Error?.Message ?? string.Empty, userSetting.TeleChannel);
                     }
 
@@ -326,7 +326,7 @@ public class BotService : IBotService
             else
             {
                 if (amendOrder.Error.Message.Contains("Request timed out", StringComparison.InvariantCultureIgnoreCase) || amendOrder.Error.Message.Contains("Timestamp for this request is outside of the recvWindow", StringComparison.InvariantCultureIgnoreCase))
-                { 
+                {
                     config.Timeout = DateTime.Now;
                     _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
                 }
@@ -401,12 +401,10 @@ public class BotService : IBotService
                 await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
                 await _bus.Send(new OnOffConfigMessageScanner
                 {
-                    Configs = new List<ConfigDto> {
-                                    new ConfigDto{
-                                        CustomId = config.CustomId,
-                                        IsActive = false,
-                                    }
-                                }
+                    Configs = new List<ConfigDto> 
+                    {
+                        config
+                    }
                 });
                 await Task.Delay(200);
                 StaticObject.IsInternalCancel = false;
@@ -466,7 +464,7 @@ public class BotService : IBotService
                     {
                         foreach (var config in configAmountExpired)
                         {
-                            _logger.LogInformation($"Amount increase Expired: {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} - Current: {config.Amount}, Origin: {config.OriginAmount }");
+                            _logger.LogInformation($"Amount increase Expired: {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} - Current: {config.Amount}, Origin: {config.OriginAmount}");
                             config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
                             _configService.AddOrEditConfig(config);
                         }
@@ -547,7 +545,7 @@ public class BotService : IBotService
                             var clientOrderId = updatedData?.ClientOrderId;
                             if (orderState != Bybit.Net.Enums.V5.OrderStatus.New && orderState != Bybit.Net.Enums.V5.OrderStatus.Created)
                             {
-                                _logger.LogInformation($"{updatedData?.Symbol} | {orderState} | {clientOrderId}");                               
+                                _logger.LogInformation($"{updatedData?.Symbol} | {orderState} | {clientOrderId}");
                             }
                             var config = StaticObject.AllConfigs.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId).Value;
                             if (config == null)
@@ -589,7 +587,7 @@ public class BotService : IBotService
                                         Category.Spot,
                                         updatedData?.Symbol,
                                         clientOrderId: clientOrderId
-                                    );                                    
+                                    );
                                 }
 
                             }
@@ -893,7 +891,7 @@ public class BotService : IBotService
                     config.OrderStatus = 1;
                     config.isClosingFilledOrder = false;
                 }
-                
+
             }
             else
             {
@@ -1038,7 +1036,7 @@ public class BotService : IBotService
     {
         return !errorMessage.Contains("not exist", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("pending order modification", StringComparison.InvariantCultureIgnoreCase);
     }
-    
+
     private bool IsNeedStopRetry(string errorMessage)
     {
         return !errorMessage.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("pending order modification", StringComparison.InvariantCultureIgnoreCase);

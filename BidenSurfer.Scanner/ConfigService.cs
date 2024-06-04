@@ -4,6 +4,7 @@ using BidenSurfer.Infras.Domains;
 using BidenSurfer.Infras.Entities;
 using BidenSurfer.Infras.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace BidenSurfer.Scanner;
@@ -18,9 +19,12 @@ public interface IConfigService
 public class ConfigService : IConfigService
 {
     private readonly AppDbContext _dbContext;
-    public ConfigService(AppDbContext dbContext)
+    private readonly ILogger<ConfigService> _logger;
+
+    public ConfigService(AppDbContext dbContext, ILogger<ConfigService> logger)
     {
         _dbContext = dbContext;
+        _logger = logger;
     }
 
     public void AddOrEditConfig(List<ConfigDto> configs)
@@ -116,6 +120,7 @@ public class ConfigService : IConfigService
     {
         try
         {
+            _logger.LogInformation($"OnOffConfig {string.Join(",", configs.Select(c => c.CustomId).ToList())}");
             foreach (var config in configs)
             {
                 if (!config.IsActive && config.CreatedBy == AppConstants.CreatedByScanner)
@@ -143,7 +148,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Scanner On/Off config Ex: " + ex.Message);
+            _logger.LogError("Scanner On/Off config Ex: " + ex.Message);
         }        
     }
 }
