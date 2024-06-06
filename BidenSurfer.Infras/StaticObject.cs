@@ -13,6 +13,7 @@ namespace BidenSurfer.Infras
         public static BybitSocketClient PublicWebsocket = new BybitSocketClient();
         public static ConcurrentDictionary<string, decimal> ContractToCurrencies = new ConcurrentDictionary<string, decimal>();
         public static ConcurrentDictionary<string, UpdateSubscription> TickerSubscriptions = new ConcurrentDictionary<string, UpdateSubscription>();
+        public static ConcurrentDictionary<string, UpdateSubscription> ScannerTradeSubscriptions = new ConcurrentDictionary<string, UpdateSubscription>();
         public static Dictionary<string, BybitKlineUpdate> Kline1mSubscriptions = new Dictionary<string, BybitKlineUpdate>();
         public static Dictionary<string, decimal> SymbolTurnover = new Dictionary<string, decimal>();
         public static Dictionary<long, bool> BotStatus = new Dictionary<long, bool>();

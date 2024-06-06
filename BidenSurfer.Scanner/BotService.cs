@@ -15,6 +15,8 @@ using System.Diagnostics.Metrics;
 using Telegram.Bot.Types;
 using CryptoExchange.Net.Authentication;
 using Microsoft.Extensions.Logging;
+using CryptoExchange.Net.CommonObjects;
+using static MassTransit.ValidationResultExtensions;
 
 public interface IBotService
 {
@@ -49,7 +51,9 @@ public class BotService : IBotService
         //var exitEvent = new ManualResetEvent(false);
         //var url = new Uri(_websocketUrl);
         var totalsymbols = StaticObject.Symbols.Where(s => (s.MarginTrading == MarginTrading.Both || s.MarginTrading == MarginTrading.UtaOnly) && s.Name.EndsWith("USDT")).Select(c => c.Name).Distinct().ToList();
-        var batches = totalsymbols.Select((x, i) => new { Index = i, Value = x })
+        var subTradeSymbols = StaticObject.ScannerTradeSubscriptions.Keys.ToList();
+        var unsubSymbols = totalsymbols.Except(subTradeSymbols).ToList();
+        var batches = unsubSymbols.Select((x, i) => new { Index = i, Value = x })
                           .GroupBy(x => x.Index / 10)
                           .Select(x => x.Select(v => v.Value).ToList())
                           .ToList();
@@ -212,8 +216,14 @@ public class BotService : IBotService
                     }
                 }
             });
-
-            if (!subResult.Success)
+            if (subResult.Success)
+            {
+                foreach (var symbol in symbols)
+                {
+                    StaticObject.ScannerTradeSubscriptions.TryAdd(symbol, subResult.Data);
+                }
+            }
+            else
             {
                 _logger.LogInformation("subscribe trade error: " + subResult.Error);
             }

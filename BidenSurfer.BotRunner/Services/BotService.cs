@@ -612,15 +612,16 @@ public class BotService : IBotService
                                     try
                                     {
                                         var totalFee = closingOrder.TotalFee ?? 0;
-                                        var currentFee = (updatedData?.ExecutedFee ?? 0) * (updatedData?.AveragePrice ?? 0);
+                                        var currentFee = totalFee + (updatedData?.QuantityFilled * 0.001M * updatedData?.AveragePrice) ?? 0;
                                         var isRemoved = StaticObject.FilledOrders.TryRemove(closingOrder.CustomId, out _);
                                         _logger.LogInformation($"Take profit: {updatedData.Symbol} - removed: {isRemoved}");
 
                                         var openPrice = closingOrder.FilledPrice ?? 0;
                                         var closePrice = updatedData?.AveragePrice ?? 0;
                                         var filledQuantity = updatedData?.QuantityFilled ?? 0;
+                                        var fee = filledQuantity * 0.002M * closePrice;
                                         var tp = closingOrder.PositionSide == AppConstants.ShortSide ? (openPrice - closePrice) * filledQuantity : (closePrice - openPrice) * filledQuantity;
-                                        var pnlCash = Math.Round(tp - (totalFee + currentFee), 2);
+                                        var pnlCash = Math.Round(tp - currentFee, 2);
                                         var pnlPercent = Math.Round((tp / (openPrice * filledQuantity)) * 100, 2);
                                         var pnlText = pnlCash > 0 ? "WIN" : "LOSE";
                                         _logger.LogInformation($"{updatedData?.Symbol}|{closingOrder.OrderChange}|{pnlText}|PNL: ${pnlCash.ToString("0.00")} {pnlPercent.ToString("0.00")}%");
@@ -807,7 +808,10 @@ public class BotService : IBotService
             cloneConfig.FilledQuantity = quantityWithTicksize;
             cloneConfig.OrderStatus = 2;
             cloneConfig.EditedDate = DateTime.Now;
-            cloneConfig.TotalFee = (orderUpdate?.ExecutedFee ?? 0) * (orderUpdate?.AveragePrice ?? 0);
+            var fee = (orderUpdate?.ExecutedFee ?? 0) * (orderUpdate?.AveragePrice ?? 0);
+            var calculateFee = orderUpdate?.QuantityFilled * 0.001M * orderUpdate?.AveragePrice;
+            cloneConfig.TotalFee = calculateFee;
+            _logger.LogInformation($"Take profit: {orderUpdate.Symbol}|{cloneConfig.PositionSide}|{cloneConfig.OrderChange} - fee: ${fee} - calculated fee: ${calculateFee}");
             StaticObject.FilledOrders.TryAdd(cloneConfig.CustomId, cloneConfig);
 
             var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
