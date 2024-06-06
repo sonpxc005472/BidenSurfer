@@ -109,6 +109,8 @@ public class BotService : IBotService
                                         var scanners = StaticObject.AllScanners.Where(c => c.IsActive).ToList();
                                         var configs = StaticObject.AllConfigs.Where(c => c.Value.IsActive).ToList();
                                         var newConfigs = new List<ConfigDto>();
+                                        var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x => x.Value.UserId).ToList();
+
                                         foreach (var scanner in scanners)
                                         {
                                             //Bot is stopping so do not do anymore
@@ -116,9 +118,8 @@ public class BotService : IBotService
                                             {
                                                 continue;
                                             }
-                                            var sideOrderExisted = configs.Any(x => x.Value.Symbol == symbol && x.Value.UserId == scanner.UserId && x.Value.PositionSide != scanner.PositionSide);
-                                            var scanOcExisted = configs.Any(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.UserId == scanner.UserId && c.Value.IsActive);
-                                            if (!scanOcExisted && !sideOrderExisted)
+                                            var scanOcExisted = userSymbolExisted.Any(c => c == scanner.UserId);
+                                            if (!scanOcExisted)
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
@@ -148,6 +149,7 @@ public class BotService : IBotService
                                         var scanners = StaticObject.AllScanners;
                                         var configs = StaticObject.AllConfigs;
                                         var newConfigs = new List<ConfigDto>();
+                                        var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x=>x.Value.UserId).ToList();
                                         foreach (var scanner in scanners)
                                         {
                                             //Bot is stopping so do not do anymore
@@ -155,9 +157,8 @@ public class BotService : IBotService
                                             {
                                                 continue;
                                             }
-                                            var sideOrderExisted = configs.Any(x => x.Value.Symbol == symbol && x.Value.UserId == scanner.UserId && x.Value.PositionSide != scanner.PositionSide);
-                                            var scanOcExisted = configs.Any(c => c.Value.IsActive && c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.UserId == scanner.UserId);
-                                            if (!scanOcExisted && !sideOrderExisted)
+                                            var scanOcExisted = userSymbolExisted.Any(c => c == scanner.UserId);
+                                            if (!scanOcExisted)
                                             {
                                                 var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();

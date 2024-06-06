@@ -21,6 +21,7 @@ namespace BidenSurfer.Infras
         public static ConcurrentDictionary<long, UpdateSubscription> OrderSubscriptions = new ConcurrentDictionary<long, UpdateSubscription>();
         public static ConcurrentDictionary<string,ConfigDto> FilledOrders = new ConcurrentDictionary<string,ConfigDto>();
         public static ConcurrentDictionary<string,ConfigDto> AllConfigs = new ConcurrentDictionary<string,ConfigDto>();
+        public static ConcurrentDictionary<string,ConfigDto> TempCancelConfigs = new ConcurrentDictionary<string,ConfigDto>();
         public static List<ScannerDto> AllScanners = new List<ScannerDto>();
         public static List<ScannerSettingDto> AllScannerSetting = new List<ScannerSettingDto>();
         public static List<UserDto> AllUsers = new List<UserDto>();

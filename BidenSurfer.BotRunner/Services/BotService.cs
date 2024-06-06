@@ -28,7 +28,7 @@ public interface IBotService
     Task SubscribeOrderChannel();
     Task<bool> TakePlaceOrder(ConfigDto config, decimal currentPrice, bool isRetry = false, decimal previousAmount = 0);
     Task<bool> AmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice);
-    Task<bool> CancelOrder(ConfigDto config, bool isExpired);
+    Task<bool> CancelOrder(ConfigDto config, bool isExpired = false, bool isTemp = false);
     Task<bool> CancelAllOrder(long? userId = null);
 }
 
@@ -100,8 +100,7 @@ public class BotService : IBotService
                                     bool isExistedScanner = openScanners.Any(x => x.UserId == symbolConfig.UserId);
                                     bool isLongSide = symbolConfig.PositionSide == AppConstants.LongSide;
                                     var existingFilledOrders = StaticObject.FilledOrders.Where(x => x.Value.UserId == symbolConfig.UserId && x.Value.OrderStatus == 2 && x.Value.Symbol == symbol).Select(r => r.Value).ToList();
-                                    var sideOrderExisted = symbolConfigs.Any(x => x.UserId == symbolConfig.UserId && x.PositionSide != symbolConfig.PositionSide);
-                                    if ((symbolConfig.CreatedBy != AppConstants.CreatedByScanner || (symbolConfig.CreatedBy == AppConstants.CreatedByScanner && !isExistedScanner)) && !existingFilledOrders.Any() && !sideOrderExisted && string.IsNullOrEmpty(symbolConfig.ClientOrderId))
+                                    if ((symbolConfig.CreatedBy != AppConstants.CreatedByScanner || (symbolConfig.CreatedBy == AppConstants.CreatedByScanner && !isExistedScanner)) && !existingFilledOrders.Any() && string.IsNullOrEmpty(symbolConfig.ClientOrderId))
                                     {
                                         //Place order
                                         await TakePlaceOrder(symbolConfig, currentPrice);
@@ -353,7 +352,7 @@ public class BotService : IBotService
         }
     }
 
-    public async Task<bool> CancelOrder(ConfigDto config, bool isExpired = false)
+    public async Task<bool> CancelOrder(ConfigDto config, bool isExpired = false, bool isTemp = false)
     {
         try
         {
@@ -374,40 +373,51 @@ public class BotService : IBotService
             if (api != null)
             {
                 StaticObject.IsInternalCancel = true;
+                config.IsActive = false;
+                if (!isTemp)
+                {
+                    config.OrderStatus = null;
+                    config.ClientOrderId = string.Empty;
+                    config.OrderId = string.Empty;
+                    config.isClosingFilledOrder = false;
+                    config.EditedDate = DateTime.Now;
+                    config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;                    
+                }
+                _configService.AddOrEditConfig(config);
                 var cancelOrder = await api.V5Api.Trading.CancelOrderAsync
                     (
                         Category.Spot,
                         config.Symbol,
                         clientOrderId: config.ClientOrderId
-                    );
-                config.OrderStatus = null;
-                config.ClientOrderId = string.Empty;
-                config.OrderId = string.Empty;
-                config.isClosingFilledOrder = false;
-                config.IsActive = false;
-                config.EditedDate = DateTime.Now;
-                config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
-                _configService.AddOrEditConfig(config);
+                    );                                
 
                 if (cancelOrder.Success)
                 {
                     var messageSub = isExpired ? $"Expired {config.Expire}m" : $"Cancelled";
                     var message = isExpired ? $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}" : $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}";
                     _logger.LogInformation(message);
-                    _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
+                    if(!isTemp)
+                    {
+                        _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
+                    }
                 }
                 else
                 {
                     _logger.LogInformation($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
                 }
-                await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
-                await _bus.Send(new OnOffConfigMessageScanner
+
+                if(!isTemp)
                 {
-                    Configs = new List<ConfigDto> 
+                    await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
+                    await _bus.Send(new OnOffConfigMessageScanner
                     {
-                        config
-                    }
-                });
+                        Configs = new List<ConfigDto>
+                        {
+                            config
+                        }
+                    });
+                }
+                
                 await Task.Delay(200);
                 StaticObject.IsInternalCancel = false;
             }
@@ -688,6 +698,31 @@ public class BotService : IBotService
                                                 });
                                             }
                                         }
+
+                                        //Enable short side that was disabled when long side is filled
+                                        if(closingOrder.PositionSide == AppConstants.LongSide)
+                                        {
+                                            var filledOrders = StaticObject.FilledOrders.Any(r => r.Value.Symbol == updatedData.Symbol && r.Value.UserId == closingOrder.UserId && r.Value.PositionSide == closingOrder.PositionSide);
+                                            if(!filledOrders)
+                                            {
+                                                var shortActiveConfigs = StaticObject.TempCancelConfigs.Where(c => c.Value.UserId == closingOrder.UserId && c.Value.Symbol == closingOrder.Symbol && c.Value.PositionSide == AppConstants.ShortSide).Select(c => c.Value).ToList();
+                                                foreach (var shortConfig in shortActiveConfigs)
+                                                {
+                                                    var configToEnable = StaticObject.AllConfigs[shortConfig.CustomId];
+                                                    if(configToEnable != null)
+                                                    {
+                                                        configToEnable.IsActive = true;
+                                                        configToEnable.OrderStatus = null;
+                                                        configToEnable.ClientOrderId = string.Empty;
+                                                        configToEnable.OrderId = string.Empty;
+                                                        configToEnable.isClosingFilledOrder = false;
+                                                        configToEnable.EditedDate = DateTime.Now;
+                                                        StaticObject.AllConfigs[shortConfig.CustomId] = configToEnable;
+                                                    }
+                                                    StaticObject.TempCancelConfigs.TryRemove(shortConfig.CustomId, out _);
+                                                }
+                                            }
+                                        }
                                     }
                                     finally
                                     {
@@ -814,6 +849,18 @@ public class BotService : IBotService
             _logger.LogInformation($"Take profit: {orderUpdate.Symbol}|{cloneConfig.PositionSide}|{cloneConfig.OrderChange} - fee: ${fee} - calculated fee: ${calculateFee}");
             StaticObject.FilledOrders.TryAdd(cloneConfig.CustomId, cloneConfig);
 
+            // If long config is filled, cancel all short configs first before take profit
+            if(cloneConfig.PositionSide == AppConstants.LongSide)
+            {
+                var shortActiveConfigs = StaticObject.AllConfigs.Where(c => c.Value.IsActive && c.Value.Symbol == cloneConfig.Symbol && !string.IsNullOrEmpty(c.Value.ClientOrderId) && c.Value.UserId == cloneConfig.UserId && c.Value.PositionSide == AppConstants.ShortSide).Select(c => c.Value).ToList();
+                
+                foreach (var shortConfig in shortActiveConfigs)
+                {
+                    StaticObject.TempCancelConfigs.TryAdd(shortConfig.CustomId, shortConfig);
+                    await CancelOrder(shortConfig, false, true);
+                }
+            }
+            
             var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
             (
                 Category.Spot,

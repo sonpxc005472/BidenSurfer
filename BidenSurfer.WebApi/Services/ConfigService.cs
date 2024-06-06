@@ -284,16 +284,18 @@ public class ConfigService : IConfigService
     {
         try
         {
-            Console.WriteLine("OffConfigs: " + string.Join(",", customIds));
+            _logger.LogInformation("OffConfigs: " + string.Join(",", customIds));
             var configEntities = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
             var toRemove = configEntities?.Where(c => c.CreatedBy == AppConstants.CreatedByScanner).ToList();
             var toUpdate = configEntities?.Where(c => c.CreatedBy != AppConstants.CreatedByScanner).ToList();
             if (toRemove.Any())
             {
+                _logger.LogInformation("Delete configs: " + string.Join(",", toRemove.Select(c => $"{c.Symbol} - {c.CustomId}").ToList()));
                 _context.Configs.RemoveRange(toRemove);
             }
             if (toUpdate.Any())
             {
+                _logger.LogInformation("Update configs: " + string.Join(",", toUpdate.Select(c => $"{c.Symbol} - {c.CustomId}").ToList()));
                 foreach (var entity in toUpdate)
                 {
                     entity.IsActive = false;
