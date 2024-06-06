@@ -662,7 +662,8 @@ public class BotService : IBotService
                                             }
                                         }
 
-                                        config.Amount = config.CreatedBy == AppConstants.CreatedByScanner && pnlCash <= 0 ? (config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount) : amountIncrease;
+                                        config.Amount = pnlCash > 0 ? amountIncrease : config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
+
 
                                         if (pnlCash <= 0 && config.CreatedBy == AppConstants.CreatedByScanner)
                                         {
