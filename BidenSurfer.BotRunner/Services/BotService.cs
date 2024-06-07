@@ -97,7 +97,7 @@ public class BotService : IBotService
                                     {
                                         continue;
                                     }
-                                    bool isExistedScanner = openScanners.Any(x => x.UserId == symbolConfig.UserId);
+                                    bool isExistedScanner = openScanners.Any(x => x.UserId == symbolConfig.UserId && x.PositionSide == symbolConfig.PositionSide);
                                     bool isLongSide = symbolConfig.PositionSide == AppConstants.LongSide;
                                     var existingFilledOrders = StaticObject.FilledOrders.Where(x => x.Value.UserId == symbolConfig.UserId && x.Value.OrderStatus == 2 && x.Value.Symbol == symbol).Select(r => r.Value).ToList();
                                     if ((symbolConfig.CreatedBy != AppConstants.CreatedByScanner || (symbolConfig.CreatedBy == AppConstants.CreatedByScanner && !isExistedScanner)) && !existingFilledOrders.Any() && string.IsNullOrEmpty(symbolConfig.ClientOrderId))
