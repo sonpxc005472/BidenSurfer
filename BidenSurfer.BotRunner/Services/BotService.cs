@@ -373,16 +373,7 @@ public class BotService : IBotService
             if (api != null)
             {
                 StaticObject.IsInternalCancel = true;
-                config.IsActive = false;
-                if (!isTemp)
-                {
-                    config.OrderStatus = null;
-                    config.ClientOrderId = string.Empty;
-                    config.OrderId = string.Empty;
-                    config.isClosingFilledOrder = false;
-                    config.EditedDate = DateTime.Now;
-                    config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;                    
-                }
+                config.IsActive = false;               
                 _configService.AddOrEditConfig(config);
                 var cancelOrder = await api.V5Api.Trading.CancelOrderAsync
                     (
@@ -396,13 +387,25 @@ public class BotService : IBotService
                     var messageSub = isExpired ? $"Expired {config.Expire}m" : $"Cancelled";
                     var message = isExpired ? $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}" : $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} {messageSub}";
                     _logger.LogInformation(message);
-                    if(!isTemp)
+                    if (!isTemp)
                     {
+                        config.OrderStatus = null;
+                        config.ClientOrderId = string.Empty;
+                        config.OrderId = string.Empty;
+                        config.isClosingFilledOrder = false;
+                        config.EditedDate = DateTime.Now;
+                        config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
+                        _configService.AddOrEditConfig(config);
+
                         _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
+
                     }
                 }
                 else
                 {
+                    config.IsActive = true;
+                    _configService.AddOrEditConfig(config);
+
                     _logger.LogInformation($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
                 }
 
