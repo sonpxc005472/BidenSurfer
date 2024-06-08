@@ -94,6 +94,10 @@ namespace BidenSurfer.Scanner
                 {
                     x.Consumer<ResetScannerConsumer>(ctx);
                 });
+                cfg.ReceiveEndpoint(QueueName.ResetBotForScannerFromBotRunnerMessage, x =>
+                {
+                    x.Consumer<ResetScannerFromBotRunnerConsumer>(ctx);
+                });
 
                 #endregion
 

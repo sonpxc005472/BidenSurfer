@@ -538,7 +538,7 @@ public class BotService : IBotService
                     _logger.LogInformation("Reset bot every 12 hours");
                     preTimeReset = currentTime;
                     await ResetBot();
-                    await _bus.Send(new ResetBotForScannerMessage());
+                    await _bus.Send(new ResetBotForScannerFromBotRunnerMessage());
                 }
             });
         }
