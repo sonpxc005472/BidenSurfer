@@ -368,7 +368,11 @@ public class UserService : IUserService
     {
         _ = _bus.Send(new ResetBotForBotRunnerMessage());
 
-        _ = _bus.Send(new ResetBotForScannerMessage());
+        _ = _bus.Send(new StartStopScannerMessage
+        {
+            IsStop = true,
+            UserId = _securityContextAccessor.UserId
+        });
         await Task.Delay(1000);
         return true;
     }
