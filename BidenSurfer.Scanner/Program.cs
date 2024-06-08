@@ -40,13 +40,13 @@ namespace BidenSurfer.Scanner
                     options.EnableDetailedErrors(true);
                     options.EnableSensitiveDataLogging(false);
                 });
-                services.AddScoped<AppDbContext>();                
+                services.AddScoped<AppDbContext>();
+                services.AddCustomMassTransit(configuration);
                 services.AddSingleton<ITeleMessage, TeleMessage>();
                 services.AddScoped<IUserService, UserService>();
                 services.AddScoped<IConfigService, ConfigService>();
                 services.AddScoped<IScannerService, ScannerService>();
                 services.AddScoped<IBotService, BotService>();
-                services.AddCustomMassTransit(configuration);
                 services.AddHostedService<AutoRunService>();
             });
     }
