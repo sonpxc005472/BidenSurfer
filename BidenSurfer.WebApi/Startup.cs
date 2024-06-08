@@ -108,7 +108,7 @@ namespace BidenSurfer.WebApi
                 EndpointConvention.Map<SymbolInfoUpdateForScannerMessage>(new Uri($"queue:{QueueName.SymbolInfoUpdateForScannerMessage}"));
                 EndpointConvention.Map<SymbolInfoUpdateForBotRunnerMessage>(new Uri($"queue:{QueueName.SymbolInfoUpdateForBotRunnerMessage}"));
                 EndpointConvention.Map<ResetBotForBotRunnerMessage>(new Uri($"queue:{QueueName.ResetBotForBotRunnerMessage}"));
-                EndpointConvention.Map<ResetBotForScannerMessage>(new Uri($"queue:{QueueName.ResetBotForScannerMessage}"));
+                EndpointConvention.Map<ResetBotForScannerFromApiMessage>(new Uri($"queue:{QueueName.ResetBotForScannerFromApiMessage}"));
 
                 #endregion
             }
@@ -125,7 +125,7 @@ namespace BidenSurfer.WebApi
                         hc.Password(messageBusOptions.Password);
                     });
 
-                    cfg.PrefetchCount = 10;
+                    cfg.PrefetchCount = 16;
 
                     //cfg.UseMessageRetry(r => r.Incremental(5, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30)));
 

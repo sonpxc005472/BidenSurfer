@@ -90,9 +90,9 @@ namespace BidenSurfer.Scanner
                 {
                     x.Consumer<SymbolsUpdateFromApiConsumer>(ctx);
                 });
-                cfg.ReceiveEndpoint(QueueName.ResetBotForScannerMessage, x =>
+                cfg.ReceiveEndpoint(QueueName.ResetBotForScannerFromApiMessage, x =>
                 {
-                    x.Consumer<ResetScannerConsumer>(ctx);
+                    x.Consumer<ResetScannerFromApiConsumer>(ctx);
                 });
                 cfg.ReceiveEndpoint(QueueName.ResetBotForScannerFromBotRunnerMessage, x =>
                 {
