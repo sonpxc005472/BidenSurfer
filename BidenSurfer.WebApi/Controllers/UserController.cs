@@ -113,5 +113,13 @@ namespace BidenSurfer.WebApi.Controllers
             var rs = await _userService.StartStopBot(setting);
             return Ok(rs);
         }
+
+        [Authorize]
+        [HttpPost("reset")]
+        public async Task<IActionResult> ResetBot(GeneralSettingDto setting)
+        {
+            var rs = await _userService.StartStopBot(setting);
+            return Ok(rs);
+        }
     }
 }

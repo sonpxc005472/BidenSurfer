@@ -12,11 +12,7 @@ using MassTransit;
 using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
 using System;
-using CryptoExchange.Net.CommonObjects;
 using Microsoft.Extensions.Logging;
-using Serilog;
-using StackExchange.Redis;
-using BidenSurfer.Infras.Entities;
 
 public interface IBotService
 {
@@ -30,6 +26,7 @@ public interface IBotService
     Task<bool> AmendOrder(ConfigDto config, decimal currentPrice, decimal openPrice);
     Task<bool> CancelOrder(ConfigDto config, bool isExpired = false, bool isTemp = false);
     Task<bool> CancelAllOrder(long? userId = null);
+    Task<bool> ResetBot();
 }
 
 public class BotService : IBotService
@@ -111,7 +108,7 @@ public class BotService : IBotService
                                         if (priceDiff > (decimal)0.05)
                                         {
                                             isPriceChanged = true;
-                                            if (!symbolConfig.Timeout.HasValue || (symbolConfig.Timeout.HasValue && (currentTime - symbolConfig.Timeout.Value).TotalMilliseconds > 30000))
+                                            if (!symbolConfig.Timeout.HasValue || (symbolConfig.Timeout.HasValue && (currentTime - symbolConfig.Timeout.Value).TotalMilliseconds > 60000))
                                             {
                                                 //Amend order
                                                 await AmendOrder(symbolConfig, currentPrice, currentData.OpenPrice);
@@ -167,6 +164,7 @@ public class BotService : IBotService
             var subsToUnsubs = StaticObject.TickerSubscriptions.Where(o => !symbols.Any(a => a == o.Key)).ToList();
             foreach (var unsub in subsToUnsubs)
             {
+                _logger.LogInformation("Bot Runner - Unsubscribing: " + unsub.Key);
                 await StaticObject.PublicWebsocket.UnsubscribeAsync(unsub.Value);
                 StaticObject.TickerSubscriptions.TryRemove(unsub);
             }
@@ -326,11 +324,11 @@ public class BotService : IBotService
             }
             else
             {
-                if (amendOrder.Error.Message.Contains("Request timed out", StringComparison.InvariantCultureIgnoreCase) || amendOrder.Error.Message.Contains("Timestamp for this request is outside of the recvWindow", StringComparison.InvariantCultureIgnoreCase))
+                if (amendOrder.Error.Message.Contains(AppConstants.RequestTimeout, StringComparison.InvariantCultureIgnoreCase) || amendOrder.Error.Message.Contains(AppConstants.RequestOutsideRecvWindow, StringComparison.InvariantCultureIgnoreCase))
                 {
                     config.Timeout = DateTime.Now;
                     _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
-                }
+                }                
                 else if (IsNeededCancel(amendOrder.Error.Message))
                 {
                     var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
@@ -356,6 +354,7 @@ public class BotService : IBotService
     {
         try
         {
+            _logger.LogInformation($"Cancelling order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} - Expired: {isExpired} - Temp: {isTemp}");
             var userSetting = StaticObject.AllUsers.FirstOrDefault(u => u.Id == config.UserId)?.Setting;
             if (userSetting == null) return false;
             BybitRestClient api;
@@ -398,19 +397,27 @@ public class BotService : IBotService
                         _configService.AddOrEditConfig(config);
 
                         _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
-
+                        
+                        await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
+                        await _bus.Send(new OnOffConfigMessageScanner
+                        {
+                            Configs = new List<ConfigDto>
+                        {
+                            config
+                        }
+                        });
                     }
                 }
                 else
                 {
-                    config.IsActive = true;
-                    _configService.AddOrEditConfig(config);
+                    var error = cancelOrder.Error.Message;
+                    if(!error.Contains(AppConstants.OrderNotExist, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        config.IsActive = true;
+                        _configService.AddOrEditConfig(config);
+                        return false;
+                    }
 
-                    _logger.LogInformation($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
-                }
-
-                if(!isTemp)
-                {
                     await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
                     await _bus.Send(new OnOffConfigMessageScanner
                     {
@@ -419,10 +426,12 @@ public class BotService : IBotService
                             config
                         }
                     });
+                    _logger.LogInformation($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
                 }
                 
                 await Task.Delay(200);
                 StaticObject.IsInternalCancel = false;
+                return true;
             }
         }
         catch (Exception ex)
@@ -441,6 +450,7 @@ public class BotService : IBotService
         {
             bool isNotified = false;
             var preTimeCancel = DateTime.Now;
+            var preTimeReset = DateTime.Now;
 
             var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { "BTCUSDT" }, KlineInterval.OneMinute, async data =>
             {
@@ -520,6 +530,15 @@ public class BotService : IBotService
                 else if (hoursSinceMidnight % 3 != 0)
                 {
                     isNotified = false;
+                }
+
+                // Reset bot every 12 hours
+                if ((currentTime - preTimeReset).TotalHours >= 12 && !StaticObject.FilledOrders.Any())
+                {
+                    _logger.LogInformation("Reset bot every 12 hours");
+                    preTimeReset = currentTime;
+                    await ResetBot();
+                    await _bus.Send(new ResetBotForScannerMessage());
                 }
             });
         }
@@ -931,7 +950,7 @@ public class BotService : IBotService
             {
                 _logger.LogInformation($"Try to take profit {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId} Error: {amendOrder.Error?.Code}-{amendOrder.Error?.Message}");
 
-                if (IsNeedStopRetry(amendOrder.Error.Message))
+                if (IsNeededCancel(amendOrder.Error.Message))
                 {
                     var isRemoved = StaticObject.FilledOrders.TryRemove(config.CustomId, out _);
                     _logger.LogInformation($"Try to take profit: removed: {isRemoved} - {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId}");
@@ -940,7 +959,6 @@ public class BotService : IBotService
                     config.OrderStatus = 1;
                     config.isClosingFilledOrder = false;
                 }
-
             }
             else
             {
@@ -1083,12 +1101,7 @@ public class BotService : IBotService
 
     private bool IsNeededCancel(string errorMessage)
     {
-        return !errorMessage.Contains("not exist", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("pending order modification", StringComparison.InvariantCultureIgnoreCase);
-    }
-
-    private bool IsNeedStopRetry(string errorMessage)
-    {
-        return !errorMessage.Contains("The order remains unchanged", StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains("pending order modification", StringComparison.InvariantCultureIgnoreCase);
+        return !errorMessage.Contains(AppConstants.OrderRemainsUnchanged, StringComparison.InvariantCultureIgnoreCase) && !errorMessage.Contains(AppConstants.PendingOrderModification, StringComparison.InvariantCultureIgnoreCase);
     }
 
     public async Task<bool> UnsubscribeAll()
@@ -1101,6 +1114,16 @@ public class BotService : IBotService
             await StaticObject.PublicWebsocket.UnsubscribeAsync(unsub.Value);
         }
         StaticObject.TickerSubscriptions.Clear();
+        return true;
+    }
+
+    public async Task<bool> ResetBot()
+    {
+        StaticObject.AllConfigs.Clear();
+        await _configService.GetAllActive();
+        await CancelAllOrder();
+        await SubscribeSticker();
+        
         return true;
     }
 }

@@ -15,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+
 public interface IUserService
 {
     Task<AuthenticateResponse?> Authenticate(AuthenticateRequest model);
@@ -28,6 +29,7 @@ public interface IUserService
     Task<GeneralSettingDto?> GetGeneralSetting();
     Task<bool> SaveGeneralSetting(GeneralSettingDto generalSettingDto);
     Task<bool> StartStopBot(GeneralSettingDto generalSettingDto);
+    Task<bool> Reset();
     Task<decimal> GetMaximumBorrow(string symbol, string orderSide);
     string GenHash(string text);
 }
@@ -360,5 +362,13 @@ public class UserService : IUserService
             });
         }
         return true;
-    }    
+    }
+
+    public async Task<bool> Reset()
+    {
+        await _bus.Send(new ResetBotForBotRunnerMessage());
+        await _bus.Send(new ResetBotForScannerMessage());
+        await Task.Delay(2000);
+        return true;
+    }
 }

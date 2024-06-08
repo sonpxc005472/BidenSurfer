@@ -9,10 +9,11 @@ import { BaseButton } from '@app/components/common/BaseButton/BaseButton';
 import { notificationController } from '@app/controllers/notificationController';
 import { doSaveGeneralSetting, setBotStatus } from '@app/store/slices/userSlice';
 import { BaseButtonsForm } from '@app/components/common/forms/BaseButtonsForm/BaseButtonsForm';
-import { getGeneralSetting, startStopBot } from '@app/api/user.api';
+import { getGeneralSetting, resetBot, startStopBot } from '@app/api/user.api';
 import { mergeBy } from '@app/utils/utils';
 import { InputNumber } from 'antd';
 import { BaseSwitch } from '@app/components/common/BaseSwitch/BaseSwitch';
+import { SyncOutlined } from '@ant-design/icons';
 interface FieldData {
   name: string | number;
   //  
@@ -22,6 +23,7 @@ const GeneralSettingPage: React.FC = () => {
   const dispatch = useAppDispatch();
 
   const [isLoading, setLoading] = useState(false);
+  const [isResetting, setResetting] = useState(false);
 
   const [isStop, setStop] = useState(false);
   const [isStopping, setStopping] = useState(false);
@@ -71,6 +73,14 @@ const GeneralSettingPage: React.FC = () => {
         setStopping(false);
       });
   }
+
+  const handleReset = () => {
+    setResetting(true);
+    resetBot().finally(()=>{
+      setResetting(false);
+    });
+}
+
   const handleSubmit = () => {
     const fv = [...fields];
     setLoading(true);
@@ -160,6 +170,13 @@ const GeneralSettingPage: React.FC = () => {
     </BaseRow>
     <BaseRow style={{marginTop: "10px"}}>        
         <BaseSwitch loading={isStopping} size='default' checkedChildren="Stop" unCheckedChildren="Start" checked={!isStop} onChange={handleStartStop} />    
+    </BaseRow>
+    <BaseRow style={{marginTop: "30px"}}>        
+        <BaseButton type="primary" 
+            icon={<SyncOutlined />}
+            loading={isResetting} onClick={handleReset}>
+            Reset
+        </BaseButton>        
     </BaseRow>
     </>
   );

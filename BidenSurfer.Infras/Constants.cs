@@ -21,5 +21,13 @@
         public const string CreatedByUser = "user";
         public const string USER_CLAIM_TYPE = "userId";
         public const string ROLE_CLAIM_TYPE = "role";
+
+        /* Error Messages */
+
+        public const string OrderNotExist = "Order does not exist";
+        public const string PendingOrderModification = "pending order modification";
+        public const string OrderRemainsUnchanged = "The order remains unchanged";
+        public const string RequestTimeout = "Request timed out";
+        public const string RequestOutsideRecvWindow = "Timestamp for this request is outside of the recvWindow";
     }
 }

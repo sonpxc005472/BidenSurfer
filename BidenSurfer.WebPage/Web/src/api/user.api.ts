@@ -32,3 +32,6 @@ export const saveGeneralSetting = (data: GeneralSettingData): Promise<boolean> =
 
 export const startStopBot = (data: GeneralSettingData): Promise<boolean> =>
   httpApi.post<boolean>('user/start-stop-bot', { ...data }).then(({ data }) => data);
+
+export const resetBot = (): Promise<boolean> =>
+  httpApi.post<boolean>('user/reset').then(({ data }) => data);

@@ -89,6 +89,11 @@ namespace BidenSurfer.BotRunner
                     x.Consumer<SymbolsUpdateFromApiConsumer>(ctx);
                 });
 
+                cfg.ReceiveEndpoint(QueueName.ResetBotForBotRunnerMessage, x =>
+                {
+                    x.Consumer<ResetBotRunnerConsumer>(ctx);
+                });
+
                 #endregion
 
                 #region Publish endpoints
@@ -99,6 +104,7 @@ namespace BidenSurfer.BotRunner
                 EndpointConvention.Map<OnOffConfigMessageScanner>(new Uri($"queue:{QueueName.OnOffConfigMessageScanner}"));
                 EndpointConvention.Map<UpdateConfigMessage>(new Uri($"queue:{QueueName.UpdateConfigMessage}"));
                 EndpointConvention.Map<SendTeleMessage>(new Uri($"queue:{QueueName.SendTeleMessage}"));
+                EndpointConvention.Map<ResetBotForScannerMessage>(new Uri($"queue:{QueueName.ResetBotForScannerMessage}"));
 
                 #endregion
             }

@@ -47,9 +47,7 @@ public class BotService : IBotService
     private static ConcurrentDictionary<string, long> _candle1s = new ConcurrentDictionary<string, long>();
 
     private async Task RunScanner()
-    {
-        //var exitEvent = new ManualResetEvent(false);
-        //var url = new Uri(_websocketUrl);
+    {        
         var totalsymbols = StaticObject.Symbols.Where(s => (s.MarginTrading == MarginTrading.Both || s.MarginTrading == MarginTrading.UtaOnly) && s.Name.EndsWith("USDT")).Select(c => c.Name).Distinct().ToList();
         var subTradeSymbols = StaticObject.ScannerTradeSubscriptions.Keys.ToList();
         var unsubSymbols = totalsymbols.Except(subTradeSymbols).ToList();
@@ -110,6 +108,7 @@ public class BotService : IBotService
                                         var configs = StaticObject.AllConfigs.Where(c => c.Value.IsActive).ToList();
                                         var newConfigs = new List<ConfigDto>();
                                         var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x => x.Value).ToList();
+                                        var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.ClientOrderId));
 
                                         foreach (var scanner in scanners)
                                         {
@@ -125,7 +124,6 @@ public class BotService : IBotService
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
                                                 var onlyPairs = scanner?.OnlyPairs ?? new List<string>();
                                                 var maxOpen = scannerSetting?.MaxOpen ?? 15; // We can only open 15 orders by default
-                                                var numScannerOpen = configs.Count(c => c.Value.UserId == scanner.UserId && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.OrderId));
                                                 var symbolDetail = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 //If scan indicator matched user's scanner configurations 
                                                 if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
@@ -139,7 +137,8 @@ public class BotService : IBotService
                                                     _logger.LogInformation($"=====================================================================================");
 
                                                     // create new configs for long side
-                                                    CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);                                                   
+                                                    var scannerConfigs = CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);  
+                                                    numScannerOpen += scannerConfigs.Count;
                                                 }
                                             }
                                         }                                        
@@ -150,6 +149,8 @@ public class BotService : IBotService
                                         var configs = StaticObject.AllConfigs;
                                         var newConfigs = new List<ConfigDto>();
                                         var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x=>x.Value).ToList();
+                                        var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.ClientOrderId));
+
                                         foreach (var scanner in scanners)
                                         {
                                             //Bot is stopping so do not do anymore
@@ -164,7 +165,6 @@ public class BotService : IBotService
                                                 var blackList = scannerSetting?.BlackList ?? new List<string>();
                                                 var onlyPairs = scanner?.OnlyPairs ?? new List<string>();
                                                 var maxOpen = scannerSetting?.MaxOpen ?? 15; // We can only open 15 orders by default
-                                                var numScannerOpen = configs.Count(c => c.Value.UserId == scanner.UserId && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.OrderId));
                                                 var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
                                                 var isMarginTrading = (instrument?.MarginTrading == MarginTrading.Both || instrument?.MarginTrading == MarginTrading.UtaOnly);
                                                 //If scan indicator matched user's scanner configurations 
@@ -179,7 +179,8 @@ public class BotService : IBotService
                                                     _logger.LogInformation($"=====================================================================================");
 
                                                     // create new configs for short side
-                                                    CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);                                                   
+                                                    var scannerConfigs = CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);
+                                                    numScannerOpen += scannerConfigs.Count;
                                                 }
                                             }                                            
                                         }                                        
