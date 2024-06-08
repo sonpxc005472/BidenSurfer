@@ -368,7 +368,7 @@ public class UserService : IUserService
     {
         await _bus.Send(new ResetBotForBotRunnerMessage());
         await _bus.Send(new ResetBotForScannerMessage());
-        await Task.Delay(2000);
+        await Task.Delay(1000);
         return true;
     }
 }
