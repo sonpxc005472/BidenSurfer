@@ -366,8 +366,9 @@ public class UserService : IUserService
 
     public async Task<bool> Reset()
     {
-        await _bus.Send(new ResetBotForBotRunnerMessage());
-        await _bus.Send(new ResetBotForScannerMessage());
+        _ = _bus.Send(new ResetBotForBotRunnerMessage());
+
+        _ = _bus.Send(new ResetBotForScannerMessage());
         await Task.Delay(1000);
         return true;
     }

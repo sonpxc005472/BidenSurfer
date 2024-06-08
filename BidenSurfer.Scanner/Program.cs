@@ -58,38 +58,38 @@ namespace BidenSurfer.Scanner
             void ConfigureEnpoint(IBusRegistrationContext ctx, IBusFactoryConfigurator cfg)
             {
                 #region Subscribe endpoints
-                cfg.ReceiveEndpoint(QueueName.OnOffConfigMessageScanner, x =>
-                {
-                    x.Consumer<OnOffConfigConsumer>(ctx);
-                });
-                cfg.ReceiveEndpoint(QueueName.ScannerUpdateFromApiMessage, x =>
-                {
-                    x.Consumer<ScannerUpdateFromApiConsumer>(ctx);
-                });
-                cfg.ReceiveEndpoint(QueueName.ConfigUpdateFromApiForScannerMessage, x =>
-                {
-                    x.Consumer<ConfigUpdateFromApiConsumer>(ctx);
-                });
-                cfg.ReceiveEndpoint(QueueName.ScannerSettingUpdateFromApiMessage, x =>
-                {
-                    x.Consumer<ScannerSettingUpdateFromApiConsumer>(ctx);
-                });
-                cfg.ReceiveEndpoint(QueueName.UpdateUserForScannerMessage, x =>
-                {
-                    x.Consumer<UserUpdateFromApiConsumer>(ctx);
-                });
-                cfg.ReceiveEndpoint(QueueName.StartStopBotForScannerMessage, x =>
-                {
-                    x.Consumer<StartStopBotConsumer>(ctx);
-                });
-                cfg.ReceiveEndpoint(QueueName.StartStopScannerMessage, x =>
-                {
-                    x.Consumer<StartStopScannerConsumer>(ctx);
-                });
-                cfg.ReceiveEndpoint(QueueName.SymbolInfoUpdateForScannerMessage, x =>
-                {
-                    x.Consumer<SymbolsUpdateFromApiConsumer>(ctx);
-                });
+                //cfg.ReceiveEndpoint(QueueName.OnOffConfigMessageScanner, x =>
+                //{
+                //    x.Consumer<OnOffConfigConsumer>(ctx);
+                //});
+                //cfg.ReceiveEndpoint(QueueName.ScannerUpdateFromApiMessage, x =>
+                //{
+                //    x.Consumer<ScannerUpdateFromApiConsumer>(ctx);
+                //});
+                //cfg.ReceiveEndpoint(QueueName.ConfigUpdateFromApiForScannerMessage, x =>
+                //{
+                //    x.Consumer<ConfigUpdateFromApiConsumer>(ctx);
+                //});
+                //cfg.ReceiveEndpoint(QueueName.ScannerSettingUpdateFromApiMessage, x =>
+                //{
+                //    x.Consumer<ScannerSettingUpdateFromApiConsumer>(ctx);
+                //});
+                //cfg.ReceiveEndpoint(QueueName.UpdateUserForScannerMessage, x =>
+                //{
+                //    x.Consumer<UserUpdateFromApiConsumer>(ctx);
+                //});
+                //cfg.ReceiveEndpoint(QueueName.StartStopBotForScannerMessage, x =>
+                //{
+                //    x.Consumer<StartStopBotConsumer>(ctx);
+                //});
+                //cfg.ReceiveEndpoint(QueueName.StartStopScannerMessage, x =>
+                //{
+                //    x.Consumer<StartStopScannerConsumer>(ctx);
+                //});
+                //cfg.ReceiveEndpoint(QueueName.SymbolInfoUpdateForScannerMessage, x =>
+                //{
+                //    x.Consumer<SymbolsUpdateFromApiConsumer>(ctx);
+                //});
                 cfg.ReceiveEndpoint(QueueName.ResetBotForScannerMessage, x =>
                 {
                     x.Consumer<ResetScannerConsumer>(ctx);
@@ -122,7 +122,7 @@ namespace BidenSurfer.Scanner
                         hc.Password(messageBusOptions.Password);
                     });
 
-                    cfg.PrefetchCount = 10;
+                    cfg.PrefetchCount = 12;
 
                     ConfigureEnpoint(ctx, cfg);
                 });
