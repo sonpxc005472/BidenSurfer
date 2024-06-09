@@ -9,7 +9,6 @@ using BidenSurfer.Infras.Domains;
 using BidenSurfer.Scanner.Consumers;
 using BidenSurfer.Infras.Helpers;
 using BidenSurfer.Infras.Loggers;
-using BidenSurfer.BotRunner.Consumers;
 
 namespace BidenSurfer.Scanner
 {
@@ -90,13 +89,9 @@ namespace BidenSurfer.Scanner
                 {
                     x.Consumer<SymbolsUpdateFromApiConsumer>(ctx);
                 });
-                cfg.ReceiveEndpoint(QueueName.ResetBotForScannerFromApiMessage, x =>
+                cfg.ReceiveEndpoint(QueueName.ResetBotForScannerMessage, x =>
                 {
-                    x.Consumer<ResetScannerFromApiConsumer>(ctx);
-                });
-                cfg.ReceiveEndpoint(QueueName.ResetBotForScannerFromBotRunnerMessage, x =>
-                {
-                    x.Consumer<ResetScannerFromBotRunnerConsumer>(ctx);
+                    x.Consumer<ResetScannerConsumer>(ctx);
                 });
 
                 #endregion

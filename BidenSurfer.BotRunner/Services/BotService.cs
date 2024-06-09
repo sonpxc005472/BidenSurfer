@@ -451,7 +451,7 @@ public class BotService : IBotService
             bool isNotified = false;
             var preTimeCancel = DateTime.Now;
             var preTimeReset = DateTime.Now;
-
+            var preTimeAsssetTracking = DateTime.Now;
             var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { "BTCUSDT" }, KlineInterval.OneMinute, async data =>
             {
                 DateTime currentTime = DateTime.Now;
@@ -538,7 +538,44 @@ public class BotService : IBotService
                     _logger.LogInformation("Reset bot every 12 hours");
                     preTimeReset = currentTime;
                     await ResetBot();
-                    await _bus.Send(new ResetBotForScannerFromBotRunnerMessage());
+                    await _bus.Send(new ResetBotForScannerMessage());
+                }
+
+                // Asset tracking every 1 minute
+                if ((currentTime - preTimeAsssetTracking).TotalMinutes >= 2)
+                {
+                    preTimeAsssetTracking = currentTime;
+                    var users = StaticObject.AllUsers.Where(u => u.Status == (int)UserStatusEnums.Active && u.Setting != null).ToList();
+                    foreach (var user in users)
+                    {
+                        BybitRestClient api;
+                        if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
+                        {
+                            var userSetting = user.Setting;
+                            api = new BybitRestClient(options =>
+                            {
+                                options.ApiCredentials = new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey);
+                            });
+
+                            StaticObject.RestApis.TryAdd(user.Id, api);
+                        }
+                        var assetInfoResult = await api.V5Api.Account.GetBalancesAsync(AccountType.Unified);
+                        var balance = assetInfoResult.Data.List.First();
+                        var assets = balance.Assets.ToList();
+                        //var openOrdersResult = await api.V5Api.Trading.GetOrdersAsync(Category.Spot, orderFilter: OrderFilter.Order);
+                        //var openOrders = openOrdersResult.Data.List.ToList();
+                        //var tickerResult = await api.V5Api.ExchangeData.GetSpotTickersAsync();
+                        foreach (var assetInfo in assets)
+                        {
+                            var walletBalance = assetInfo.WalletBalance;
+                            var avaiBalance = assetInfo.Free;
+                            var lockedBalance = assetInfo.Locked;
+                            var assetName = assetInfo.Asset;
+                            var usdValue = assetInfo.UsdValue;
+                            _logger.LogInformation($"Asset tracking: {assetName} - Wallet Balance: {walletBalance} - Avai: {avaiBalance} - Locked: {lockedBalance} - USD: {usdValue}");
+                        }
+                        
+                    }
                 }
             });
         }

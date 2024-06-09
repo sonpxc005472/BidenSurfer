@@ -104,7 +104,7 @@ namespace BidenSurfer.BotRunner
                 EndpointConvention.Map<OnOffConfigMessageScanner>(new Uri($"queue:{QueueName.OnOffConfigMessageScanner}"));
                 EndpointConvention.Map<UpdateConfigMessage>(new Uri($"queue:{QueueName.UpdateConfigMessage}"));
                 EndpointConvention.Map<SendTeleMessage>(new Uri($"queue:{QueueName.SendTeleMessage}"));
-                EndpointConvention.Map<ResetBotForScannerFromBotRunnerMessage>(new Uri($"queue:{QueueName.ResetBotForScannerFromBotRunnerMessage}"));
+                EndpointConvention.Map<ResetBotForScannerMessage>(new Uri($"queue:{QueueName.ResetBotForScannerMessage}"));
 
                 #endregion
             }

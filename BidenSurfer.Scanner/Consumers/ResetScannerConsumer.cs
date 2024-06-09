@@ -1,28 +1,25 @@
 ﻿using BidenSurfer.Infras;
 using BidenSurfer.Infras.BusEvents;
-using BidenSurfer.Scanner;
 using BidenSurfer.Scanner.Services;
 using Bybit.Net.Clients;
 using Bybit.Net.Enums;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 
-namespace BidenSurfer.BotRunner.Consumers
+namespace BidenSurfer.Scanner.Consumers
 {
-    public class ResetScannerFromBotRunnerConsumer : IConsumer<ResetBotForScannerFromBotRunnerMessage>
+    public class ResetScannerConsumer : IConsumer<ResetBotForScannerMessage>
     {
         private readonly IBotService _botService;
         private readonly IConfigService _configService;
-        private readonly ILogger<ResetScannerFromBotRunnerConsumer> _logger;
-
-        public ResetScannerFromBotRunnerConsumer(IBotService botService, IConfigService configService, ILogger<ResetScannerFromBotRunnerConsumer> logger)
+        private readonly ILogger<ResetScannerConsumer> _logger;
+        public ResetScannerConsumer(IBotService botService, IConfigService configService, ILogger<ResetScannerConsumer> logger)
         {
             _botService = botService;
             _configService = configService;
             _logger = logger;
         }
-
-        public async Task Consume(ConsumeContext<ResetBotForScannerFromBotRunnerMessage> context)
+        public async Task Consume(ConsumeContext<ResetBotForScannerMessage> context)
         {
             _logger.LogInformation("Resetting scanner...");
             var publicApi = new BybitRestClient();
