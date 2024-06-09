@@ -13,6 +13,7 @@ using BidenSurfer.Infras.BusEvents;
 using BidenSurfer.Infras.Helpers;
 using System;
 using Microsoft.Extensions.Logging;
+using System.Text;
 
 public interface IBotService
 {
@@ -452,6 +453,7 @@ public class BotService : IBotService
             var preTimeCancel = DateTime.Now;
             var preTimeReset = DateTime.Now;
             var preTimeAsssetTracking = DateTime.Now;
+            var assetTrackingCount = 0;
             var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { "BTCUSDT" }, KlineInterval.OneMinute, async data =>
             {
                 DateTime currentTime = DateTime.Now;
@@ -542,41 +544,102 @@ public class BotService : IBotService
                 }
 
                 // Asset tracking every 1 minute
-                //if ((currentTime - preTimeAsssetTracking).TotalMinutes >= 2)
-                //{
-                //    preTimeAsssetTracking = currentTime;
-                //    var users = StaticObject.AllUsers.Where(u => u.Status == (int)UserStatusEnums.Active && u.Setting != null).ToList();
-                //    foreach (var user in users)
-                //    {
-                //        BybitRestClient api;
-                //        if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
-                //        {
-                //            var userSetting = user.Setting;
-                //            api = new BybitRestClient(options =>
-                //            {
-                //                options.ApiCredentials = new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey);
-                //            });
+                if ((currentTime - preTimeAsssetTracking).TotalMinutes > 1)
+                {
+                    preTimeAsssetTracking = currentTime;
+                    var users = StaticObject.AllUsers.Where(u => u.Status == (int)UserStatusEnums.Active && u.Setting != null).ToList();
+                    foreach (var user in users)
+                    {
+                        BybitRestClient api;
+                        if (!StaticObject.RestApis.TryGetValue(user.Id, out api))
+                        {
+                            var userSetting = user.Setting;
+                            api = new BybitRestClient(options =>
+                            {
+                                options.ApiCredentials = new ApiCredentials(userSetting.ApiKey, userSetting.SecretKey);
+                            });
 
-                //            StaticObject.RestApis.TryAdd(user.Id, api);
-                //        }
-                //        var assetInfoResult = await api.V5Api.Account.GetBalancesAsync(AccountType.Unified);
-                //        var balance = assetInfoResult.Data.List.First();
-                //        var assets = balance.Assets.ToList();
-                //        var openOrdersResult = await api.V5Api.Trading.GetOrdersAsync(Category.Spot, orderFilter: OrderFilter.Order);
-                //        var openOrders = openOrdersResult.Data.List.ToList();
-                //        var tickerResult = await api.V5Api.ExchangeData.GetSpotTickersAsync();
-                //        foreach (var assetInfo in assets)
-                //        {
-                //            var walletBalance = assetInfo.WalletBalance;
-                //            var avaiBalance = assetInfo.Free;
-                //            var lockedBalance = assetInfo.Locked;
-                //            var assetName = assetInfo.Asset;
-                //            var usdValue = assetInfo.UsdValue;
-                //            _logger.LogInformation($"Asset tracking: {assetName} - Wallet Balance: {walletBalance} - Avai: {avaiBalance} - Locked: {lockedBalance} - USD: {usdValue}");
-                //        }
-                        
-                //    }
-                //}
+                            StaticObject.RestApis.TryAdd(user.Id, api);
+                        }
+                        var assetInfoResult = await api.V5Api.Account.GetBalancesAsync(AccountType.Unified);
+                        var balance = assetInfoResult.Data.List.First();
+                        var assets = balance.Assets.ToList();
+                        var openOrdersResult = await api.V5Api.Trading.GetOrdersAsync(Category.Spot, orderFilter: OrderFilter.Order);
+                        var openOrders = openOrdersResult.Data.List.ToList();
+                        var balanceSetting = await _userService.GetGeneralSetting(user.Id);
+                        var assetTracking = balanceSetting?.AssetTracking ?? 0;
+                        var messageTracking = new StringBuilder();
+                        var haveRepay = false;
+                        var assetToSell = new List<(string, decimal)>();   
+                        foreach (var assetInfo in assets)
+                        {
+                            var walletBalance = assetInfo.WalletBalance;
+                            var avaiBalance = assetInfo.Free;
+                            var lockedBalance = assetInfo.Locked;
+                            var assetName = assetInfo.Asset;
+                            var usdValue = assetInfo.UsdValue ?? 0;
+                            if (assetName == "USDT")
+                            {
+                                continue;
+                            }
+                            if (assetTracking > 0 && Math.Abs(usdValue) >= assetTracking)
+                            {
+                                if (usdValue < 0 && !openOrders.Any(x => x.Symbol.StartsWith(assetName) && x.Side == OrderSide.Buy && x.IsLeverage == false)) {
+                                    _logger.LogInformation($"Asset tracking: {assetName} - USD: {usdValue}");
+                                    messageTracking.AppendLine($"{assetName}: ${Math.Round(usdValue,0)}");
+                                    haveRepay = true;
+                                }
+                                else if (usdValue > 0 && !openOrders.Any(x => x.Symbol.StartsWith(assetName) && x.Side == OrderSide.Sell && x.IsLeverage == false)) {
+                                    _logger.LogInformation($"Asset tracking: {assetName} - USD: {usdValue}");
+                                    messageTracking.AppendLine($"{assetName}: ${Math.Round(usdValue, 0)}");
+                                    assetToSell.Add((assetName, walletBalance));
+                                }
+                            }
+                        }
+                        var message = messageTracking.ToString();
+                        if(!string.IsNullOrEmpty(message))
+                        {
+                            assetTrackingCount++;
+                            _ = _teleMessage.AssetTrackingMessage(user.Setting.TeleChannel, message);
+                            if (assetTrackingCount >= 2)
+                            {
+                                assetTrackingCount = 0;
+                                await CancelAllOrder();
+                                if(haveRepay)
+                                {
+                                    await api.V5Api.Account.RepayLiabilitiesAsync();
+                                }
+                                if(assetToSell.Any())
+                                {
+                                    foreach(var asset in assetToSell)
+                                    {
+                                        var symbol = asset.Item1 + "USDT";
+                                        var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == symbol);
+                                        var quantityWithTicksize = ((long)(asset.Item2 / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
+
+                                        var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
+                                            (
+                                                Category.Spot,
+                                                symbol,
+                                                OrderSide.Sell,
+                                                NewOrderType.Market,
+                                                quantityWithTicksize ?? 0,
+                                                isLeverage: false
+                                            );
+                                        if (placedOrder.Success)
+                                        {
+                                            _logger.LogInformation($"Clean asset {asset.Item1} successfully");
+                                        }
+                                        else
+                                        {
+                                            _logger.LogInformation($"Clean asset {asset.Item1} unsuccessfully - Error: {placedOrder.Error?.Message} - Code: {placedOrder.Error?.Code}");
+                                        }
+                                    }
+                                }    
+                            }
+                        }                        
+                    }
+                }
             });
         }
         catch (Exception ex)

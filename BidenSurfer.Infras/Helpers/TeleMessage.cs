@@ -1,4 +1,5 @@
 ﻿using BidenSurfer.Infras.BusEvents;
+using CryptoExchange.Net.CommonObjects;
 using MassTransit;
 using Telegram.Bot;
 
@@ -56,6 +57,12 @@ namespace BidenSurfer.Infras.Helpers
         public async Task WalletNotifyMessage(decimal balance, decimal budget, decimal pnlCash, decimal pnlPercent, string tele)
         {
             var text = $"💰 <b>BALANCE: ${balance}</b>\nBUDGET: <code>${budget}</code> | PNL: <code>${pnlCash}</code> ({pnlPercent}%)";
+            await _bus.Send(new SendTeleMessage { Message = text, TeleChannel = tele });
+        }
+
+        public async Task AssetTrackingMessage(string tele, string message)
+        {
+            var text = $"<b>WARNING!!! - ASSET TRACKING</b>\n{message}";
             await _bus.Send(new SendTeleMessage { Message = text, TeleChannel = tele });
         }
     }
