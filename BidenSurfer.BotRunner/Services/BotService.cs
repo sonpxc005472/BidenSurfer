@@ -1146,11 +1146,8 @@ public class BotService : IBotService
 
                 if (api != null)
                 {
-                    var rs = await api.V5Api.Trading.CancelAllOrderAsync
-                        (
-                            Category.Spot
-                        );
-                    foreach (var order in StaticObject.AllConfigs.Where(o => o.Value.UserId == userId.Value).Select(r => r.Value).ToList())
+                    var activeConfigs = StaticObject.AllConfigs.Where(o => o.Value.UserId == userId && o.Value.IsActive && !string.IsNullOrEmpty(o.Value.ClientOrderId)).Select(r => r.Value).ToList();
+                    foreach (var order in activeConfigs)
                     {
                         order.OrderId = string.Empty;
                         order.ClientOrderId = string.Empty;
@@ -1159,6 +1156,10 @@ public class BotService : IBotService
                         order.EditedDate = DateTime.Now;
                         _configService.AddOrEditConfig(order);
                     }
+                    var rs = await api.V5Api.Trading.CancelAllOrderAsync
+                        (
+                            Category.Spot
+                        );                    
                 }
             }
             else
@@ -1180,6 +1181,16 @@ public class BotService : IBotService
 
                     if (api != null)
                     {
+                        var activeConfigs = StaticObject.AllConfigs.Where(o => o.Value.UserId == user.Id && o.Value.IsActive && !string.IsNullOrEmpty(o.Value.ClientOrderId)).Select(r => r.Value).ToList();
+                        foreach (var order in activeConfigs)
+                        {
+                            order.OrderId = string.Empty;
+                            order.ClientOrderId = string.Empty;
+                            order.OrderStatus = null;
+                            order.IsActive = false;
+                            order.EditedDate = DateTime.Now;
+                            _configService.AddOrEditConfig(order);
+                        }
                         var rs = await api.V5Api.Trading.CancelAllOrderAsync
                             (
                                 Category.Spot
