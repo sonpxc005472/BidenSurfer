@@ -93,6 +93,10 @@ namespace BidenSurfer.Scanner
                 {
                     x.Consumer<ResetScannerConsumer>(ctx);
                 });
+                cfg.ReceiveEndpoint(QueueName.CancelAllOrderForScannerMessage, x =>
+                {
+                    x.Consumer<CancelAllOrderConsumer>(ctx);
+                });
 
                 #endregion
 

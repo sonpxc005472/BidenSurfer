@@ -604,7 +604,9 @@ public class BotService : IBotService
                             if (assetTrackingCount >= 2)
                             {
                                 assetTrackingCount = 0;
-                                await CancelAllOrder();
+                                await CancelAllOrder(user.Id);
+                                _ = _bus.Send(new CancelAllOrderForApiMessage());
+                                _ = _bus.Send(new CancelAllOrderForScannerMessage());
                                 if(haveRepay)
                                 {
                                     await api.V5Api.Account.RepayLiabilitiesAsync();

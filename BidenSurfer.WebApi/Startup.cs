@@ -89,7 +89,10 @@ namespace BidenSurfer.WebApi
                     x.Consumer<SendTeleMessageConsumer>(ctx);
                     x.PrefetchCount = 3;
                 });
-
+                cfg.ReceiveEndpoint(QueueName.CancelAllOrderForApiMessage, x =>
+                {
+                    x.Consumer<CancelAllOrderConsumer>(ctx);
+                });
                 #endregion
 
                 #region Publish endpoints

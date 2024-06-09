@@ -27,5 +27,7 @@ namespace BidenSurfer.Infras.BusEvents
         public static readonly string SendTeleMessage = "SendTeleMessage";
         public static readonly string ResetBotForScannerMessage = "ResetBotForScannerMessage";
         public static readonly string ResetBotForBotRunnerMessage = "ResetBotForBotRunnerMessage";
+        public static readonly string CancelAllOrderForApiMessage = "CancelAllOrderForApiMessage";
+        public static readonly string CancelAllOrderForScannerMessage = "CancelAllOrderForScannerMessage";
     }
 }

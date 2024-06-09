@@ -21,6 +21,7 @@ public interface IConfigService
     Task<bool> Delete(long id);
     Task<bool> SetConfigActiveStatus(long id, bool isActive);
     Task<bool> OffConfigs(List<string> customIds);
+    Task<bool> OffAllConfigs();
     Task<List<SymbolDto>> GetAllMarginSymbol();
     Task AmountExpireUpdate(List<string> customIds);
 }
@@ -386,5 +387,30 @@ public class ConfigService : IConfigService
             _logger.LogError(ex.Message);
             return false;
         }
+    }
+
+    public async Task<bool> OffAllConfigs()
+    {
+        try
+        {
+            var configs = await _context.Configs?.Where(x => x.IsActive).ToListAsync();
+            if (configs.Any())
+            {
+                foreach (var config in configs)
+                {
+                    config.IsActive = false;
+                    config.EditedDate = DateTime.Now;
+                    config.Amount = config.OriginAmount ?? config.Amount;
+                }
+                _context.Configs.UpdateRange(configs);
+                await _context.SaveChangesAsync();
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("OffAllConfigs Error: " + ex.Message);
+            return false;
+        }   
     }
 }
