@@ -6,17 +6,10 @@ using Bybit.Net.Enums;
 using MassTransit;
 using System.Collections.Concurrent;
 using BidenSurfer.Infras.BusEvents;
-using BidenSurfer.Scanner.Services;
 using BidenSurfer.Infras.Models;
 using System.Collections.Generic;
 using BidenSurfer.Infras.Helpers;
-using BidenSurfer.Infras.Entities;
-using System.Diagnostics.Metrics;
-using Telegram.Bot.Types;
-using CryptoExchange.Net.Authentication;
 using Microsoft.Extensions.Logging;
-using CryptoExchange.Net.CommonObjects;
-using static MassTransit.ValidationResultExtensions;
 
 public interface IBotService
 {
@@ -108,8 +101,7 @@ public class BotService : IBotService
                                         var configs = StaticObject.AllConfigs.Where(c => c.Value.IsActive).ToList();
                                         var newConfigs = new List<ConfigDto>();
                                         var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x => x.Value).ToList();
-                                        var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.ClientOrderId));
-
+                                        var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive);
                                         foreach (var scanner in scanners)
                                         {
                                             //Bot is stopping so do not do anymore
@@ -134,7 +126,8 @@ public class BotService : IBotService
                                                     _logger.LogInformation($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
                                                     _logger.LogInformation($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
                                                     _logger.LogInformation($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
-                                                    _logger.LogInformation($"=====================================================================================");
+                                                    _logger.LogInformation($"Current number of scanner open: {numScannerOpen}");
+                                                    _logger.LogInformation("=====================================================================================");
 
                                                     // create new configs for long side
                                                     var scannerConfigs = CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);  
@@ -149,7 +142,7 @@ public class BotService : IBotService
                                         var configs = StaticObject.AllConfigs;
                                         var newConfigs = new List<ConfigDto>();
                                         var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x=>x.Value).ToList();
-                                        var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive && !string.IsNullOrEmpty(c.Value.ClientOrderId));
+                                        var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive);
 
                                         foreach (var scanner in scanners)
                                         {
@@ -176,7 +169,8 @@ public class BotService : IBotService
                                                     _logger.LogInformation($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
                                                     _logger.LogInformation($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
                                                     _logger.LogInformation($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
-                                                    _logger.LogInformation($"=====================================================================================");
+                                                    _logger.LogInformation($"Current number of scanner open: {numScannerOpen}");
+                                                    _logger.LogInformation("=====================================================================================");
 
                                                     // create new configs for short side
                                                     var scannerConfigs = CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);
@@ -238,7 +232,7 @@ public class BotService : IBotService
         var userSetting = StaticObject.AllUsers.FirstOrDefault(x => x.Id == scanner.UserId)?.Setting;
         if (userSetting == null) return new ();
         var maxOcAbs = Math.Abs(maxOC);
-        var minOc = maxOcAbs / (maxOcAbs >= 5 ? 3 : maxOcAbs >= 4 ? 2 : 1.5M);
+        var minOc = maxOcAbs / (maxOcAbs >= 5 ? 3 : maxOcAbs >= 4 ? 2 : maxOcAbs >= 2.2M ? 1.5M : 1.2M);
         var rangeOc = (maxOcAbs - minOc) / scanner.OcNumber;
         var configs = new List<ConfigDto>();
         for (var i = 1; i <= scanner.OcNumber; i++)

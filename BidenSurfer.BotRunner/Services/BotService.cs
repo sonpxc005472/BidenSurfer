@@ -1037,12 +1037,13 @@ public class BotService : IBotService
             var symbol = config.Symbol;
             var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
             var orderPriceWithTicksize = ((int)(currentPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
-
+            var quantityWithLotsize = config.FilledQuantity;
             var amendOrder = await api.V5Api.Trading.EditOrderAsync
                 (
                     Category.Spot,
                     symbol,
                     clientOrderId: config.ClientOrderId,
+                    quantity: quantityWithLotsize,
                     price: orderPriceWithTicksize
                 );
 
