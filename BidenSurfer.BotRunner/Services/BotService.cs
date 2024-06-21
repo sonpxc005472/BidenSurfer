@@ -530,7 +530,7 @@ public class BotService : IBotService
                         }
                     }
                 }
-                else if (hoursSinceMidnight % 3 != 0)
+                else if (hoursSinceMidnight % 3 != 0 && isNotified)
                 {
                     isNotified = false;
                 }
