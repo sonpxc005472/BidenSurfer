@@ -128,20 +128,20 @@ public class BotService : IBotService
                             await _mutex.WaitAsync();
                             try
                             {
-                                //Đóng vị thế giá hiện tại nếu mở quá 3s mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
-                                var filledOrders = StaticObject.FilledOrders.Where(r => r.Value.Symbol == symbol).Select(r => r.Value).ToList();
+                                //Đóng vị thế giá hiện tại nếu mở quá 5 mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
+                                var filledOrders = StaticObject.FilledOrders.Where(r => r.Value.Symbol == symbol && !r.Value.isNotTryTP).Select(r => r.Value).ToList();
                                 foreach (var order in filledOrders)
                                 {
                                     if (!order.isClosingFilledOrder)
                                     {
-                                        if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 3500)
+                                        if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 5000)
                                         {
                                             await TryTakeProfit(order, currentPrice);
                                         }
                                     }
                                     else
                                     {
-                                        if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 500)
+                                        if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 1000)
                                         {
                                             await TryTakeProfit(order, currentPrice);
                                         }
@@ -150,6 +150,7 @@ public class BotService : IBotService
                             }
                             finally
                             {
+                                await Task.Delay(200);
                                 _mutex.Release();
                             }
                         }
@@ -274,7 +275,7 @@ public class BotService : IBotService
         await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
         await _bus.Send(new OnOffConfigMessageScanner
         {
-            Configs = new List<ConfigDto> 
+            Configs = new List<ConfigDto>
             {
                 config
             }
@@ -329,7 +330,7 @@ public class BotService : IBotService
                 {
                     config.Timeout = DateTime.Now;
                     _ = _teleMessage.ErrorMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, $"Amend Error: {amendOrder.Error.Message}");
-                }                
+                }
                 else if (IsNeededCancel(amendOrder.Error.Message))
                 {
                     var message = $"Amend {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {amendOrder.Error?.Code} - {amendOrder.Error?.Message}";
@@ -373,14 +374,14 @@ public class BotService : IBotService
             if (api != null)
             {
                 StaticObject.IsInternalCancel = true;
-                config.IsActive = false;               
+                config.IsActive = false;
                 _configService.AddOrEditConfig(config);
                 var cancelOrder = await api.V5Api.Trading.CancelOrderAsync
                     (
                         Category.Spot,
                         config.Symbol,
                         clientOrderId: config.ClientOrderId
-                    );                                
+                    );
 
                 if (cancelOrder.Success)
                 {
@@ -398,7 +399,7 @@ public class BotService : IBotService
                         _configService.AddOrEditConfig(config);
 
                         _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, messageSub);
-                        
+
                         await _bus.Send(new OffConfigMessage { Configs = new List<string> { config.CustomId } });
                         await _bus.Send(new OnOffConfigMessageScanner
                         {
@@ -412,7 +413,7 @@ public class BotService : IBotService
                 else
                 {
                     var error = cancelOrder.Error.Message;
-                    if(!error.Contains(AppConstants.OrderNotExist, StringComparison.InvariantCultureIgnoreCase))
+                    if (!error.Contains(AppConstants.OrderNotExist, StringComparison.InvariantCultureIgnoreCase))
                     {
                         config.IsActive = true;
                         _configService.AddOrEditConfig(config);
@@ -429,7 +430,7 @@ public class BotService : IBotService
                     });
                     _logger.LogInformation($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
                 }
-                
+
                 await Task.Delay(200);
                 StaticObject.IsInternalCancel = false;
                 return true;
@@ -570,7 +571,7 @@ public class BotService : IBotService
                         var assetTracking = balanceSetting?.AssetTracking ?? 0;
                         var messageTracking = new StringBuilder();
                         var haveRepay = false;
-                        var assetToSell = new List<(string, decimal)>();   
+                        var assetToSell = new List<(string, decimal)>();
                         foreach (var assetInfo in assets)
                         {
                             var walletBalance = assetInfo.WalletBalance;
@@ -584,12 +585,14 @@ public class BotService : IBotService
                             }
                             if (assetTracking > 0 && Math.Abs(usdValue) >= assetTracking)
                             {
-                                if (usdValue < 0 && !openOrders.Any(x => x.Symbol.StartsWith(assetName) && x.Side == OrderSide.Buy && x.IsLeverage == false)) {
+                                if (usdValue < 0 && !openOrders.Any(x => x.Symbol.StartsWith(assetName) && x.Side == OrderSide.Buy && x.IsLeverage == false))
+                                {
                                     _logger.LogInformation($"Asset tracking: {assetName} - USD: {usdValue}");
-                                    messageTracking.AppendLine($"{assetName}: ${Math.Round(usdValue,0)}");
+                                    messageTracking.AppendLine($"{assetName}: ${Math.Round(usdValue, 0)}");
                                     haveRepay = true;
                                 }
-                                else if (usdValue > 0 && !openOrders.Any(x => x.Symbol.StartsWith(assetName) && x.Side == OrderSide.Sell && x.IsLeverage == false)) {
+                                else if (usdValue > 0 && !openOrders.Any(x => x.Symbol.StartsWith(assetName) && x.Side == OrderSide.Sell && x.IsLeverage == false))
+                                {
                                     _logger.LogInformation($"Asset tracking: {assetName} - USD: {usdValue}");
                                     messageTracking.AppendLine($"{assetName}: ${Math.Round(usdValue, 0)}");
                                     assetToSell.Add((assetName, walletBalance));
@@ -597,7 +600,7 @@ public class BotService : IBotService
                             }
                         }
                         var message = messageTracking.ToString();
-                        if(!string.IsNullOrEmpty(message))
+                        if (!string.IsNullOrEmpty(message))
                         {
                             assetTrackingCount++;
                             _ = _teleMessage.AssetTrackingMessage(user.Setting.TeleChannel, message);
@@ -607,13 +610,13 @@ public class BotService : IBotService
                                 await CancelAllOrder(user.Id);
                                 _ = _bus.Send(new CancelAllOrderForApiMessage());
                                 _ = _bus.Send(new CancelAllOrderForScannerMessage());
-                                if(haveRepay)
+                                if (haveRepay)
                                 {
                                     await api.V5Api.Account.RepayLiabilitiesAsync();
                                 }
-                                if(assetToSell.Any())
+                                if (assetToSell.Any())
                                 {
-                                    foreach(var asset in assetToSell)
+                                    foreach (var asset in assetToSell)
                                     {
                                         var symbol = asset.Item1 + "USDT";
                                         var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == symbol);
@@ -637,9 +640,9 @@ public class BotService : IBotService
                                             _logger.LogInformation($"Clean asset {asset.Item1} unsuccessfully - Error: {placedOrder.Error?.Message} - Code: {placedOrder.Error?.Code}");
                                         }
                                     }
-                                }    
+                                }
                             }
-                        }                        
+                        }
                     }
                 }
             });
@@ -729,22 +732,32 @@ public class BotService : IBotService
                             }
                             else if (orderState == Bybit.Net.Enums.V5.OrderStatus.PartiallyFilledCanceled)
                             {
-                                await TakeProfit(updatedData, user);
+                                await _mutex.WaitAsync();
+                                try
+                                {
+                                    await TakeProfit(updatedData, user);
+                                }
+                                finally
+                                {
+                                    await Task.Delay(200);
+                                    _mutex.Release();
+                                }                                   
                             }
                             else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Filled)
                             {
-                                var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
-                                if (closingOrder == null)
+                                await _mutex.WaitAsync();
+                                try
                                 {
-                                    _logger.LogInformation($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}| {clientOrderId} - Filled");
-                                    _ = _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
-                                    await TakeProfit(updatedData, user);
-                                }
-                                else
-                                {
-                                    await _mutex.WaitAsync();
-                                    try
+                                    var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
+                                    if (closingOrder == null)
                                     {
+                                        _logger.LogInformation($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}| {clientOrderId} - Filled");
+                                        _ = _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
+                                        await TakeProfit(updatedData, user);
+                                    }
+                                    else
+                                    {
+
                                         var totalFee = closingOrder.TotalFee ?? 0;
                                         var currentFee = totalFee + (updatedData?.QuantityFilled * 0.001M * updatedData?.AveragePrice) ?? 0;
                                         var isRemoved = StaticObject.FilledOrders.TryRemove(closingOrder.CustomId, out _);
@@ -825,16 +838,16 @@ public class BotService : IBotService
                                         }
 
                                         //Enable short side that was disabled when long side is filled
-                                        if(closingOrder.PositionSide == AppConstants.LongSide)
+                                        if (closingOrder.PositionSide == AppConstants.LongSide)
                                         {
                                             var filledOrders = StaticObject.FilledOrders.Any(r => r.Value.Symbol == updatedData.Symbol && r.Value.UserId == closingOrder.UserId && r.Value.PositionSide == closingOrder.PositionSide);
-                                            if(!filledOrders)
+                                            if (!filledOrders)
                                             {
                                                 var shortActiveConfigs = StaticObject.TempCancelConfigs.Where(c => c.Value.UserId == closingOrder.UserId && c.Value.Symbol == closingOrder.Symbol && c.Value.PositionSide == AppConstants.ShortSide).Select(c => c.Value).ToList();
                                                 foreach (var shortConfig in shortActiveConfigs)
                                                 {
                                                     var configToEnable = StaticObject.AllConfigs[shortConfig.CustomId];
-                                                    if(configToEnable != null)
+                                                    if (configToEnable != null)
                                                     {
                                                         configToEnable.IsActive = true;
                                                         configToEnable.OrderStatus = null;
@@ -849,10 +862,11 @@ public class BotService : IBotService
                                             }
                                         }
                                     }
-                                    finally
-                                    {
-                                        _mutex.Release();
-                                    }
+                                }
+                                finally
+                                {
+                                    await Task.Delay(200);
+                                    _mutex.Release();
                                 }
                             }
                             else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled && !StaticObject.IsInternalCancel)
@@ -975,17 +989,17 @@ public class BotService : IBotService
             StaticObject.FilledOrders.TryAdd(cloneConfig.CustomId, cloneConfig);
 
             // If long config is filled, cancel all short configs first before take profit
-            if(cloneConfig.PositionSide == AppConstants.LongSide)
+            if (cloneConfig.PositionSide == AppConstants.LongSide)
             {
                 var shortActiveConfigs = StaticObject.AllConfigs.Where(c => c.Value.IsActive && c.Value.Symbol == cloneConfig.Symbol && !string.IsNullOrEmpty(c.Value.ClientOrderId) && c.Value.UserId == cloneConfig.UserId && c.Value.PositionSide == AppConstants.ShortSide).Select(c => c.Value).ToList();
-                
+
                 foreach (var shortConfig in shortActiveConfigs)
                 {
                     StaticObject.TempCancelConfigs.TryAdd(shortConfig.CustomId, shortConfig);
                     await CancelOrder(shortConfig, false, true);
                 }
             }
-            
+
             var placedOrder = await api.V5Api.Trading.PlaceOrderAsync
             (
                 Category.Spot,
@@ -1055,19 +1069,14 @@ public class BotService : IBotService
 
                 if (IsNeededCancel(amendOrder.Error.Message))
                 {
-                    var isRemoved = StaticObject.FilledOrders.TryRemove(config.CustomId, out _);
-                    _logger.LogInformation($"Try to take profit: removed: {isRemoved} - {config.Symbol}|{config.PositionSide}|{config.OrderChange}|{config.ClientOrderId}");
-                    config.OrderId = string.Empty;
-                    config.ClientOrderId = string.Empty;
-                    config.OrderStatus = 1;
-                    config.isClosingFilledOrder = false;
+                    config.isNotTryTP = true;
                 }
             }
             else
             {
                 config.isClosingFilledOrder = true;
-                StaticObject.FilledOrders[config.CustomId] = config;
             }
+            StaticObject.FilledOrders[config.CustomId] = config;
             _configService.AddOrEditConfig(config);
             return amendOrder.Success;
         }
@@ -1162,7 +1171,7 @@ public class BotService : IBotService
                     var rs = await api.V5Api.Trading.CancelAllOrderAsync
                         (
                             Category.Spot
-                        );                    
+                        );
                 }
             }
             else
@@ -1237,7 +1246,7 @@ public class BotService : IBotService
         await _configService.GetAllActive();
         await CancelAllOrder();
         await SubscribeSticker();
-        
+
         return true;
     }
 }
