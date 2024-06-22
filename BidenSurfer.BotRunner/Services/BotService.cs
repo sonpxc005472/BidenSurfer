@@ -536,7 +536,7 @@ public class BotService : IBotService
                 }
 
                 // Reset bot every 12 hours
-                if ((currentTime - preTimeReset).TotalHours >= 12 && !StaticObject.FilledOrders.Any())
+                if ((currentTime - preTimeReset).TotalHours >= 12 && !StaticObject.FilledOrders.Any(r=>!r.Value.isNotTryTP))
                 {
                     _logger.LogInformation("Reset bot every 12 hours");
                     preTimeReset = currentTime;
