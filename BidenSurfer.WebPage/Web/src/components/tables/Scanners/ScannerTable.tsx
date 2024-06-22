@@ -72,20 +72,18 @@ export const ScannerTable: React.FC = () => {
   const [isStop, setStop] = useState(false);
   const [isStopping, setStopping] = useState(false);
 
-  const fetch = useCallback(
-    () => {
-      getScannerData().then((res) => {
-        if (isMounted.current) {          
-          setTableData({data: res});
-        }
-      });      
-    },
-    [isMounted],
-  );
+  const fetch = () => {
+    getScannerData().then((res) => {
+      if (isMounted.current) {          
+        setTableData({data: res});
+      }
+    });      
+  };
 
   useEffect(() => {
     fetch();
-  }, [fetch]);
+  }, [isMounted]);
+
   const handleOpenScannerSetting = () => {
     getSymbolData().then((res) => {
       if (isMounted.current) {          
@@ -151,15 +149,14 @@ export const ScannerTable: React.FC = () => {
   };
     
   const handleDeleteRow = (rowId: number) => {
+    setTableData({
+      ...tableData,
+      data: tableData.data.filter((item) => item.id !== rowId)
+    });
     deleteScanner(rowId).then((res) => {
-      if (res) {          
-        setTableData({
-          ...tableData,
-          data: tableData.data.filter((item) => item.id !== rowId)
-        });
-      }
-      else{
+      if (!res) {          
         notificationController.error({ message: "something went wrong!" });        
+        fetch();
       }
     }).catch((err) => {
       notificationController.error({ message: err.message });        
@@ -168,12 +165,16 @@ export const ScannerTable: React.FC = () => {
   };
 
   const handleActiveRow = (rowId: number, isActive: boolean) => {
+    setTableData({
+      ...tableData,
+      data: tableData.data.map((item) => 
+        item.id === rowId ? { ...item, isActive: isActive } : item
+      )
+    });
     setScannerActive(rowId, isActive).then((res) => {
-      if (res) {          
-        fetch()
-      }
-      else{
-        notificationController.error({ message: "something went wrong!" });        
+      if (!res) {      
+        notificationController.error({ message: "something went wrong!" });    
+        fetch();
       }
     }).catch((err) => {
       notificationController.error({ message: err.message });        

@@ -56,20 +56,17 @@ export const ConfigurationTable: React.FC = () => {
 
   const [form] = BaseForm.useForm();  
 
-  const fetch = useCallback(
-    () => {
-      getConfigurationData().then((res) => {
-        if (isMounted.current) {          
-          setTableData({data: res});
-        }
-      });
-    },
-    [isMounted],
-  );
+  const fetch = () => {
+    getConfigurationData().then((res) => {
+      if (isMounted.current) {          
+        setTableData({data: res});
+      }
+    });
+  };
 
   useEffect(() => {
     fetch();
-  }, [fetch]);
+  }, [isMounted]);
  
   const handleOpenAddEdit = (rowId?: number) => {   
     setIsRemember(false);
@@ -134,29 +131,31 @@ export const ConfigurationTable: React.FC = () => {
   };
     
   const handleDeleteRow = (rowId: number) => {
+    setTableData({
+      ...tableData,
+      data: tableData.data.filter((item) => item.id !== rowId)
+    });
     deleteConfig(rowId).then((res) => {
-      if (res) {          
-        setTableData({
-          ...tableData,
-          data: tableData.data.filter((item) => item.id !== rowId)
-        });
-      }
-      else{
-        notificationController.error({ message: "something went wrong!" });        
+      if (!res) {          
+        notificationController.error({ message: "something went wrong!" }); 
+        fetch();
       }
     }).catch((err) => {
       notificationController.error({ message: err.message });        
-    });
-    
+    });    
   };
 
   const handleActiveRow = (rowId: number, isActive: boolean) => {
+    setTableData({
+      ...tableData,
+      data: tableData.data.map((item) => 
+        item.id === rowId ? { ...item, isActive: isActive } : item
+      )
+    });
     setConfigActive(rowId, isActive).then((res) => {
-      if (res) {          
-        fetch()
-      }
-      else{
-        notificationController.error({ message: "something went wrong!" });        
+      if (!res) {          
+        notificationController.error({ message: "something went wrong!" });
+        fetch();
       }
     }).catch((err) => {
       notificationController.error({ message: err.message });        
