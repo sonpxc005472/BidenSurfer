@@ -125,34 +125,27 @@ public class BotService : IBotService
                                 }
                             }
 
-                            await _mutex.WaitAsync();
-                            try
+
+                            //Đóng vị thế giá hiện tại nếu mở quá 5 mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
+                            var filledOrders = StaticObject.FilledOrders.Where(r => r.Value.Symbol == symbol && !r.Value.isNotTryTP).Select(r => r.Value).ToList();
+                            foreach (var order in filledOrders)
                             {
-                                //Đóng vị thế giá hiện tại nếu mở quá 5 mà chưa đóng được lần đầu, những lần sau sẽ đóng liên tục
-                                var filledOrders = StaticObject.FilledOrders.Where(r => r.Value.Symbol == symbol && !r.Value.isNotTryTP).Select(r => r.Value).ToList();
-                                foreach (var order in filledOrders)
+                                if (!order.isClosingFilledOrder)
                                 {
-                                    if (!order.isClosingFilledOrder)
+                                    if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 5000)
                                     {
-                                        if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 5000)
-                                        {
-                                            await TryTakeProfit(order, currentPrice);
-                                        }
+                                        await TryTakeProfit(order, currentPrice);
                                     }
-                                    else
+                                }
+                                else
+                                {
+                                    if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 1000)
                                     {
-                                        if ((currentTime - order.EditedDate.Value).TotalMilliseconds > 1000)
-                                        {
-                                            await TryTakeProfit(order, currentPrice);
-                                        }
+                                        await TryTakeProfit(order, currentPrice);
                                     }
                                 }
                             }
-                            finally
-                            {
-                                await Task.Delay(200);
-                                _mutex.Release();
-                            }
+
                         }
 
                     });
@@ -536,7 +529,7 @@ public class BotService : IBotService
                 }
 
                 // Reset bot every 12 hours
-                if ((currentTime - preTimeReset).TotalHours >= 12 && !StaticObject.FilledOrders.Any(r=>!r.Value.isNotTryTP))
+                if ((currentTime - preTimeReset).TotalHours >= 12 && !StaticObject.FilledOrders.Any(r => !r.Value.isNotTryTP))
                 {
                     _logger.LogInformation("Reset bot every 12 hours");
                     preTimeReset = currentTime;
@@ -732,89 +725,91 @@ public class BotService : IBotService
                             }
                             else if (orderState == Bybit.Net.Enums.V5.OrderStatus.PartiallyFilledCanceled)
                             {
-                                await _mutex.WaitAsync();
-                                try
-                                {
-                                    await TakeProfit(updatedData, user);
-                                }
-                                finally
-                                {
-                                    await Task.Delay(200);
-                                    _mutex.Release();
-                                }                                   
+                                await TakeProfit(updatedData, user);
                             }
                             else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Filled)
                             {
-                                await _mutex.WaitAsync();
-                                try
+
+                                var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
+                                if (closingOrder == null)
                                 {
-                                    var closingOrder = StaticObject.FilledOrders.FirstOrDefault(c => c.Value.ClientOrderId == clientOrderId && c.Value.OrderStatus == 2).Value;
-                                    if (closingOrder == null)
+                                    _logger.LogInformation($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}| {clientOrderId} - Filled");
+                                    _ = _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
+                                    await TakeProfit(updatedData, user);
+                                }
+                                else
+                                {
+
+                                    var totalFee = closingOrder.TotalFee ?? 0;
+                                    var currentFee = totalFee + (updatedData?.QuantityFilled * 0.001M * updatedData?.AveragePrice) ?? 0;
+                                    var isRemoved = StaticObject.FilledOrders.TryRemove(closingOrder.CustomId, out _);
+                                    _logger.LogInformation($"Take profit: {updatedData.Symbol} - removed: {isRemoved}");
+
+                                    var openPrice = closingOrder.FilledPrice ?? 0;
+                                    var closePrice = updatedData?.AveragePrice ?? 0;
+                                    var filledQuantity = updatedData?.QuantityFilled ?? 0;
+                                    var fee = filledQuantity * 0.002M * closePrice;
+                                    var tp = closingOrder.PositionSide == AppConstants.ShortSide ? (openPrice - closePrice) * filledQuantity : (closePrice - openPrice) * filledQuantity;
+                                    var pnlCash = Math.Round(tp - currentFee, 2);
+                                    var pnlPercent = Math.Round((tp / (openPrice * filledQuantity)) * 100, 2);
+                                    var pnlText = pnlCash > 0 ? "WIN" : "LOSE";
+                                    _logger.LogInformation($"{updatedData?.Symbol}|{closingOrder.OrderChange}|{pnlText}|PNL: ${pnlCash.ToString("0.00")} {pnlPercent.ToString("0.00")}%");
+                                    var configWin = _configService.UpsertWinLose(config, pnlCash > 0);
+                                    _ = _teleMessage.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent, configWin.Win, configWin.Total, filledQuantity, config.TotalQuantity ?? 0, openPrice, closePrice);
+                                    config.OrderId = string.Empty;
+                                    config.ClientOrderId = string.Empty;
+                                    config.OrderStatus = null;
+                                    config.IsActive = !(config.CreatedBy == AppConstants.CreatedByScanner && pnlCash <= 0) || pnlCash > 0;
+                                    config.isClosingFilledOrder = false;
+                                    config.EditedDate = DateTime.Now;
+                                    var amountIncrease = config.Amount;
+                                    var beforeIncrease = config.Amount;
+                                    bool isChanged = false;
+
+                                    if (pnlCash <= 0 && config.CreatedBy != AppConstants.CreatedByScanner && config.IncreaseOcPercent != null && config.IncreaseOcPercent > 0)
                                     {
-                                        _logger.LogInformation($"{updatedData?.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}| {clientOrderId} - Filled");
-                                        _ = _teleMessage.FillMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, true, updatedData.QuantityFilled ?? 0, config.TotalQuantity ?? 0, updatedData.AveragePrice ?? 0);
-                                        await TakeProfit(updatedData, user);
+                                        isChanged = true;
+                                        config.OrderChange = config.OrderChange + (config.OrderChange * config.IncreaseOcPercent.Value / 100);
                                     }
-                                    else
+                                    if (config.IncreaseAmountPercent != null && config.IncreaseAmountPercent > 0)
                                     {
-
-                                        var totalFee = closingOrder.TotalFee ?? 0;
-                                        var currentFee = totalFee + (updatedData?.QuantityFilled * 0.001M * updatedData?.AveragePrice) ?? 0;
-                                        var isRemoved = StaticObject.FilledOrders.TryRemove(closingOrder.CustomId, out _);
-                                        _logger.LogInformation($"Take profit: {updatedData.Symbol} - removed: {isRemoved}");
-
-                                        var openPrice = closingOrder.FilledPrice ?? 0;
-                                        var closePrice = updatedData?.AveragePrice ?? 0;
-                                        var filledQuantity = updatedData?.QuantityFilled ?? 0;
-                                        var fee = filledQuantity * 0.002M * closePrice;
-                                        var tp = closingOrder.PositionSide == AppConstants.ShortSide ? (openPrice - closePrice) * filledQuantity : (closePrice - openPrice) * filledQuantity;
-                                        var pnlCash = Math.Round(tp - currentFee, 2);
-                                        var pnlPercent = Math.Round((tp / (openPrice * filledQuantity)) * 100, 2);
-                                        var pnlText = pnlCash > 0 ? "WIN" : "LOSE";
-                                        _logger.LogInformation($"{updatedData?.Symbol}|{closingOrder.OrderChange}|{pnlText}|PNL: ${pnlCash.ToString("0.00")} {pnlPercent.ToString("0.00")}%");
-                                        var configWin = _configService.UpsertWinLose(config, pnlCash > 0);
-                                        _ = _teleMessage.PnlMessage(updatedData.Symbol, config.OrderChange.ToString(), config.PositionSide, user.Setting.TeleChannel, pnlCash > 0, pnlCash, pnlPercent, configWin.Win, configWin.Total, filledQuantity, config.TotalQuantity ?? 0, openPrice, closePrice);
-                                        config.OrderId = string.Empty;
-                                        config.ClientOrderId = string.Empty;
-                                        config.OrderStatus = null;
-                                        config.IsActive = !(config.CreatedBy == AppConstants.CreatedByScanner && pnlCash <= 0) || pnlCash > 0;
-                                        config.isClosingFilledOrder = false;
-                                        config.EditedDate = DateTime.Now;
-                                        var amountIncrease = config.Amount;
-                                        var beforeIncrease = config.Amount;
-                                        bool isChanged = false;
-
-                                        if (pnlCash <= 0 && config.CreatedBy != AppConstants.CreatedByScanner && config.IncreaseOcPercent != null && config.IncreaseOcPercent > 0)
+                                        isChanged = true;
+                                        amountIncrease = config.Amount + (config.Amount * config.IncreaseAmountPercent.Value / 100);
+                                        if (config.AmountLimit != null && config.AmountLimit > 0)
                                         {
-                                            isChanged = true;
-                                            config.OrderChange = config.OrderChange + (config.OrderChange * config.IncreaseOcPercent.Value / 100);
+                                            amountIncrease = amountIncrease > config.AmountLimit ? config.AmountLimit.Value : amountIncrease;
                                         }
-                                        if (config.IncreaseAmountPercent != null && config.IncreaseAmountPercent > 0)
+                                    }
+
+                                    config.Amount = pnlCash > 0 ? amountIncrease : config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
+
+
+                                    if (pnlCash <= 0 && config.CreatedBy == AppConstants.CreatedByScanner)
+                                    {
+                                        config.IsActive = false;
+                                        _configService.AddOrEditConfig(config);
+
+                                        await _bus.Send(new OffConfigMessage
                                         {
-                                            isChanged = true;
-                                            amountIncrease = config.Amount + (config.Amount * config.IncreaseAmountPercent.Value / 100);
-                                            if (config.AmountLimit != null && config.AmountLimit > 0)
-                                            {
-                                                amountIncrease = amountIncrease > config.AmountLimit ? config.AmountLimit.Value : amountIncrease;
-                                            }
-                                        }
-
-                                        config.Amount = pnlCash > 0 ? amountIncrease : config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
-
-
-                                        if (pnlCash <= 0 && config.CreatedBy == AppConstants.CreatedByScanner)
-                                        {
-                                            config.IsActive = false;
-                                            _configService.AddOrEditConfig(config);
-
-                                            await _bus.Send(new OffConfigMessage
-                                            {
-                                                Configs = new List<string>
+                                            Configs = new List<string>
                                             {
                                                 config.CustomId
                                             }
-                                            });
-                                            await _bus.Send(new OnOffConfigMessageScanner()
+                                        });
+                                        await _bus.Send(new OnOffConfigMessageScanner()
+                                        {
+                                            Configs = new List<ConfigDto>
+                                                {
+                                                    config
+                                                }
+                                        });
+                                    }
+                                    else
+                                    {
+                                        await TakePlaceOrder(config, closePrice, false, beforeIncrease == amountIncrease ? 0 : beforeIncrease);
+                                        if (isChanged)
+                                        {
+                                            await _bus.Send(new UpdateConfigMessage()
                                             {
                                                 Configs = new List<ConfigDto>
                                                 {
@@ -822,52 +817,34 @@ public class BotService : IBotService
                                                 }
                                             });
                                         }
-                                        else
-                                        {
-                                            await TakePlaceOrder(config, closePrice, false, beforeIncrease == amountIncrease ? 0 : beforeIncrease);
-                                            if (isChanged)
-                                            {
-                                                await _bus.Send(new UpdateConfigMessage()
-                                                {
-                                                    Configs = new List<ConfigDto>
-                                                {
-                                                    config
-                                                }
-                                                });
-                                            }
-                                        }
+                                    }
 
-                                        //Enable short side that was disabled when long side is filled
-                                        if (closingOrder.PositionSide == AppConstants.LongSide)
+                                    //Enable short side that was disabled when long side is filled
+                                    if (closingOrder.PositionSide == AppConstants.LongSide)
+                                    {
+                                        var filledOrders = StaticObject.FilledOrders.Any(r => r.Value.Symbol == updatedData.Symbol && r.Value.UserId == closingOrder.UserId && r.Value.PositionSide == closingOrder.PositionSide);
+                                        if (!filledOrders)
                                         {
-                                            var filledOrders = StaticObject.FilledOrders.Any(r => r.Value.Symbol == updatedData.Symbol && r.Value.UserId == closingOrder.UserId && r.Value.PositionSide == closingOrder.PositionSide);
-                                            if (!filledOrders)
+                                            var shortActiveConfigs = StaticObject.TempCancelConfigs.Where(c => c.Value.UserId == closingOrder.UserId && c.Value.Symbol == closingOrder.Symbol && c.Value.PositionSide == AppConstants.ShortSide).Select(c => c.Value).ToList();
+                                            foreach (var shortConfig in shortActiveConfigs)
                                             {
-                                                var shortActiveConfigs = StaticObject.TempCancelConfigs.Where(c => c.Value.UserId == closingOrder.UserId && c.Value.Symbol == closingOrder.Symbol && c.Value.PositionSide == AppConstants.ShortSide).Select(c => c.Value).ToList();
-                                                foreach (var shortConfig in shortActiveConfigs)
+                                                var configToEnable = StaticObject.AllConfigs[shortConfig.CustomId];
+                                                if (configToEnable != null)
                                                 {
-                                                    var configToEnable = StaticObject.AllConfigs[shortConfig.CustomId];
-                                                    if (configToEnable != null)
-                                                    {
-                                                        configToEnable.IsActive = true;
-                                                        configToEnable.OrderStatus = null;
-                                                        configToEnable.ClientOrderId = string.Empty;
-                                                        configToEnable.OrderId = string.Empty;
-                                                        configToEnable.isClosingFilledOrder = false;
-                                                        configToEnable.EditedDate = DateTime.Now;
-                                                        StaticObject.AllConfigs[shortConfig.CustomId] = configToEnable;
-                                                    }
-                                                    StaticObject.TempCancelConfigs.TryRemove(shortConfig.CustomId, out _);
+                                                    configToEnable.IsActive = true;
+                                                    configToEnable.OrderStatus = null;
+                                                    configToEnable.ClientOrderId = string.Empty;
+                                                    configToEnable.OrderId = string.Empty;
+                                                    configToEnable.isClosingFilledOrder = false;
+                                                    configToEnable.EditedDate = DateTime.Now;
+                                                    StaticObject.AllConfigs[shortConfig.CustomId] = configToEnable;
                                                 }
+                                                StaticObject.TempCancelConfigs.TryRemove(shortConfig.CustomId, out _);
                                             }
                                         }
                                     }
                                 }
-                                finally
-                                {
-                                    await Task.Delay(200);
-                                    _mutex.Release();
-                                }
+
                             }
                             else if (orderState == Bybit.Net.Enums.V5.OrderStatus.Cancelled && !StaticObject.IsInternalCancel)
                             {

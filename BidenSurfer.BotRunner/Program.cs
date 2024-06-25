@@ -10,6 +10,7 @@ using BidenSurfer.BotRunner.Consumers;
 using BidenSurfer.Infras.Helpers;
 using BidenSurfer.Infras.Loggers;
 using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace BidenSurfer.BotRunner
 {
@@ -17,7 +18,16 @@ namespace BidenSurfer.BotRunner
     {
         public static void Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
+            var host = CreateHostBuilder(args).Build();
+            var logger = host.Services.GetRequiredService<ILogger<Program>>();
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+
+            void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+            {
+                var exception = e.ExceptionObject as Exception;
+                logger.LogError(exception, exception?.Message);
+            }
+            host.Run();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
