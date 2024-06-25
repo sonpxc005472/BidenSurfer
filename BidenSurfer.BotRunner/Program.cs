@@ -9,7 +9,6 @@ using MassTransit;
 using BidenSurfer.BotRunner.Consumers;
 using BidenSurfer.Infras.Helpers;
 using BidenSurfer.Infras.Loggers;
-using Serilog;
 using Microsoft.Extensions.Logging;
 
 namespace BidenSurfer.BotRunner

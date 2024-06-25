@@ -1102,8 +1102,8 @@ public class BotService : IBotService
         }
         catch(Exception ex)
         {
-            _logger.LogError(ex, ex.Message);
-            return (0,0,0);
+            _logger.LogError(ex, $"CalculateOrderPriceQuantityTP: EX: {ex.Message}");
+            return (0, 0, 0);
         }        
     }
 
@@ -1122,7 +1122,7 @@ public class BotService : IBotService
         }
         catch(Exception ex)
         {
-            _logger.LogError(ex, ex.Message);
+            _logger.LogError(ex, $"CalculateTP: EX: {ex.Message}");
             return 0;
         }        
     }
