@@ -198,6 +198,11 @@ public class BotService : IBotService
             if (api != null)
             {
                 var orderPriceAndQuantity = CalculateOrderPriceQuantityTP(currentPrice, config, isRetry, previosAmount);
+                if (orderPriceAndQuantity.Item1 == 0 || orderPriceAndQuantity.Item2 == 0)
+                {
+                    _logger.LogInformation($"Take order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: Price or Quantity is 0");
+                    return false;
+                }
                 var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;
                 if (config.OrderType == (int)OrderTypeEnums.Spot)
                 {
@@ -291,6 +296,11 @@ public class BotService : IBotService
             }
             var symbol = config.Symbol;
             var orderPriceAndQuantity = CalculateOrderPriceQuantityTP(currentPrice, config);
+            if (orderPriceAndQuantity.Item1 == 0 || orderPriceAndQuantity.Item2 == 0)
+            {
+                _logger.LogInformation($"Amend order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange}: Price or Quantity is 0");
+                return false;
+            }
             var orderPrice = orderPriceAndQuantity.Item1;
             var tpPriceUpdate = orderPriceAndQuantity.Item3;
             if ((config.PositionSide == AppConstants.ShortSide && orderPrice <= openPrice) || (config.PositionSide == AppConstants.LongSide && orderPrice >= openPrice))
@@ -948,6 +958,11 @@ public class BotService : IBotService
             var ordSide = orderUpdate?.Side == OrderSide.Buy ? OrderSide.Sell : OrderSide.Buy;
             quantity = tryCount == 0 ? (orderUpdate?.QuantityFilled ?? 0) : quantity * 0.9989M;
             var orderPrice = CalculateTP(orderUpdate.AveragePrice, configToUpdate);
+            if (orderPrice == 0)
+            {
+                _logger.LogInformation($"Take Profit {orderUpdate.Symbol}|{orderUpdate.Side}|{configToUpdate.OrderChange}| {orderUpdate?.ClientOrderId} error: Price is 0");
+                return;
+            }
             var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == orderUpdate.Symbol);
             var quantityWithTicksize = ((long)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
 
@@ -1071,29 +1086,45 @@ public class BotService : IBotService
     private readonly decimal _tp = 80;
     private (decimal, decimal, decimal) CalculateOrderPriceQuantityTP(decimal currentPrice, ConfigDto config, bool isRetry = false, decimal previousAmount = 0)
     {
-        var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;
-        var orderPrice = config.PositionSide == AppConstants.ShortSide ? currentPrice + (currentPrice * config.OrderChange / 100) : currentPrice - (currentPrice * config.OrderChange / 100);
-        var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
-        var orderPriceWithTicksize = ((int)(orderPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
-        var quantity = (isRetry ? previousAmount : config.Amount) / orderPriceWithTicksize;
-        var quantityWithTicksize = ((long)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
-        var tpPrice = config.PositionSide == AppConstants.ShortSide ? orderPrice - ((currentPrice * config.OrderChange / 100) * _tp / 100) : orderPrice + ((currentPrice * config.OrderChange / 100) * _tp / 100);
-        var tpPriceWithTicksize = ((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
+        try
+        {
+            var orderSide = config.PositionSide == AppConstants.ShortSide ? OrderSide.Sell : OrderSide.Buy;
+            var orderPrice = config.PositionSide == AppConstants.ShortSide ? currentPrice + (currentPrice * config.OrderChange / 100) : currentPrice - (currentPrice * config.OrderChange / 100);
+            var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
+            var orderPriceWithTicksize = ((int)(orderPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
+            var quantity = (isRetry ? previousAmount : config.Amount) / orderPriceWithTicksize;
+            var quantityWithTicksize = ((long)(quantity / instrumentDetail?.LotSizeFilter?.BasePrecision ?? 1)) * instrumentDetail?.LotSizeFilter?.BasePrecision;
+            var tpPrice = config.PositionSide == AppConstants.ShortSide ? orderPrice - ((currentPrice * config.OrderChange / 100) * _tp / 100) : orderPrice + ((currentPrice * config.OrderChange / 100) * _tp / 100);
+            var tpPriceWithTicksize = ((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
 
 
-        return (orderPriceWithTicksize ?? 0, quantityWithTicksize ?? 0, tpPriceWithTicksize ?? 0);
+            return (orderPriceWithTicksize ?? 0, quantityWithTicksize ?? 0, tpPriceWithTicksize ?? 0);
+        }
+        catch(Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            return (0,0,0);
+        }        
     }
 
     private decimal? CalculateTP(decimal? filledPrice, ConfigDto config)
     {
-        if (filledPrice == null) return 0;
-        var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
-        var startPrice = config.PositionSide == AppConstants.ShortSide ? (100 * filledPrice / (100 + config.OrderChange)) : (100 * filledPrice / (100 - config.OrderChange));
-        var tpPrice = config.PositionSide == AppConstants.ShortSide ? filledPrice - ((startPrice * config.OrderChange / 100) * _tp / 100) : filledPrice + ((startPrice * config.OrderChange / 100) * _tp / 100);
-        var tpPriceWithTicksize = ((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
+        try
+        {
+            if (filledPrice == null) return 0;
+            var instrumentDetail = StaticObject.Symbols.FirstOrDefault(i => i.Name == config.Symbol);
+            var startPrice = config.PositionSide == AppConstants.ShortSide ? (100 * filledPrice / (100 + config.OrderChange)) : (100 * filledPrice / (100 - config.OrderChange));
+            var tpPrice = config.PositionSide == AppConstants.ShortSide ? filledPrice - ((startPrice * config.OrderChange / 100) * _tp / 100) : filledPrice + ((startPrice * config.OrderChange / 100) * _tp / 100);
+            var tpPriceWithTicksize = ((int)(tpPrice / instrumentDetail?.PriceFilter?.TickSize ?? 1)) * instrumentDetail?.PriceFilter?.TickSize;
 
 
-        return tpPriceWithTicksize;
+            return tpPriceWithTicksize;
+        }
+        catch(Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            return 0;
+        }        
     }
 
     public async Task GetSpotSymbols()
