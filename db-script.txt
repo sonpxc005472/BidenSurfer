@@ -14,7 +14,7 @@ docker-compose -f docker-compose.yml -f docker-compose.override.yml up --build -
 ============================================================
 INSERT INTO users (fullname, username, password, email, role, status) VALUES('admin1', 'admin', '23D42F5F3F66498B2C8FF4C20B8C5AC826E47146', 'trader1@gmail.com', 2, 1)
 
-INSERT INTO usersettings (userid, apikey, secretkey, passphrase, telechannel) VALUES(1, 'O3VED19egBxMXKhJDE', 'ZHW9frPTjrLbqWgDS6qMBFshalpxb1s7iS8m', 'trader1', '-1001847838569')
+INSERT INTO usersettings (userid, apikey, secretkey, passphrase, telechannel) VALUES(1, 'ZpUE54r9zCqNy29wWb', '7yqtbNqI600uqqGE4eRbcrXhoqj0EDKzgFhW', 'trader1', '-1001847838569')
 
 INSERT into scanner(amount,amountexpire,amountlimit,autoamount,configexpire,elastic,isactive,ocnumber,orderchange,ordertype,positionside,title,turnover,userid)
 VALUES(20, 3, 40, 100,3,80,true,2,1.5,1,'long','margin long 1', 5000,1)
