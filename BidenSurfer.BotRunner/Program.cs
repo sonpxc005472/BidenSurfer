@@ -49,9 +49,9 @@ namespace BidenSurfer.BotRunner
                     options.EnableDetailedErrors(true);
                     options.EnableSensitiveDataLogging(false);
                 });
-                services.AddSingleton<AppDbContext>();
+                services.AddScoped<AppDbContext>();
                 services.AddCustomMassTransit(configuration);
-                services.AddSingleton<ITeleMessage, TeleMessage>();
+                services.AddScoped<ITeleMessage, TeleMessage>();
                 services.AddScoped<IUserService, UserService>();
                 services.AddScoped<IConfigService, ConfigService>();
                 services.AddStackExchangeRedisCache(options =>

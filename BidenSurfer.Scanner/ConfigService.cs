@@ -83,7 +83,7 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var result = await _dbContext.Configs?.Where(b => b.IsActive).ToListAsync() ?? new List<Config>();
+            var result = await _dbContext.Configs.AsNoTracking().Where(b => b.IsActive).ToListAsync() ?? new List<Config>();
             var resultDto = result.ConvertAll(r => new ConfigDto
             {
                 Id = r.Id,

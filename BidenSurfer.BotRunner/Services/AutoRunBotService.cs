@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using BidenSurfer.Infras;
+using Bybit.Net.Clients;
+using Microsoft.Extensions.Hosting;
 
 namespace BidenSurfer.BotRunner.Services
 {
@@ -18,6 +20,10 @@ namespace BidenSurfer.BotRunner.Services
             try
             {
                 Console.WriteLine("Starting...");
+                StaticObject.TickerSubscriptions.Clear();
+                StaticObject.FilledOrders.Clear();
+                var socketClient = BybitSocketClientSingleton.Instance;
+                await socketClient.UnsubscribeAllAsync();
                 _configService.DeleteAllConfig();
                 _userService.DeleteAllCached();
                 await _userService.GetAllActive();

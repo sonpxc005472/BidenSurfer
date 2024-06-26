@@ -44,7 +44,7 @@ public class ConfigService : IConfigService
     public async Task<bool> AddOrEdit(AddEditConfigDto config, bool fromBotUpdate)
     {
         var configDto = new ConfigDto();
-        var configEntity = await _context.Configs?.FirstOrDefaultAsync(c => c.Id == config.Id || c.CustomId == config.CustomId);
+        var configEntity = await _context.Configs.AsNoTracking().FirstOrDefaultAsync(c => c.Id == config.Id || c.CustomId == config.CustomId);
         if (configEntity == null)
         {
             //Add new
@@ -152,7 +152,7 @@ public class ConfigService : IConfigService
 
     public async Task<IEnumerable<ConfigDto>> GetConfigsByUser(long userId)
     {
-        var result = await _context.Configs.Where(b => b.Userid == userId).OrderBy(x => x.Symbol).ThenBy(x => x.PositionSide).ThenBy(x => x.OrderChange).ToListAsync() ?? new List<Config>();
+        var result = await _context.Configs.AsNoTracking().Where(b => b.Userid == userId).OrderBy(x => x.Symbol).ThenBy(x => x.PositionSide).ThenBy(x => x.OrderChange).ToListAsync() ?? new List<Config>();
         return result.Select(r => new ConfigDto
         {
             Id = r.Id,
@@ -176,7 +176,7 @@ public class ConfigService : IConfigService
 
     public async Task<ConfigDto?> GetById(long id)
     {
-        var config = await _context.Configs?.FirstOrDefaultAsync(x => x.Id == id);
+        var config = await _context.Configs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (null == config) return null;
         return new ConfigDto
         {
@@ -202,7 +202,7 @@ public class ConfigService : IConfigService
     public async Task<IEnumerable<ConfigDto>> GetByActiveUser()
     {
         List<ConfigDto> resultDto;
-        var result = await _context.Configs?.Include(i => i.User).ThenInclude(c => c.UserSetting).Where(b => b.User.Status == (int)UserStatusEnums.Active).ToListAsync() ?? new List<Config>();
+        var result = await _context.Configs.AsNoTracking().Include(i => i.User).ThenInclude(c => c.UserSetting).Where(b => b.User.Status == (int)UserStatusEnums.Active).ToListAsync() ?? new List<Config>();
         resultDto = result.Select(r => new ConfigDto
         {
             Id = r.Id,
@@ -286,7 +286,7 @@ public class ConfigService : IConfigService
         try
         {
             _logger.LogInformation("OffConfigs: " + string.Join(",", customIds));
-            var configEntities = await _context.Configs?.Where(c => customIds.Contains(c.CustomId)).ToListAsync();
+            var configEntities = await _context.Configs.AsNoTracking().Where(c => customIds.Contains(c.CustomId)).ToListAsync();
             var toRemove = configEntities?.Where(c => c.CreatedBy == AppConstants.CreatedByScanner).ToList();
             var toUpdate = configEntities?.Where(c => c.CreatedBy != AppConstants.CreatedByScanner).ToList();
             if (toRemove.Any())
@@ -365,7 +365,7 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var config = await _context.Configs?.FirstOrDefaultAsync(x => x.Id == id);
+            var config = await _context.Configs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
             if (null == config) return false;
             config.IsActive = isActive;
             if(config.CreatedBy == AppConstants.CreatedByScanner && !isActive)
@@ -393,7 +393,7 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var configs = await _context.Configs?.Where(x => x.IsActive).ToListAsync();
+            var configs = await _context.Configs.AsNoTracking().Where(x => x.IsActive).ToListAsync();
             if (configs.Any())
             {
                 foreach (var config in configs)

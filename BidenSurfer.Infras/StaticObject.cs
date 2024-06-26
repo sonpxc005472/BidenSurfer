@@ -9,8 +9,7 @@ namespace BidenSurfer.Infras
     public static class StaticObject
     {
         public static ConcurrentDictionary<long, BybitRestClient> RestApis = new ConcurrentDictionary<long, BybitRestClient>();
-        public static ConcurrentDictionary<long, BybitSocketClient> Sockets = new ConcurrentDictionary<long, BybitSocketClient>();
-        public static BybitSocketClient PublicWebsocket = new BybitSocketClient();
+        public static ConcurrentDictionary<long, BybitSocketClient> Sockets = new ConcurrentDictionary<long, BybitSocketClient>();       
         public static ConcurrentDictionary<string, decimal> ContractToCurrencies = new ConcurrentDictionary<string, decimal>();
         public static ConcurrentDictionary<string, UpdateSubscription> TickerSubscriptions = new ConcurrentDictionary<string, UpdateSubscription>();
         public static ConcurrentDictionary<string, UpdateSubscription> ScannerTradeSubscriptions = new ConcurrentDictionary<string, UpdateSubscription>();
@@ -27,5 +26,21 @@ namespace BidenSurfer.Infras
         public static List<UserDto> AllUsers = new List<UserDto>();
         public static List<BybitSpotSymbol> Symbols = new List<BybitSpotSymbol>();
         public static bool IsInternalCancel = false;
+    }
+
+    public class BybitSocketClientSingleton
+    {
+        private static readonly Lazy<BybitSocketClient> instance = new(() => new BybitSocketClient());
+
+        // Private constructor to prevent instantiation outside of the class
+        private BybitSocketClientSingleton() { }
+
+        public static BybitSocketClient Instance
+        {
+            get
+            {
+                return instance.Value;
+            }
+        }
     }
 }

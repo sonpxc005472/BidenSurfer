@@ -2,15 +2,18 @@
 using BidenSurfer.Infras;
 using BidenSurfer.Infras.BusEvents;
 using MassTransit;
+using Microsoft.Extensions.Logging;
 
 namespace BidenSurfer.BotRunner.Consumers
 {
     public class ScannerIndicatorConsumer : IConsumer<NewConfigCreatedMessage>
     {
         private readonly IBotService _botService;
-        public ScannerIndicatorConsumer(IBotService botService)
+        private readonly ILogger<ScannerIndicatorConsumer> _logger;
+        public ScannerIndicatorConsumer(IBotService botService, ILogger<ScannerIndicatorConsumer> logger)
         {
             _botService = botService;
+            _logger = logger;
         }
         public async Task Consume(ConsumeContext<NewConfigCreatedMessage> context)
         {
@@ -19,7 +22,7 @@ namespace BidenSurfer.BotRunner.Consumers
             var volume = context.Message?.Volume;
             if (newScans != null && currentPrice.HasValue && newScans.Any())
             {
-                Console.WriteLine($"ScannerIndicatorConsumer: {string.Join(",", newScans.Select(x => $"{x.Symbol} - Active:{x.IsActive} - OC: {x.OrderChange}").ToList())}");
+                _logger.LogInformation($"ScannerIndicatorConsumer: {string.Join(",", newScans.Select(x => $"{x.Symbol} - Active:{x.IsActive} - OC: {x.OrderChange}").ToList())}");
                 
                 foreach (var config in newScans)
                 {

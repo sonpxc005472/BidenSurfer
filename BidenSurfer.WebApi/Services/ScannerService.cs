@@ -38,7 +38,7 @@ public class ScannerService : IScannerService
     public async Task<bool> AddOrEdit(ScannerDto scanner)
     {
         var scannerDto = new ScannerDto();
-        var scannerEntity = await _context.Scanners?.FirstOrDefaultAsync(c => c.Id == scanner.Id);
+        var scannerEntity = await _context.Scanners.AsNoTracking().FirstOrDefaultAsync(c => c.Id == scanner.Id);
         if (scannerEntity == null)
         {
             //Add new
@@ -106,7 +106,7 @@ public class ScannerService : IScannerService
 
     public async Task<IEnumerable<ScannerDto>> GetScannerConfigsByUser(long userId)
     {
-        var result = await _context.Scanners?.Where(b => b.Userid == userId).OrderBy(x => x.Title).ThenBy(x=>x.PositionSide).ThenBy(x=>x.OrderChange).ToListAsync() ?? new List<Scanner>();
+        var result = await _context.Scanners.AsNoTracking().Where(b => b.Userid == userId).OrderBy(x => x.Title).ThenBy(x=>x.PositionSide).ThenBy(x=>x.OrderChange).ToListAsync() ?? new List<Scanner>();
         return result.Select(r => new ScannerDto
         {
             Id = r.Id,
@@ -131,7 +131,7 @@ public class ScannerService : IScannerService
 
     public async Task<ScannerDto?> GetById(long id)
     {
-        var scanner = await _context.Scanners?.FirstOrDefaultAsync(x => x.Id == id);
+        var scanner = await _context.Scanners.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (null == scanner) return null;
         return new ScannerDto
         {
@@ -158,7 +158,7 @@ public class ScannerService : IScannerService
     public async Task<IEnumerable<ScannerDto>> GetAll()
     {
         List<ScannerDto> resultDto;        
-        var result = await _context.Scanners?.ToListAsync() ?? new List<Scanner>();
+        var result = await _context.Scanners.AsNoTracking().ToListAsync() ?? new List<Scanner>();
         resultDto = result.Select(r => new ScannerDto
         {
             Id = r.Id,
@@ -184,7 +184,7 @@ public class ScannerService : IScannerService
 
     public async Task<ScannerSettingDto?> GetScannerSettingByUser(long userId)
     {
-        var r = await _context.ScannerSetting?.FirstOrDefaultAsync(b => b.Userid == userId);
+        var r = await _context.ScannerSetting.AsNoTracking().FirstOrDefaultAsync(b => b.Userid == userId);
         if (null == r) return new ScannerSettingDto();
         return new ScannerSettingDto
         {
@@ -199,7 +199,7 @@ public class ScannerService : IScannerService
     public async Task<IEnumerable<ScannerSettingDto>> GetAllScannerSetting()
     {
         List<ScannerSettingDto> resultDto;
-        var result = await _context.ScannerSetting?.ToListAsync() ?? new List<ScannerSetting>();
+        var result = await _context.ScannerSetting.AsNoTracking().ToListAsync() ?? new List<ScannerSetting>();
         resultDto = result.Select(r => new ScannerSettingDto
         {
             Id = r.Id,
@@ -213,7 +213,7 @@ public class ScannerService : IScannerService
     public async Task<bool> AddOrEditScannerSetting(ScannerSettingDto scannerSetting)
     {
         var scannerSettingDto = new ScannerSettingDto();
-        var scannerStEntity = await _context.ScannerSetting?.FirstOrDefaultAsync(c => c.Id == scannerSetting.Id);
+        var scannerStEntity = await _context.ScannerSetting.AsNoTracking().FirstOrDefaultAsync(c => c.Id == scannerSetting.Id);
         if (scannerStEntity == null)
         {
             //Add new
@@ -257,7 +257,7 @@ public class ScannerService : IScannerService
     {
         try
         {
-            var scanner = await _context.Scanners?.FirstOrDefaultAsync(x => x.Id == id);
+            var scanner = await _context.Scanners.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
             if (null == scanner) return false;
             scanner.IsActive = isActive;
             _context.Scanners.Update(scanner);
@@ -275,7 +275,7 @@ public class ScannerService : IScannerService
     public async Task<bool> StartStopScanner(ScannerSettingDto settingDto)
     {
         var userId = _securityContextAccessor.UserId;
-        var setting = await _context.ScannerSetting?.FirstOrDefaultAsync(c => c.Userid == userId);
+        var setting = await _context.ScannerSetting.AsNoTracking().FirstOrDefaultAsync(c => c.Userid == userId);
         if (setting != null && setting.Stop != settingDto.Stop)
         {
             setting.Stop = settingDto.Stop;

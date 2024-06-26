@@ -39,11 +39,14 @@ public class UserService : IUserService
     private readonly AppDbContext _context;
     private ISecurityContextAccessor _securityContextAccessor;
     private IBus _bus;
-    public UserService(AppDbContext context, ISecurityContextAccessor securityContextAccessor, IBus bus)
+    private readonly IRedisCacheService _redisCacheService;
+
+    public UserService(AppDbContext context, ISecurityContextAccessor securityContextAccessor, IBus bus, IRedisCacheService redisCacheService)
     {
         _context = context;
         _securityContextAccessor = securityContextAccessor;
         _bus = bus;
+        _redisCacheService = redisCacheService;
     }
 
     public async Task<bool> AddOrEdit(UserDto user)
@@ -283,7 +286,7 @@ public class UserService : IUserService
     public async Task<GeneralSettingDto?> GetGeneralSetting()
     {
         var userId = _securityContextAccessor.UserId;
-        var setting = await _context.GeneralSettings.FirstOrDefaultAsync(x => x.UserId == userId);
+        var setting = await _context.GeneralSettings.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
         if (setting == null)
         {
             return new GeneralSettingDto
@@ -308,7 +311,7 @@ public class UserService : IUserService
     public async Task<bool> SaveGeneralSetting(GeneralSettingDto generalSettingDto)
     {
         var userId = _securityContextAccessor.UserId;
-        var setting = await _context.GeneralSettings?.FirstOrDefaultAsync(c => c.UserId == userId);
+        var setting = await _context.GeneralSettings.AsNoTracking().FirstOrDefaultAsync(c => c.UserId == userId);
         if (setting == null)
         {
             var userSetting = new GeneralSetting
@@ -327,7 +330,7 @@ public class UserService : IUserService
             _context.GeneralSettings?.Update(setting);
         }
         await _context.SaveChangesAsync();
-       
+        _redisCacheService.RemoveCachedData(AppConstants.RedisGeneralSettings);
         return true;
     }
 

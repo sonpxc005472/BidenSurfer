@@ -8,6 +8,7 @@ using Bybit.Net.Clients;
 using Bybit.Net.Enums;
 using CryptoExchange.Net.Authentication;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace BidenSurfer.BotRunner.Services;
@@ -29,12 +30,14 @@ public class ConfigService : IConfigService
     private readonly IRedisCacheService _redisCacheService;
     private readonly AppDbContext _dbContext;
     private readonly ITeleMessage _teleMessage;
+    private readonly ILogger<ConfigService> _logger;
 
-    public ConfigService(IRedisCacheService redisCacheService, AppDbContext dbContext, ITeleMessage teleMessage)
+    public ConfigService(IRedisCacheService redisCacheService, AppDbContext dbContext, ITeleMessage teleMessage, ILogger<ConfigService> logger)
     {
         _redisCacheService = redisCacheService;
         _dbContext = dbContext;
         _teleMessage = teleMessage;
+        _logger = logger;
     }
 
     public void AddOrEditConfig(ConfigDto config)
@@ -83,7 +86,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"AddOrEditConfig Error: {ex.Message}");
+            _logger.LogError($"AddOrEditConfig Error: {ex.Message}");
         }        
     }
 
@@ -130,7 +133,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Bot Runner UpdateConfigs Error: " + ex.Message);
+            _logger.LogInformation("Bot Runner UpdateConfigs Error: " + ex.Message);
         }
     }
 
@@ -138,7 +141,7 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var result = await _dbContext.Configs?.Where(b => b.IsActive).ToListAsync() ?? new List<Config>();
+            var result = await _dbContext.Configs?.AsNoTracking().Where(b => b.IsActive).ToListAsync() ?? new List<Config>();
             var resultDto = result.Select(r => new ConfigDto
             {
                 Id = r.Id,
@@ -160,15 +163,15 @@ public class ConfigService : IConfigService
                 EditedDate = r.EditedDate,
                 Expire = r.Expire
             }).ToList();
-            Console.WriteLine("GetAllConfigActive - db: " + resultDto.Count);
+            _logger.LogInformation("GetAllConfigActive - db: " + resultDto.Count);
             StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(resultDto.ToDictionary(c => c.CustomId, c => c));
             return resultDto;
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Get all configs Error: " + ex.Message);
+            _logger.LogInformation("Get all configs Error: " + ex.Message);
             return new List<ConfigDto>();
-        }        
+        }
     }
 
     public ConfigWinLose UpsertWinLose(ConfigDto configDto, bool isWin)
@@ -241,7 +244,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"On/Off Config Error: {ex.Message}");
+            _logger.LogInformation($"On/Off Config Error: {ex.Message}");
         }        
     }
 
@@ -287,7 +290,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"AddOrEditConfig Error: {ex.Message}");
+            _logger.LogInformation($"AddOrEditConfig Error: {ex.Message}");
         }
     }
 
@@ -338,14 +341,14 @@ public class ConfigService : IConfigService
                     config.Amount = config.OriginAmount.HasValue ? config.OriginAmount.Value : config.Amount;
                     StaticObject.AllConfigs[config.CustomId] = config;
                     var message = $"{config.Symbol} | {config.PositionSide.ToUpper()}| {config.OrderChange.ToString()} Cancelled";
-                    Console.WriteLine(message);
+                    _logger.LogInformation(message);
                     _ = _teleMessage.OffConfigMessage(config.Symbol, config.OrderChange.ToString(), config.PositionSide, userSetting.TeleChannel, "Cancelled");
 
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
+                    _logger.LogInformation($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} error: {cancelOrder.Error.Message}");
                 }
                 await Task.Delay(200);
                 StaticObject.IsInternalCancel = false;
@@ -354,7 +357,7 @@ public class ConfigService : IConfigService
         catch (Exception ex)
         {
             // log error to the telegram channels
-            Console.WriteLine($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} Ex: {ex.Message}");
+            _logger.LogInformation($"{DateTime.Now} - Cancel order {config.Symbol} | {config.PositionSide.ToUpper()} | {config.OrderChange} Ex: {ex.Message}");
             StaticObject.IsInternalCancel = false;
             return false;
         }

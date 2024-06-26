@@ -30,6 +30,12 @@ namespace BidenSurfer.WebApi
             });
             services.AddScoped<AppDbContext>();
             services.AddCustomMassTransit(Configuration);
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = Configuration.GetConnectionString("RedisConn");
+                options.InstanceName = "BidenSurfer_Bybit_";
+            });
+            services.AddScoped<IRedisCacheService, RedisCacheService>();
             services.AddSingleton<ITeleMessage, TeleMessage>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IConfigService, ConfigService>();

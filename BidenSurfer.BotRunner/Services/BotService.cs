@@ -51,13 +51,13 @@ public class BotService : IBotService
 
     public async Task<BybitSocketClient> SubscribeSticker()
     {
+        var socketClient = BybitSocketClientSingleton.Instance;
         try
         {
-            _logger.LogInformation("Subscribe ticker...");
             var configList = StaticObject.AllConfigs.Values.ToList();
 
             var symbols = configList.Where(c => c.IsActive).Select(c => c.Symbol).Distinct().ToList();
-
+            _logger.LogInformation($"Subscribe ticker. active symbols = {string.Join(",", symbols)}");
             foreach (var symbol in symbols)
             {
                 if (!StaticObject.TickerSubscriptions.TryGetValue(symbol, out _))
@@ -66,7 +66,7 @@ public class BotService : IBotService
                     DateTime preTimeCancel = DateTime.Now;
                     decimal prePrice = 0;
                     bool isBeeingTakeProfit = false;
-                    var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(symbol, KlineInterval.OneMinute, async data =>
+                    var result = await socketClient.V5SpotApi.SubscribeToKlineUpdatesAsync(symbol, KlineInterval.OneMinute, async data =>
                     {
                         if (data != null)
                         {
@@ -153,6 +153,10 @@ public class BotService : IBotService
                     {
                         StaticObject.TickerSubscriptions.TryAdd(symbol, result.Data);
                     }
+                    else
+                    {
+                        _logger.LogInformation("Subscribe ticker error: " + result.Error?.Message);
+                    }
                 };
 
             }
@@ -160,7 +164,7 @@ public class BotService : IBotService
             foreach (var unsub in subsToUnsubs)
             {
                 _logger.LogInformation("Bot Runner - Unsubscribing: " + unsub.Key);
-                await StaticObject.PublicWebsocket.UnsubscribeAsync(unsub.Value);
+                await socketClient.UnsubscribeAsync(unsub.Value);
                 StaticObject.TickerSubscriptions.TryRemove(unsub);
             }
         }
@@ -168,7 +172,7 @@ public class BotService : IBotService
         {
             _logger.LogInformation("Subscribe ticker error: " + ex.Message);
         }
-        return StaticObject.PublicWebsocket;
+        return socketClient;
     }
 
     public async Task<bool> TakePlaceOrder(ConfigDto? config, decimal currentPrice, bool isRetry = false, decimal previosAmount = 0)
@@ -458,7 +462,9 @@ public class BotService : IBotService
             var preTimeReset = DateTime.Now;
             var preTimeAsssetTracking = DateTime.Now;
             var assetTrackingCount = 0;
-            var result = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { "BTCUSDT" }, KlineInterval.OneMinute, async data =>
+            _logger.LogInformation("Subscribe BTC 1m to notify wallet...");
+            var publicWebsocket = new BybitSocketClient();
+            var result = await publicWebsocket.V5SpotApi.SubscribeToKlineUpdatesAsync(new List<string> { "BTCUSDT" }, KlineInterval.OneMinute, async data =>
             {
                 DateTime currentTime = DateTime.Now;
                 TimeSpan timeSinceMidnight = currentTime.TimeOfDay;
@@ -1239,17 +1245,16 @@ public class BotService : IBotService
     {
         _logger.LogInformation("Unsubscribe all...");
 
-        var subsToUnsubs = StaticObject.TickerSubscriptions.ToList();
-        foreach (var unsub in subsToUnsubs)
-        {
-            await StaticObject.PublicWebsocket.UnsubscribeAsync(unsub.Value);
-        }
+        var socketClient = BybitSocketClientSingleton.Instance;
+        await socketClient.UnsubscribeAllAsync();
         StaticObject.TickerSubscriptions.Clear();
         return true;
     }
 
     public async Task<bool> ResetBot()
     {
+        await UnsubscribeAll();
+        StaticObject.FilledOrders.Clear();
         StaticObject.AllConfigs.Clear();
         await _configService.GetAllActive();
         await CancelAllOrder();

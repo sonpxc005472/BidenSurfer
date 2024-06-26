@@ -7,6 +7,7 @@
         public const string RedisAllUserBots = "RedisAllUserBots_{0}";
         public const string RedisAllUsers = "RedisAllUsers";
         public const string RedisSymbolCollateral = "RedisSymbolCollateral";
+        public const string RedisGeneralSettings = "RedisGeneralSettings";
         public const string RedisConfigById = "RedisConfigById_{0}";
         public const string RedisAllConfigs = "RedisAllConfigs";
         public const string RedisAllScanners = "RedisAllScanners";
