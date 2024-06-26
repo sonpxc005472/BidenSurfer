@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 public interface IBotService
 {
-    Task<BybitSocketClient> SubscribeSticker();
+    Task SubscribeSticker();
 }
 
 public class BotService : IBotService
@@ -30,10 +30,9 @@ public class BotService : IBotService
         _teleMessage = teleMessage;
     }
 
-    public async Task<BybitSocketClient> SubscribeSticker()
+    public async Task SubscribeSticker()
     {
         await RunScanner();
-        return StaticObject.PublicWebsocket;
     }
 
     private static ConcurrentDictionary<string, Candle> _candles = new ConcurrentDictionary<string, Candle>();
@@ -48,9 +47,10 @@ public class BotService : IBotService
                           .GroupBy(x => x.Index / 10)
                           .Select(x => x.Select(v => v.Value).ToList())
                           .ToList();
+        var socketClient = BybitSocketClientSingleton.Instance;
         foreach (var symbols in batches)
         {
-            var subResult = await StaticObject.PublicWebsocket.V5SpotApi.SubscribeToTradeUpdatesAsync(symbols, async data =>
+            var subResult = await socketClient.V5SpotApi.SubscribeToTradeUpdatesAsync(symbols, async data =>
             {
                 if (data != null)
                 {
