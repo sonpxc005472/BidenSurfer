@@ -469,7 +469,7 @@ public class BotService : IBotService
                 DateTime currentTime = DateTime.Now;
                 TimeSpan timeSinceMidnight = currentTime.TimeOfDay;
                 double hoursSinceMidnight = Math.Floor(timeSinceMidnight.TotalHours);
-                _logger.LogInformation($"Current time: {currentTime}");
+                //_logger.LogInformation($"Current time: {currentTime}");
                 // Cancel order if expired
                 if ((currentTime - preTimeCancel).TotalMilliseconds >= 10000)
                 {
