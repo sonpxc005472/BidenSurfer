@@ -26,7 +26,7 @@ namespace BidenSurfer.Scanner.Consumers
             var spotSymbols = (await publicApi.V5Api.ExchangeData.GetSpotSymbolsAsync()).Data.List;
             StaticObject.Symbols = spotSymbols.Where(s => (s.MarginTrading == MarginTrading.Both || s.MarginTrading == MarginTrading.UtaOnly) && s.Name.EndsWith("USDT")).ToList();
             var socketClient = BybitSocketClientSingleton.Instance;
-            StaticObject.TickerSubscriptions.Clear();
+            StaticObject.ScannerTradeSubscriptions.Clear();
             await socketClient.UnsubscribeAllAsync();
             await _configService.GetAllActiveAsync();
             await _botService.SubscribeSticker();

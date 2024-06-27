@@ -70,7 +70,7 @@ public class ConfigService : IConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Scanner Add/Edit config Error: " + ex.Message);
+            _logger.LogInformation("Scanner Add/Edit config Error: " + ex.Message);
         }
     }
 
@@ -105,13 +105,13 @@ public class ConfigService : IConfigService
                 EditedDate = r.EditedDate,
                 Expire = r.Expire
             }).ToList();
-            
+            _logger.LogInformation($"Get all active configs: {resultDto.Count}");
             StaticObject.AllConfigs = new ConcurrentDictionary<string, ConfigDto>(resultDto.ToDictionary(c => c.CustomId, c => c));
             return resultDto;
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Get all configs Error: " + ex.Message);
+            _logger.LogInformation("Get all configs Error: " + ex.Message);
             return new List<ConfigDto>();
         }
     }

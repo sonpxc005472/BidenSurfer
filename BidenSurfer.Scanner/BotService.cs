@@ -43,6 +43,7 @@ public class BotService : IBotService
         var totalsymbols = StaticObject.Symbols.Where(s => (s.MarginTrading == MarginTrading.Both || s.MarginTrading == MarginTrading.UtaOnly) && s.Name.EndsWith("USDT")).Select(c => c.Name).Distinct().ToList();
         var subTradeSymbols = StaticObject.ScannerTradeSubscriptions.Keys.ToList();
         var unsubSymbols = totalsymbols.Except(subTradeSymbols).ToList();
+        _logger.LogInformation($"Total symbols: {totalsymbols.Count} | Subscribed symbols: {subTradeSymbols.Count} | Unsubscribed symbols: {unsubSymbols.Count}");
         var batches = unsubSymbols.Select((x, i) => new { Index = i, Value = x })
                           .GroupBy(x => x.Index / 10)
                           .Select(x => x.Select(v => v.Value).ToList())
