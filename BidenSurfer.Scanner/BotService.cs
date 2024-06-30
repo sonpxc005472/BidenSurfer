@@ -10,6 +10,7 @@ using BidenSurfer.Infras.Models;
 using System.Collections.Generic;
 using BidenSurfer.Infras.Helpers;
 using Microsoft.Extensions.Logging;
+using System.Data;
 
 public interface IBotService
 {
@@ -22,6 +23,7 @@ public class BotService : IBotService
     IConfigService _configService;
     private readonly ILogger<BotService> _logger;
     private readonly ITeleMessage _teleMessage;
+
     public BotService(IBus bus, IConfigService configService, ILogger<BotService> logger, ITeleMessage teleMessage)
     {
         _bus = bus;
@@ -49,6 +51,9 @@ public class BotService : IBotService
                           .Select(x => x.Select(v => v.Value).ToList())
                           .ToList();
         var socketClient = BybitSocketClientSingleton.Instance;
+        long preTimestamp = 0;
+        _candle1s.Clear();
+        _candles.Clear();
         foreach (var symbols in batches)
         {
             var subResult = await socketClient.V5SpotApi.SubscribeToTradeUpdatesAsync(symbols, async data =>
@@ -67,12 +72,7 @@ public class BotService : IBotService
                             Price = tradeData.Price,
                             Amount = tradeData.Price * tradeData.Quantity
                         };
-                        if (_candle1s.ContainsKey(symbol))
-                        {
-                            var preTimestamp = _candle1s[symbol];
-                            if (timestamp == preTimestamp)
-                            {
-                                _candles.AddOrUpdate(symbol,
+                        _candles.AddOrUpdate(symbol,
                                 (ts) => new Candle // Tạo nến mới nếu chưa có
                                 {
                                     Open = tick.Price,
@@ -89,126 +89,14 @@ public class BotService : IBotService
                                     existingCandle.Volume += tick.Amount;
                                     return existingCandle;
                                 });
-                                var candle = _candles[symbol];
-                                if (!candle.Confirmed)
-                                {
-                                    var longPercent = (candle.Low - candle.Open) / candle.Open * 100;
-                                    var shortPercent = (candle.High - candle.Open) / candle.Open * 100;
-                                    var longElastic = longPercent == 0 ? 0 : (longPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / longPercent * 100;
-                                    var shortElastic = shortPercent == 0 ? 0 : (shortPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / shortPercent * 100;
-                                    if (longPercent < (decimal)-0.8 && longElastic >= 70)
-                                    {
-                                        var scanners = StaticObject.AllScanners.Where(c => c.IsActive).ToList();
-                                        var configs = StaticObject.AllConfigs.Where(c => c.Value.IsActive).ToList();
-                                        var newConfigs = new List<ConfigDto>();
-                                        var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x => x.Value).ToList();
-                                        var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive);
-                                        foreach (var scanner in scanners)
-                                        {
-                                            //Bot is stopping so do not do anymore
-                                            if (StaticObject.BotStatus.ContainsKey(scanner.UserId) && !StaticObject.BotStatus[scanner.UserId])
-                                            {
-                                                continue;
-                                            }
-                                            var scanOcExisted = userSymbolExisted.Any(c => c.UserId == scanner.UserId && c.PositionSide == scanner.PositionSide);
-                                            if (!scanOcExisted)
-                                            {
-                                                var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
-                                                var blackList = scannerSetting?.BlackList ?? new List<string>();
-                                                var onlyPairs = scanner?.OnlyPairs ?? new List<string>();
-                                                var maxOpen = scannerSetting?.MaxOpen ?? 15; // We can only open 15 orders by default
-                                                var symbolDetail = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
-                                                //If scan indicator matched user's scanner configurations 
-                                                if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
-                                                    && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume && !blackList.Any(b => b == symbolDetail?.BaseAsset && (!onlyPairs.Any() || onlyPairs.Any(b => b == symbolDetail?.BaseAsset)))
-                                                    )
-                                                {
-                                                    candle.Confirmed = true;
-                                                    _logger.LogInformation($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
-                                                    _logger.LogInformation($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
-                                                    _logger.LogInformation($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
-                                                    _logger.LogInformation($"Current number of scanner open: {numScannerOpen}");
-                                                    _logger.LogInformation("=====================================================================================");
-
-                                                    // create new configs for long side
-                                                    var scannerConfigs = CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);  
-                                                    numScannerOpen += scannerConfigs.Count;
-                                                }
-                                            }
-                                        }                                        
-                                    }
-                                    if (shortPercent > (decimal)0.8 && shortElastic >= 70)
-                                    {
-                                        var scanners = StaticObject.AllScanners;
-                                        var configs = StaticObject.AllConfigs;
-                                        var newConfigs = new List<ConfigDto>();
-                                        var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x=>x.Value).ToList();
-                                        var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive);
-
-                                        foreach (var scanner in scanners)
-                                        {
-                                            //Bot is stopping so do not do anymore
-                                            if ((StaticObject.BotStatus.ContainsKey(scanner.UserId) && !StaticObject.BotStatus[scanner.UserId]) || (StaticObject.ScannerStatus.ContainsKey(scanner.UserId) && !StaticObject.ScannerStatus[scanner.UserId]))
-                                            {
-                                                continue;
-                                            }
-                                            var scanOcExisted = userSymbolExisted.Any(c => c.UserId == scanner.UserId && c.PositionSide == scanner.PositionSide);
-                                            if (!scanOcExisted)
-                                            {
-                                                var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
-                                                var blackList = scannerSetting?.BlackList ?? new List<string>();
-                                                var onlyPairs = scanner?.OnlyPairs ?? new List<string>();
-                                                var maxOpen = scannerSetting?.MaxOpen ?? 15; // We can only open 15 orders by default
-                                                var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
-                                                var isMarginTrading = (instrument?.MarginTrading == MarginTrading.Both || instrument?.MarginTrading == MarginTrading.UtaOnly);
-                                                //If scan indicator matched user's scanner configurations 
-                                                if (scanner.PositionSide == AppConstants.ShortSide && scanner.OrderChange <= shortPercent
-                                                    && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading && !blackList.Any(b => b == instrument?.BaseAsset && (!onlyPairs.Any() || onlyPairs.Any(b => b == instrument?.BaseAsset)))
-                                                    )
-                                                {
-                                                    candle.Confirmed = true;
-                                                    _logger.LogInformation($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
-                                                    _logger.LogInformation($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
-                                                    _logger.LogInformation($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
-                                                    _logger.LogInformation($"Current number of scanner open: {numScannerOpen}");
-                                                    _logger.LogInformation("=====================================================================================");
-
-                                                    // create new configs for short side
-                                                    var scannerConfigs = CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);
-                                                    numScannerOpen += scannerConfigs.Count;
-                                                }
-                                            }                                            
-                                        }                                        
-                                    }
-                                }
-                            }
-                            else if (timestamp > preTimestamp)
-                            {
-                                _candle1s[symbol] = timestamp;
-
-                                _candles[symbol] = new Candle
-                                {
-                                    Open = tick.Price,
-                                    High = tick.Price,
-                                    Low = tick.Price,
-                                    Close = tick.Price,
-                                    Volume = tick.Amount,
-                                    Confirmed = false
-                                };
-                            }
-                        }
-                        else
+                        if (preTimestamp == 0)
                         {
-                            _candle1s.TryAdd(symbol, timestamp);
-                            _candles.TryAdd(symbol, new Candle
-                            {
-                                Open = tick.Price,
-                                High = tick.Price,
-                                Low = tick.Price,
-                                Close = tick.Price,
-                                Volume = tick.Amount,
-                                Confirmed = false
-                            });
+                            preTimestamp = timestamp;
+                        }
+                        else if (timestamp > preTimestamp)
+                        {
+                            preTimestamp = timestamp;
+                            ProcessBufferedData();
                         }
                     }
                 }
@@ -275,6 +163,107 @@ public class BotService : IBotService
             configs.Add(config);
         }
         return configs;
+    }
+
+    private void ProcessBufferedData()
+    {
+        // Copy the current buffer for processing and clear the original buffer
+        var dataToProcess = new ConcurrentDictionary<string, Candle>(_candles);
+        _candles.Clear();
+        _candle1s.Clear();
+
+        foreach (var kvp in dataToProcess)
+        {
+            var symbol = kvp.Key;
+            var candle = kvp.Value;
+
+            var longPercent = (candle.Low - candle.Open) / candle.Open * 100;
+            var shortPercent = (candle.High - candle.Open) / candle.Open * 100;
+            var longElastic = longPercent == 0 ? 0 : (longPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / longPercent * 100;
+            var shortElastic = shortPercent == 0 ? 0 : (shortPercent - ((candle.Close - candle.Open) / candle.Open * 100)) / shortPercent * 100;
+            if (longPercent < (decimal)-0.8 && longElastic >= 70)
+            {
+                var scanners = StaticObject.AllScanners.Where(c => c.IsActive).ToList();
+                var configs = StaticObject.AllConfigs.Where(c => c.Value.IsActive).ToList();
+                var newConfigs = new List<ConfigDto>();
+                var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x => x.Value).ToList();
+                var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive);
+                foreach (var scanner in scanners)
+                {
+                    //Bot is stopping so do not do anymore
+                    if (StaticObject.BotStatus.ContainsKey(scanner.UserId) && !StaticObject.BotStatus[scanner.UserId])
+                    {
+                        continue;
+                    }
+                    var scanOcExisted = userSymbolExisted.Any(c => c.UserId == scanner.UserId && c.PositionSide == scanner.PositionSide);
+                    if (!scanOcExisted)
+                    {
+                        var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
+                        var blackList = scannerSetting?.BlackList ?? new List<string>();
+                        var onlyPairs = scanner?.OnlyPairs ?? new List<string>();
+                        var maxOpen = scannerSetting?.MaxOpen ?? 15; // We can only open 15 orders by default
+                        var symbolDetail = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
+                        //If scan indicator matched user's scanner configurations 
+                        if (scanner.PositionSide == AppConstants.LongSide && scanner.OrderChange <= -longPercent
+                            && scanner.Elastic <= longElastic && scanner.Turnover <= candle.Volume && !blackList.Any(b => b == symbolDetail?.BaseAsset && (!onlyPairs.Any() || onlyPairs.Any(b => b == symbolDetail?.BaseAsset)))
+                            )
+                        {
+                            Console.WriteLine($"{symbol}|long: {longPercent.ToString("0.00")}%|TP: {longElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
+                            Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
+                            Console.WriteLine($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+                            Console.WriteLine($"Current number of scanner open: {numScannerOpen}");
+                            Console.WriteLine("=====================================================================================");
+
+                            // create new configs for long side
+                            var scannerConfigs = CalculateOcs(symbol, longPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);
+                            numScannerOpen += scannerConfigs.Count;
+                        }
+                    }
+                }
+            }
+            if (shortPercent > (decimal)0.8 && shortElastic >= 70)
+            {
+                var scanners = StaticObject.AllScanners;
+                var configs = StaticObject.AllConfigs;
+                var newConfigs = new List<ConfigDto>();
+                var userSymbolExisted = configs.Where(c => c.Value.Symbol == symbol && c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive).Select(x => x.Value).ToList();
+                var numScannerOpen = configs.Count(c => c.Value.CreatedBy == AppConstants.CreatedByScanner && c.Value.IsActive);
+
+                foreach (var scanner in scanners)
+                {
+                    //Bot is stopping so do not do anymore
+                    if ((StaticObject.BotStatus.ContainsKey(scanner.UserId) && !StaticObject.BotStatus[scanner.UserId]) || (StaticObject.ScannerStatus.ContainsKey(scanner.UserId) && !StaticObject.ScannerStatus[scanner.UserId]))
+                    {
+                        continue;
+                    }
+                    var scanOcExisted = userSymbolExisted.Any(c => c.UserId == scanner.UserId && c.PositionSide == scanner.PositionSide);
+                    if (!scanOcExisted)
+                    {
+                        var scannerSetting = StaticObject.AllScannerSetting.FirstOrDefault(r => r.UserId == scanner.UserId);
+                        var blackList = scannerSetting?.BlackList ?? new List<string>();
+                        var onlyPairs = scanner?.OnlyPairs ?? new List<string>();
+                        var maxOpen = scannerSetting?.MaxOpen ?? 15; // We can only open 15 orders by default
+                        var instrument = StaticObject.Symbols.FirstOrDefault(x => x.Name == symbol);
+                        var isMarginTrading = (instrument?.MarginTrading == MarginTrading.Both || instrument?.MarginTrading == MarginTrading.UtaOnly);
+                        //If scan indicator matched user's scanner configurations 
+                        if (scanner.PositionSide == AppConstants.ShortSide && scanner.OrderChange <= shortPercent
+                            && scanner.Elastic <= shortElastic && scanner.Turnover <= candle.Volume && isMarginTrading && !blackList.Any(b => b == instrument?.BaseAsset && (!onlyPairs.Any() || onlyPairs.Any(b => b == instrument?.BaseAsset)))
+                            )
+                        {
+                            Console.WriteLine($"{symbol}|short: {shortPercent.ToString("0.00")}%|TP: {shortElastic.ToString("0.00")}|Vol: {(candle.Volume / 1000).ToString("0.00")}K");
+                            Console.WriteLine($"{symbol}|open: {candle.Open.ToString()}|hight: {candle.High.ToString()}|low: {candle.Low.ToString()}|close: {candle.Close.ToString()}");
+                            Console.WriteLine($"Matched: {DateTime.Now.ToString("dd/MM/yy HH:mm:ss.fff")}");
+                            Console.WriteLine($"Current number of scanner open: {numScannerOpen}");
+                            Console.WriteLine("=====================================================================================");
+
+                            // create new configs for short side
+                            var scannerConfigs = CalculateOcs(symbol, shortPercent, scanner, maxOpen, numScannerOpen, candle.Close, candle.Volume);
+                            numScannerOpen += scannerConfigs.Count;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
